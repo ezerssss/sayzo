@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+**eloquy** is a platform for learning to speak English fluently in professional contexts—think product demos, extemporaneous talks, and workplace conversation—not gamified phrase drills. The idea is a simple daily rhythm: about thirty minutes in eloquy, meaningful progress over thirty or sixty days.
+
+This repo is a [Next.js](https://nextjs.org) app bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
@@ -19,6 +21,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Firebase Google Auth Setup
+
+1. Copy `env.example` to `.env.local`.
+2. Fill the Firebase web app keys in `.env.local`.
+3. In Firebase Console, enable Google provider under Authentication > Sign-in method.
+4. Add your local host (for example `localhost`) to authorized domains.
 
 ## Learn More
 
