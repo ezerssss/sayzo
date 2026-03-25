@@ -73,8 +73,10 @@ function buildContextUserMessage(input: AnalyzerInput): string {
 - Recent focus: ${skillMemory.recentFocus.length ? skillMemory.recentFocus.join("; ") : "(none)"}
 
 ## Session plan
-- Scenario: ${session.plan.scenario || "(none)"}
-- Session goals: ${session.plan.goals.length ? session.plan.goals.join("; ") : "(none)"}
+- Scenario title: ${session.plan.scenario.title || "(none)"}
+- Situation context: ${session.plan.scenario.situationContext || "(none)"}
+- Given content: ${session.plan.scenario.givenContent || "(none)"}
+- Task: ${session.plan.scenario.task || "(none)"}
 - Focus: ${session.plan.focus.length ? session.plan.focus.join("; ") : "(none)"}
 
 ## Session transcript

@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
     const audio = formData.get("audio");
 
     if (typeof rawPayload !== "string") {
-        return NextResponse.json({ error: "Missing payload." }, { status: 400 });
+        return NextResponse.json(
+            { error: "Missing payload." },
+            { status: 400 },
+        );
     }
     if (!(audio instanceof File) || audio.size === 0) {
         return NextResponse.json(
@@ -99,8 +102,12 @@ export async function POST(request: NextRequest) {
             },
             session: {
                 plan: {
-                    scenario: "Onboarding self-introduction",
-                    goals: profile.goals,
+                    scenario: {
+                        title: "Onboarding self-introduction",
+                        situationContext: "",
+                        givenContent: "",
+                        task: "",
+                    },
                     focus: payload.painPoints ?? [],
                 },
                 transcript: introTranscript,
@@ -143,8 +150,9 @@ export async function POST(request: NextRequest) {
                 {
                     ...profile,
                     createdAt:
-                        (userExisting.data()?.["createdAt"] as string | undefined) ??
-                        nowIso,
+                        (userExisting.data()?.["createdAt"] as
+                            | string
+                            | undefined) ?? nowIso,
                 },
                 { merge: true },
             );

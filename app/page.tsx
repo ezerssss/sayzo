@@ -1,11 +1,10 @@
 "use client";
 
-import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
 import { SetupWizard } from "@/components/onboarding/setup-wizard";
-import { Button } from "@/components/ui/button";
+import { SessionHome } from "@/components/session/session-home";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useUserProfileExists } from "@/hooks/use-user-profile-exists";
 
@@ -45,31 +44,11 @@ export default function Home() {
         content = <SetupWizard uid={user.uid} />;
     } else {
         content = (
-            <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-                <div className="space-y-3">
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        You&apos;re in
-                    </h1>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                        Signed in as{" "}
-                        <span className="font-medium text-foreground">
-                            {user.displayName ?? user.email}
-                        </span>
-                        {"."}
-                    </p>
-                </div>
-                <div className="mt-6">
-                    <Button onClick={signOut} variant="outline">
-                        <LogOut />
-                        Sign out
-                    </Button>
-                </div>
-                {authError ? (
-                    <p className="mt-3 text-xs text-destructive" role="alert">
-                        {authError}
-                    </p>
-                ) : null}
-            </section>
+            <SessionHome
+                userLabel={user.displayName ?? user.email ?? "Unknown user"}
+                onSignOut={signOut}
+                authError={authError}
+            />
         );
     }
 

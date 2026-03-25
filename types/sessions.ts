@@ -1,7 +1,13 @@
+export type ScenarioType = {
+    title: string;
+    situationContext: string;
+    givenContent: string; // Specific details of the situation that are relevant to the session.
+    task: string; // Clear, structured instructions for the given context
+};
+
 export type SessionPlanType = {
-    scenario: string;
-    goals: string[];
-    focus: string[];
+    scenario: ScenarioType;
+    focus: string[]; // Behaviour constraints that the user should follow.
 };
 
 export type SessionAnalysisType = {
