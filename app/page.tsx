@@ -45,6 +45,7 @@ export default function Home() {
     } else {
         content = (
             <SessionHome
+                uid={user.uid}
                 userLabel={user.displayName ?? user.email ?? "Unknown user"}
                 onSignOut={signOut}
                 authError={authError}

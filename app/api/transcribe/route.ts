@@ -3,6 +3,10 @@ import { type NextRequest, NextResponse } from "next/server";
 const OPENAI_TRANSCRIPTIONS_URL =
     "https://api.openai.com/v1/audio/transcriptions";
 
+const DEFAULT_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe";
+const VERBATIM_PROMPT =
+    "Transcribe verbatim. Preserve disfluencies and speech artifacts (e.g., 'uh', 'um', 'ah', stutters, false starts, repetitions). Do not rewrite, summarize, or correct grammar. Keep the original wording and pacing cues as text.";
+
 export async function POST(request: NextRequest) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -33,8 +37,12 @@ export async function POST(request: NextRequest) {
     }
 
     const upstream = new FormData();
-    upstream.append("model", "whisper-1");
+    upstream.append(
+        "model",
+        process.env.TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL,
+    );
     upstream.append("file", file);
+    upstream.append("prompt", VERBATIM_PROMPT);
 
     const res = await fetch(OPENAI_TRANSCRIPTIONS_URL, {
         method: "POST",

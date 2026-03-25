@@ -9,6 +9,7 @@ import {
     initializeApp,
 } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 /**
  * Firebase Admin for Next.js route handlers, Server Actions, and other server-only code.
@@ -55,4 +56,17 @@ export function getFirebaseAdminApp(): App {
 
 export function getAdminFirestore() {
     return getFirestore(getFirebaseAdminApp());
+}
+
+export function getAdminStorageBucket() {
+    const app = getFirebaseAdminApp();
+    const storage = getStorage(app);
+    const bucket = storage.bucket(process.env.FIREBASE_STORAGE_BUCKET ?? "");
+    if (!bucket?.name) {
+        throw new Error(
+            "Firebase Storage bucket is not configured. Set FIREBASE_STORAGE_BUCKET (recommended) " +
+                "or NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET to your bucket name (usually <project-id>.appspot.com).",
+        );
+    }
+    return bucket;
 }

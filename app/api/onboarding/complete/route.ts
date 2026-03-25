@@ -1,6 +1,7 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { analyzeSession } from "@/services/analyzer";
+import { buildSessionFromPlan, planNextSession } from "@/services/planner";
 import { buildUserProfileFieldsFromOnboarding } from "@/services/profile-context-builder";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { type SkillMemoryType } from "@/types/skill-memory";
@@ -142,6 +143,21 @@ export async function POST(request: NextRequest) {
             updatedAt: nowIso,
         };
 
+        const initialPlan = await planNextSession({
+            userProfile: {
+                role: profile.role,
+                industry: profile.industry,
+                goals: profile.goals,
+                additionalContext: profile.additionalContext,
+            },
+            skillMemory: {
+                strengths: skillMemory.strengths,
+                weaknesses: skillMemory.weaknesses,
+                recentFocus: skillMemory.recentFocus,
+            },
+        });
+        const initialSession = buildSessionFromPlan(uid, initialPlan);
+
         const db = getAdminFirestore();
         const userRef = db.collection(FirestoreCollections.users.path).doc(uid);
         const userExisting = await userRef.get();
@@ -178,6 +194,11 @@ export async function POST(request: NextRequest) {
         } else {
             await skillMemoryRef.set(skillMemory);
         }
+
+        const initialSessionRef = db
+            .collection(FirestoreCollections.sessions.path)
+            .doc(initialSession.id);
+        await initialSessionRef.set(initialSession);
 
         return NextResponse.json({ ok: true });
     } catch (error) {

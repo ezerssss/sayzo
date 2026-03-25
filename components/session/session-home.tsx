@@ -1,16 +1,27 @@
 "use client";
 
-import { ArrowRight, Loader2, Mic, Play, RotateCcw, Square } from "lucide-react";
+import {
+    ArrowRight,
+    Loader2,
+    Mic,
+    Play,
+    RotateCcw,
+    Square,
+} from "lucide-react";
+import ky from "ky";
 import { useEffect, useMemo, useState } from "react";
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
+import { useLatestSession } from "@/hooks/use-latest-session";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import type { SessionPlanType } from "@/types/sessions";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
+import { MarkdownBlock } from "@/components/session/markdown-block";
 import { TranscriptPanel } from "@/components/session/transcript-panel";
 
 interface PropsInterface {
+    uid: string;
     userLabel: string;
     onSignOut: () => void;
     authError?: string | null;
@@ -21,119 +32,71 @@ type DrillState = "idle" | "recording" | "analyzing" | "complete";
 const MAX_SECONDS = 5 * 60; // Max time allowed for a drill.
 const EMPTY_CAPTIONS_VTT = "data:text/vtt,WEBVTT";
 
-const MOCK_PLANS: SessionPlanType[] = [
-    {
-        scenario: {
-            title: "Design Review Alignment",
-            situationContext:
-                "You are leading a cross-functional design review with product and engineering stakeholders.",
-            givenContent:
-                "Explain one risky design decision, justify trade-offs, and close with a clear ask.",
-            task: "Make your recommendation actionable and specific to the team.",
-        },
-        focus: ["Concise structure", "Stakeholder language", "Confident pacing"],
+const FALLBACK_PLAN: SessionPlanType = {
+    scenario: {
+        title: "Practice Drill",
+        situationContext:
+            "You are presenting a brief professional update to your team.",
+        givenContent:
+            "Summarize what changed, why it matters, and what you need from stakeholders.",
+        task: "Keep your response clear, concise, and confident.",
     },
-    {
-        scenario: {
-            title: "Project Status Update",
-            situationContext:
-                "You are giving a short weekly status update to a cross-functional leadership group.",
-            givenContent:
-                "Summarize progress, call out risks early, and propose next steps with owners.",
-            task: "Keep it structured: what changed, what it means, and what you need today.",
-        },
-        focus: ["Clear updates", "Risk framing", "Ownership & next steps"],
-    },
-];
-
-const MOCK_TRANSCRIPTS = [
-    `Thanks everyone. I want to quickly align on one risky decision in this sprint.
-
-We can either ship the simplified flow now and iterate, or delay for the full version.
-
-I recommend shipping the simplified flow this sprint because it reduces implementation risk and still validates user intent.
-
-The trade-off is a slightly less polished first-time experience, but we can improve that in the next release with real usage data.
-
-My ask is to approve this phased rollout today so engineering can keep the current timeline.`,
-    `Good morning everyone. Quick update on progress this week.
-
-We completed the core integration and reduced our remaining setup steps from five to two.
-
-The main risk is timeline pressure if requirements shift late, so we should lock scope for the next two days.
-
-Next steps: design finalizes the screens today, engineering starts implementation tomorrow, and I will circulate an updated rollout plan by end of day.
-
-What we need from leadership today is approval to proceed under the locked scope so we can hit the milestone.`,
-];
-
-const MOCK_FEEDBACK_MDS = [
-    `
-## What worked well
-- You established a clear decision point early, which is strong for stakeholder meetings.
-- Your recommendation and rationale were understandable and practical.
-
-## Moments to tighten
-- **Opening framing**: “one risky decision” is good, but you can be more concrete:
-  - Better option: “one high-impact decision that affects timeline and user onboarding quality.”
-- **Trade-off sentence**: “slightly less polished” is vague for non-design stakeholders.
-  - Better option: “users will see fewer customization options in v1, but core task completion remains unchanged.”
-- **Final ask**: strong close; make ownership explicit:
-  - Better option: “If approved today, design will deliver final specs by EOD and engineering starts tomorrow.”
-
-## Next repetition
-Do one more take with this structure:
-1. Decision statement
-2. Two options
-3. Recommendation + reason
-4. Risk + mitigation
-5. Clear owner + timeline ask
-`,
-    `
-## What worked well
-- You reported progress with concrete change (“five to two”), which makes status credible.
-- Risks were surfaced early, and you proposed a mitigation instead of only describing uncertainty.
-
-## Moments to tighten
-- **Scope risk**: “if requirements shift late” is clear; make the trigger explicit:
-  - Better option: “if requirements change after today’s scope lock…”
-- **Ownership**: great that you named roles; make timing tighter:
-  - Better option: “design finalizes by 4pm today; engineering starts at 9am tomorrow.”
-
-## Next repetition
-Try this 5-part template:
-1. What changed
-2. What it means
-3. Top risk (with trigger)
-4. Mitigation / plan
-5. What you need today (approval, decision, or action)
-`,
-];
+    focus: ["Concise structure"],
+};
 
 // Transcript + feedback rendering live in dedicated components.
 
 export function SessionHome(props: Readonly<PropsInterface>) {
-    const { userLabel, onSignOut, authError } = props;
+    const { uid, userLabel, onSignOut, authError } = props;
     const [drillState, setDrillState] = useState<DrillState>("idle");
     const [seconds, setSeconds] = useState(MAX_SECONDS);
-    const [currentDrillIndex, setCurrentDrillIndex] = useState(0);
-    const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+    const [drillError, setDrillError] = useState<string | null>(null);
+    const [isCreatingDrill, setIsCreatingDrill] = useState(false);
+    const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(
+        null,
+    );
     const { isRecording, stream, start, stop } = useVoiceRecorder();
+    const {
+        session,
+        loading: loadingSession,
+        error: latestSessionError,
+    } = useLatestSession(uid);
 
-    const currentPlan = useMemo(() => {
-        return MOCK_PLANS[currentDrillIndex % MOCK_PLANS.length];
-    }, [currentDrillIndex]);
-
+    const currentPlan = session?.plan ?? FALLBACK_PLAN;
     const currentTranscript = useMemo(() => {
-        return MOCK_TRANSCRIPTS[currentDrillIndex % MOCK_TRANSCRIPTS.length];
-    }, [currentDrillIndex]);
+        return session?.transcript?.trim() ?? "";
+    }, [session?.transcript]);
 
     const currentFeedback = useMemo(() => {
-        return MOCK_FEEDBACK_MDS[currentDrillIndex % MOCK_FEEDBACK_MDS.length];
-    }, [currentDrillIndex]);
+        return session?.feedback?.trim() ?? "";
+    }, [session?.feedback]);
+
+    const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
+    const hasServerResults = Boolean(
+        session?.audioUrl &&
+            (session?.transcript?.trim() || session?.feedback?.trim()),
+    );
 
     const mm = Math.floor(seconds / 60);
     const ss = seconds % 60;
+
+    useEffect(() => {
+        setDrillError(latestSessionError);
+    }, [latestSessionError]);
+
+    useEffect(() => {
+        if (!session) return;
+        if (isRecording || drillState === "analyzing" || drillState === "recording") {
+            return;
+        }
+        if (hasServerResults) {
+            setDrillState("complete");
+            setSeconds(0);
+            return;
+        }
+        setDrillState("idle");
+        setSeconds(MAX_SECONDS);
+    }, [drillState, hasServerResults, isRecording, session]);
 
     useEffect(() => {
         if (drillState !== "recording") {
@@ -159,15 +122,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         };
     }, [recordedAudioUrl]);
 
-    useEffect(() => {
-        if (drillState !== "analyzing") {
-            return;
-        }
-        const id = setTimeout(() => {
-            setDrillState("complete");
-        }, 1500);
-        return () => clearTimeout(id);
-    }, [drillState, isRecording]);
+    // `complete` is set when server-side transcription + analysis finishes.
 
     const stateLabel = useMemo(() => {
         if (isRecording || drillState === "recording") {
@@ -202,16 +157,75 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         }
         setSeconds(0);
         setDrillState("analyzing");
+
+        if (!session?.id || !result?.blob.size) {
+            setDrillError("No active drill found to save this recording.");
+            setDrillState("idle");
+            return;
+        }
+
+        try {
+            const fd = new FormData();
+            fd.append("uid", uid);
+            fd.append("sessionId", session.id);
+            fd.append(
+                "audio",
+                new File([result.blob], "response.webm", {
+                    type: result.mimeType,
+                }),
+            );
+            await ky.post("/api/sessions/complete", {
+                body: fd,
+                timeout: 300_000,
+            });
+            setDrillState("complete");
+        } catch (error) {
+            setDrillError(
+                error instanceof Error
+                    ? error.message
+                    : "Could not analyze your response.",
+            );
+            setDrillState("idle");
+        }
+    };
+
+    const startAnotherDrill = async () => {
+        setDrillError(null);
+        setIsCreatingDrill(true);
+        try {
+            await ky.post("/api/sessions/new-drill", {
+                json: { uid },
+                timeout: 60_000,
+            });
+            setSeconds(MAX_SECONDS);
+            setDrillState("idle");
+            if (recordedAudioUrl) {
+                URL.revokeObjectURL(recordedAudioUrl);
+                setRecordedAudioUrl(null);
+            }
+        } catch (error) {
+            setDrillError(
+                error instanceof Error
+                    ? error.message
+                    : "Could not create a new drill.",
+            );
+        } finally {
+            setIsCreatingDrill(false);
+        }
     };
 
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
             <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold tracking-tight">You&apos;re in</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                        You&apos;re in
+                    </h1>
                     <p className="text-sm text-muted-foreground">
                         Signed in as{" "}
-                        <span className="font-medium text-foreground">{userLabel}</span>
+                        <span className="font-medium text-foreground">
+                            {userLabel}
+                        </span>
                     </p>
                 </div>
                 <Button variant="outline" onClick={onSignOut}>
@@ -231,27 +245,32 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                     </div>
                     {drillState === "complete" ? (
                         <Button
-                            onClick={() => {
-                                setCurrentDrillIndex((i) => i + 1);
-                                setSeconds(MAX_SECONDS);
-                                setDrillState("idle");
-                                if (recordedAudioUrl) {
-                                    URL.revokeObjectURL(recordedAudioUrl);
-                                    setRecordedAudioUrl(null);
-                                }
-                            }}
+                            onClick={() => void startAnotherDrill()}
+                            disabled={loadingSession || isCreatingDrill}
                         >
                             <ArrowRight />
-                            Start another drill
+                            {isCreatingDrill
+                                ? "Creating another drill..."
+                                : "Start another drill"}
                         </Button>
                     ) : null}
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">
                     {currentPlan.scenario.situationContext}
                 </p>
-                <p className="mt-2 text-sm">
-                    {currentPlan.scenario.givenContent}
-                </p>
+                <MarkdownBlock
+                    className="mt-3"
+                    markdown={currentPlan.scenario.givenContent}
+                />
+                <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        Task
+                    </p>
+                    <MarkdownBlock
+                        className="mt-2"
+                        markdown={currentPlan.scenario.task}
+                    />
+                </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                     {currentPlan.focus.map((item) => (
                         <span
@@ -263,13 +282,25 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                     ))}
                 </div>
             </div>
+            {loadingSession ? (
+                <p className="mt-3 text-sm text-muted-foreground">
+                    Loading latest drill...
+                </p>
+            ) : null}
+            {drillError ? (
+                <p className="mt-3 text-sm text-destructive" role="alert">
+                    {drillError}
+                </p>
+            ) : null}
 
             <div className="mt-6 rounded-xl border border-border/70 p-4">
                 <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">Session status</p>
                     <span className="font-mono text-sm">{`${mm}:${ss.toString().padStart(2, "0")}`}</span>
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">{stateLabel}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    {stateLabel}
+                </p>
                 {isRecording ? (
                     <LiveWaveform stream={stream} active className="mt-3" />
                 ) : null}
@@ -278,7 +309,11 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                         <Button
                             variant={isRecording ? "secondary" : "outline"}
                             disabled={drillState === "analyzing"}
-                            onClick={() => void (isRecording ? stopRecording() : startRecording())}
+                            onClick={() =>
+                                void (isRecording
+                                    ? stopRecording()
+                                    : startRecording())
+                            }
                         >
                             {isRecording ? <Square /> : <Mic />}
                             {isRecording ? "Stop recording" : "Record response"}
@@ -294,7 +329,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                                     ) as HTMLAudioElement | null;
                                     void el?.play();
                                 }}
-                                disabled={!recordedAudioUrl}
+                                disabled={!playbackSrc}
                             >
                                 <Play />
                                 Listen to response
@@ -309,12 +344,12 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                         </>
                     ) : null}
                 </div>
-                {drillState === "complete" && recordedAudioUrl ? (
+                {drillState === "complete" && playbackSrc ? (
                     <audio
                         id="session-audio-playback"
                         className="mt-4 w-full"
                         controls
-                        src={recordedAudioUrl}
+                        src={playbackSrc}
                     >
                         <track
                             kind="captions"
@@ -328,15 +363,33 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 {drillState === "analyzing" ? (
                     <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
-                        Running planner + analyzer + memory updates (mock)...
+                        Running analysis...
                     </div>
                 ) : null}
             </div>
 
             {drillState === "complete" ? (
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    <TranscriptPanel transcript={currentTranscript} />
-                    <FeedbackPanel feedbackMarkdown={currentFeedback} />
+                    {currentTranscript ? (
+                        <TranscriptPanel transcript={currentTranscript} />
+                    ) : (
+                        <div className="rounded-xl border border-border/70 p-4">
+                            <p className="text-sm font-medium">Transcript</p>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                Waiting for transcription…
+                            </p>
+                        </div>
+                    )}
+                    {currentFeedback ? (
+                        <FeedbackPanel feedbackMarkdown={currentFeedback} />
+                    ) : (
+                        <div className="rounded-xl border border-border/70 p-4">
+                            <p className="text-sm font-medium">Feedback</p>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                Waiting for feedback…
+                            </p>
+                        </div>
+                    )}
                 </div>
             ) : null}
 
