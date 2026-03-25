@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { GoalsStep } from "@/components/onboarding/setup-wizard/goals-step";
 import { PainStep } from "@/components/onboarding/setup-wizard/pain-step";
@@ -12,15 +12,13 @@ import {
     type SetupWizardStep,
 } from "@/components/onboarding/setup-wizard/steps";
 import { WelcomeStep } from "@/components/onboarding/setup-wizard/welcome-step";
-import type { UserOnboardingProfileType } from "@/types/user";
 
 interface PropsInterface {
-    onComplete: (profile: UserOnboardingProfileType) => void;
     onBack?: () => void;
 }
 
 export function SetupWizard(props: Readonly<PropsInterface>) {
-    const { onComplete, onBack } = props;
+    const { onBack } = props;
     const [step, setStep] = useState<SetupWizardStep>("welcome");
     const [roleContext, setRoleContext] = useState("");
     const [goals, setGoals] = useState<string[]>([]);
@@ -28,12 +26,6 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     const [painPoints, setPainPoints] = useState<string[]>([]);
     const [painFreeText, setPainFreeText] = useState("");
     const [voiceIntroCaptured, setVoiceIntroCaptured] = useState(false);
-
-    useEffect(() => {
-        if (step !== "sample") {
-            setVoiceIntroCaptured(false);
-        }
-    }, [step]);
 
     const stepIndex = useMemo(
         () => SETUP_WIZARD_STEP_ORDER.indexOf(step),
@@ -63,7 +55,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     }, [step, onBack]);
 
     const finish = useCallback(() => {
-        const profile: UserOnboardingProfileType = {
+        return {
             onboardingComplete: true,
             roleContext: roleContext.trim(),
             goals,
@@ -72,15 +64,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             painPointsFreeText: painFreeText.trim(),
             introSample: "",
         };
-        onComplete(profile);
-    }, [
-        goals,
-        goalsFreeText,
-        onComplete,
-        painFreeText,
-        painPoints,
-        roleContext,
-    ]);
+    }, [goals, goalsFreeText, painFreeText, painPoints, roleContext]);
 
     const canContinueRole = roleContext.trim().length > 0;
     const canContinueGoals =

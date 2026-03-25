@@ -1,10 +1,11 @@
 "use client";
 
-import { Mic, Square } from "lucide-react";
-import { useState } from "react";
+import { Loader2, Mic, Square } from "lucide-react";
+import { useCallback, useState, type ReactNode } from "react";
 
-import { MockWaveform } from "@/components/onboarding/mock-waveform";
+import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { cn } from "@/lib/utils";
 
 interface PropsInterface {
@@ -22,37 +23,120 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
         value,
         onChange,
         placeholder,
-        helper = "Tap the mic to simulate voice (mock), or type your answer.",
+        helper = "Tap the mic to record and transcribe, or type your answer.",
         minRows = 3,
     } = props;
 
-    const [mockListening, setMockListening] = useState(false);
+    const {
+        isRecording,
+        stream,
+        error,
+        start,
+        stop,
+        clearError,
+    } = useVoiceRecorder();
+    const [transcribeError, setTranscribeError] = useState<string | null>(null);
+    const [isTranscribing, setIsTranscribing] = useState(false);
+
+    const transcribe = useCallback(
+        async (blob: Blob, mimeType: string) => {
+            setTranscribeError(null);
+            setIsTranscribing(true);
+            try {
+                const fd = new FormData();
+                fd.append(
+                    "file",
+                    new File([blob], "voice-input.webm", { type: mimeType }),
+                );
+                const res = await fetch("/api/transcribe", {
+                    method: "POST",
+                    body: fd,
+                });
+                const data = (await res.json()) as {
+                    text?: string;
+                    error?: string;
+                    detail?: string;
+                };
+                if (!res.ok) {
+                    throw new Error(
+                        data.error ??
+                            data.detail ??
+                            "Transcription request failed.",
+                    );
+                }
+                const nextText = data.text?.trim();
+                if (nextText) {
+                    onChange(nextText);
+                }
+            } catch (e) {
+                setTranscribeError(
+                    e instanceof Error ? e.message : "Transcription failed.",
+                );
+            } finally {
+                setIsTranscribing(false);
+            }
+        },
+        [onChange],
+    );
+
+    const onToggleRecording = useCallback(async () => {
+        clearError();
+        setTranscribeError(null);
+        if (isRecording) {
+            const result = await stop();
+            if (result?.blob.size) {
+                void transcribe(result.blob, result.mimeType);
+            }
+            return;
+        }
+        await start();
+    }, [clearError, isRecording, start, stop, transcribe]);
+
+    let buttonLabel: ReactNode;
+    if (isTranscribing) {
+        buttonLabel = (
+            <>
+                <Loader2 className="size-4 animate-spin" />
+                Transcribing...
+            </>
+        );
+    } else if (isRecording) {
+        buttonLabel = (
+            <>
+                <Square className="size-4 fill-current" />
+                Stop
+            </>
+        );
+    } else {
+        buttonLabel = (
+            <>
+                <Mic />
+                Speak
+            </>
+        );
+    }
 
     return (
         <div className="space-y-3">
             <p className="text-sm font-medium text-foreground">{label}</p>
-            <MockWaveform active={mockListening} />
+            <LiveWaveform stream={stream} active={isRecording} />
             <div className="flex justify-center">
                 <Button
                     type="button"
-                    variant={mockListening ? "secondary" : "outline"}
+                    variant={isRecording ? "secondary" : "outline"}
                     size="lg"
                     className="gap-2 rounded-full"
-                    onClick={() => setMockListening((v) => !v)}
+                    disabled={isTranscribing}
+                    onClick={() => void onToggleRecording()}
                 >
-                    {mockListening ? (
-                        <>
-                            <Square className="size-4 fill-current" />
-                            Stop
-                        </>
-                    ) : (
-                        <>
-                            <Mic />
-                            Speak
-                        </>
-                    )}
+                    {buttonLabel}
                 </Button>
             </div>
+            {(error || transcribeError) && (
+                <p className="text-center text-xs text-destructive" role="alert">
+                    {error ?? transcribeError}
+                </p>
+            )}
             {helper ? (
                 <p className="text-center text-xs text-muted-foreground">
                     {helper}
@@ -67,6 +151,7 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
                 rows={minRows}
                 placeholder={placeholder}
                 value={value}
+                disabled={isRecording}
                 onChange={(e) => onChange(e.target.value)}
             />
         </div>

@@ -1,9 +1,13 @@
-export type UserOnboardingProfileType = {
-    onboardingComplete: true;
-    roleContext: string;
+export type UserProfileType = {
+    uid: string;
+    onboardingComplete: boolean;
+
+    role: string;
+    industry: string;
+
     goals: string[];
-    goalsFreeText: string;
-    painPoints: string[];
-    painPointsFreeText: string;
-    introSample: string;
+    additionalContext: string;
+
+    createdAt: string;
+    updatedAt: string;
 };

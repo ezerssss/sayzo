@@ -8,7 +8,6 @@ import { SetupWizard } from "@/components/onboarding/setup-wizard";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useUserProfileExists } from "@/hooks/use-user-profile-exists";
-import type { UserOnboardingProfileType } from "@/types/user";
 
 export default function Home() {
     const { user, loading, authError, signInWithGoogle, signOut } =
@@ -43,15 +42,7 @@ export default function Home() {
             </section>
         );
     } else if (profileExists === false) {
-        content = (
-            <SetupWizard
-                onComplete={(_profile: UserOnboardingProfileType) => {
-                    globalThis.alert(
-                        "Setup complete. Nothing is written to Firestore yet.",
-                    );
-                }}
-            />
-        );
+        content = <SetupWizard />;
     } else {
         content = (
             <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
