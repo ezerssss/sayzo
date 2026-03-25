@@ -1,16 +1,28 @@
+export type SessionPlanType = {
+    scenario: string;
+    goals: string[];
+    focus: string[];
+};
+
 export type SessionAnalysisType = {
-    issues: string[];
+    mainIssue: string;
+    secondaryIssues: string[];
     improvements: string[];
+    regressions: string[];
+    notes: string;
 };
 
 export type SessionType = {
     id: string;
     uid: string;
 
-    audioUrl: string;
-    transcript: string;
+    plan: SessionPlanType;
 
-    analysis: SessionAnalysisType;
+    audioUrl: string | null;
+    transcript: string | null;
+
+    analysis: SessionAnalysisType | null;
+    feedback: string | null;
 
     createdAt: string;
 };

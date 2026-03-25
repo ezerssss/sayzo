@@ -42,7 +42,7 @@ export default function Home() {
             </section>
         );
     } else if (profileExists === false) {
-        content = <SetupWizard />;
+        content = <SetupWizard uid={user.uid} />;
     } else {
         content = (
             <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
