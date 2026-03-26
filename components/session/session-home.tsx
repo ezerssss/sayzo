@@ -89,6 +89,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
     const requiresRetry = session?.completionStatus === "needs_retry";
     const isServerProcessing = session?.processingStatus === "processing";
+    const processingStage = session?.processingStage;
     const hasServerResults = Boolean(
         session?.audioUrl &&
             (session?.transcript?.trim() || session?.feedback?.trim()),
@@ -157,15 +158,31 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             return "Recording your response...";
         }
         if (drillState === "analyzing") {
-            return isServerProcessing
-                ? "Still processing on the server..."
-                : "Analyzing your session...";
+            if (!isServerProcessing) {
+                return "Analyzing your session...";
+            }
+            if (processingStage === "transcribing") {
+                return "Transcribing your response...";
+            }
+            if (processingStage === "uploading") {
+                return "Uploading your audio...";
+            }
+            if (processingStage === "analyzing_expression") {
+                return "Analyzing your prosody and tone...";
+            }
+            if (processingStage === "analyzing") {
+                return "Analyzing your transcript...";
+            }
+            if (processingStage === "combining") {
+                return "Combining signals and generating coaching...";
+            }
+            return "Still processing on the server...";
         }
         if (drillState === "complete") {
             return "Session complete. Review your feedback below.";
         }
         return "Ready when you are.";
-    }, [drillState, isRecording, isServerProcessing]);
+    }, [drillState, isRecording, isServerProcessing, processingStage]);
 
     const startRecording = async () => {
         if (recordedAudioUrl) {
@@ -210,6 +227,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             });
             setDrillState("complete");
         } catch (error) {
+            console.error("[components/session/session-home] stopRecording failed", error);
             if (isKyTimeoutLikeError(error)) {
                 setDrillError(
                     "Still processing in the background. We will update once results are ready.",
@@ -238,6 +256,10 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 setRecordedAudioUrl(null);
             }
         } catch (error) {
+            console.error(
+                "[components/session/session-home] startAnotherDrill failed",
+                error,
+            );
             setDrillError(
                 await getKyErrorMessage(error, "Could not create a new drill."),
             );
@@ -405,7 +427,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 {drillState === "analyzing" ? (
                     <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
-                        Transcribing, scoring delivery, and generating feedback...
+                        {stateLabel}
                     </div>
                 ) : null}
             </div>

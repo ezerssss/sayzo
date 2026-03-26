@@ -40,6 +40,14 @@ export type SessionType = {
     completionStatus: SessionCompletionStatus;
     completionReason: string | null;
     processingStatus?: "idle" | "processing" | "failed";
+    processingStage?:
+        | "starting"
+        | "transcribing"
+        | "uploading"
+        | "analyzing_expression"
+        | "analyzing"
+        | "combining";
+    processingJobId?: string | null;
     processingError?: string | null;
     processingUpdatedAt?: string;
 

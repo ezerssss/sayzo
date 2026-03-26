@@ -4,6 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import { analyzeSession, generateSessionFeedback } from "@/services/analyzer";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
+import { randomUUID } from "node:crypto";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { SessionType } from "@/types/sessions";
 import type { UserProfileType } from "@/types/user";
@@ -66,6 +67,16 @@ const attemptCheckSchema = z.object({
     reason: z.string(),
 });
 
+async function isActiveProcessingJob(
+    sessionRef: { get: () => Promise<{ exists: boolean; data: () => unknown }> },
+    processingJobId: string,
+): Promise<boolean> {
+    const snap = await sessionRef.get();
+    if (!snap.exists) return false;
+    const data = snap.data() as Partial<SessionType>;
+    return data.processingJobId === processingJobId;
+}
+
 export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const uidRaw = formData.get("uid");
@@ -103,9 +114,11 @@ export async function POST(request: NextRequest) {
         return "webm";
     };
 
+    let processingJobId: string | null = null;
     try {
         const db = getAdminFirestore();
         const bucket = getAdminStorageBucket();
+        processingJobId = randomUUID();
 
         const sessionRef = db
             .collection(FirestoreCollections.sessions.path)
@@ -128,6 +141,8 @@ export async function POST(request: NextRequest) {
         await sessionRef.set(
             {
                 processingStatus: "processing",
+                processingStage: "transcribing",
+                processingJobId,
                 processingError: null,
                 processingUpdatedAt: new Date().toISOString(),
             },
@@ -278,6 +293,15 @@ export async function POST(request: NextRequest) {
         }
 
         // 2) Upload audio to Firebase Storage + persist URL
+        await sessionRef.set(
+            {
+                processingStatus: "processing",
+                processingStage: "uploading",
+                processingJobId,
+                processingUpdatedAt: new Date().toISOString(),
+            },
+            { merge: true },
+        );
         const ext = extensionForMime(audio.type || "");
         const objectPath = `${uid}/${sessionId}.${ext}`;
 
@@ -296,6 +320,18 @@ export async function POST(request: NextRequest) {
             expires: "2500-01-01",
         });
 
+        await sessionRef.set(
+            {
+                audioUrl,
+                transcript,
+                processingStatus: "processing",
+                processingStage: "analyzing_expression",
+                processingJobId,
+                processingUpdatedAt: new Date().toISOString(),
+            },
+            { merge: true },
+        );
+
         // 3) Hume trimmed signals for delivery context (optional, but powerful for analyzer)
         let humeTrimmed = null;
         try {
@@ -306,8 +342,21 @@ export async function POST(request: NextRequest) {
                 contentType: audio.type || "application/octet-stream",
             });
         } catch (error) {
-            console.warn("Hume expression measurement failed, continuing.", error);
+            console.error(
+                "[app/api/sessions/complete] Hume expression measurement failed",
+                error,
+            );
         }
+
+        await sessionRef.set(
+            {
+                processingStatus: "processing",
+                processingStage: "analyzing",
+                processingJobId,
+                processingUpdatedAt: new Date().toISOString(),
+            },
+            { merge: true },
+        );
 
         const transcriptWordCount = countWords(transcript);
         const obviouslyTooShort = transcriptWordCount < 8;
@@ -429,6 +478,29 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
 
         await sessionRef.set(
             {
+                processingStatus: "processing",
+                processingStage: "combining",
+                processingJobId,
+                processingUpdatedAt: new Date().toISOString(),
+            },
+            { merge: true },
+        );
+
+        const stillActive = await isActiveProcessingJob(sessionRef, processingJobId);
+        if (!stillActive) {
+            return NextResponse.json({
+                ok: true,
+                audioUrl,
+                transcript,
+                analysis,
+                feedback,
+                completionStatus,
+                completionReason,
+            });
+        }
+
+        await sessionRef.set(
+            {
                 audioUrl,
                 transcript,
                 analysis,
@@ -436,6 +508,8 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
                 completionStatus,
                 completionReason,
                 processingStatus: "idle",
+                processingStage: undefined,
+                processingJobId: null,
                 processingError: null,
                 processingUpdatedAt: new Date().toISOString(),
             },
@@ -452,24 +526,42 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
             completionReason,
         });
     } catch (error) {
-        console.error(error);
+        console.error("[app/api/sessions/complete] POST failed", error);
         if (sessionId) {
             try {
                 const db = getAdminFirestore();
-                await db
+                const sessionRef = db
                     .collection(FirestoreCollections.sessions.path)
-                    .doc(sessionId)
-                    .set(
+                    .doc(sessionId);
+                const snap = await sessionRef.get();
+                const existing = snap.data() as Partial<SessionType> | undefined;
+                if (
+                    !processingJobId ||
+                    existing?.processingJobId !== processingJobId
+                ) {
+                    return NextResponse.json(
                         {
-                            processingStatus: "failed",
-                            processingError:
+                            error:
                                 error instanceof Error
                                     ? error.message
                                     : "Failed to complete session.",
-                            processingUpdatedAt: new Date().toISOString(),
                         },
-                        { merge: true },
+                        { status: 500 },
                     );
+                }
+                await sessionRef.set(
+                    {
+                        processingStatus: "failed",
+                        processingStage: undefined,
+                        processingJobId: null,
+                        processingError:
+                            error instanceof Error
+                                ? error.message
+                                : "Failed to complete session.",
+                        processingUpdatedAt: new Date().toISOString(),
+                    },
+                    { merge: true },
+                );
             } catch (persistError) {
                 console.error("Failed to persist session processing error", persistError);
             }

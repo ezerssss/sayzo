@@ -171,6 +171,8 @@ export function buildSessionFromPlan(uid: string, plan: SessionPlanType): Sessio
         completionStatus: "pending",
         completionReason: null,
         processingStatus: "idle",
+        processingStage: undefined,
+        processingJobId: null,
         processingError: null,
         processingUpdatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
