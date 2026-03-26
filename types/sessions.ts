@@ -33,6 +33,7 @@ export type SessionType = {
     plan: SessionPlanType;
 
     audioUrl: string | null;
+    audioObjectPath?: string | null;
     transcript: string | null;
 
     analysis: SessionAnalysisType | null;

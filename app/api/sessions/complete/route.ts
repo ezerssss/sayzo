@@ -63,7 +63,9 @@ const attemptCheckSchema = z.object({
 });
 
 async function isActiveProcessingJob(
-    sessionRef: { get: () => Promise<{ exists: boolean; data: () => unknown }> },
+    sessionRef: {
+        get: () => Promise<{ exists: boolean; data: () => unknown }>;
+    },
     processingJobId: string,
 ): Promise<boolean> {
     const snap = await sessionRef.get();
@@ -136,6 +138,7 @@ export async function POST(request: NextRequest) {
         await sessionRef.set(
             {
                 audioUrl: null,
+                audioObjectPath: null,
                 transcript: null,
                 analysis: null,
                 feedback: null,
@@ -179,7 +182,9 @@ export async function POST(request: NextRequest) {
                   masteredFocus: Array.isArray(skillData.masteredFocus)
                       ? (skillData.masteredFocus as string[])
                       : [],
-                  reinforcementFocus: Array.isArray(skillData.reinforcementFocus)
+                  reinforcementFocus: Array.isArray(
+                      skillData.reinforcementFocus,
+                  )
                       ? (skillData.reinforcementFocus as string[])
                       : [],
                   lastProcessedSessionId:
@@ -245,7 +250,10 @@ export async function POST(request: NextRequest) {
             });
         };
 
-        let res = await sendTranscriptionRequest(configuredModel, "verbose_json");
+        let res = await sendTranscriptionRequest(
+            configuredModel,
+            "verbose_json",
+        );
         if (!res.ok) {
             const detail = await res.text();
             const incompatibleVerboseJson =
@@ -260,7 +268,10 @@ export async function POST(request: NextRequest) {
                 );
                 if (!res.ok) {
                     // Final fallback: compatible plain json transcript.
-                    res = await sendTranscriptionRequest(configuredModel, "json");
+                    res = await sendTranscriptionRequest(
+                        configuredModel,
+                        "json",
+                    );
                 }
             } else {
                 return NextResponse.json(
@@ -304,15 +315,12 @@ export async function POST(request: NextRequest) {
             { merge: true },
         );
         const ext = extensionForMime(audio.type || "");
-        const objectPath = `${uid}/${sessionId}.${ext}`;
+        const objectPath = `${uid}/${sessionId}/${randomUUID()}.${ext}`;
 
         const file = bucket.file(objectPath);
         await file.save(Buffer.from(audioBytes), {
             resumable: false,
             contentType: audio.type || "application/octet-stream",
-            metadata: {
-                cacheControl: "public, max-age=31536000",
-            },
         });
 
         // Long-lived signed URL for playback
@@ -320,10 +328,23 @@ export async function POST(request: NextRequest) {
             action: "read",
             expires: "2500-01-01",
         });
+        const previousAudioObjectPath = session.audioObjectPath?.trim() || "";
+        if (previousAudioObjectPath && previousAudioObjectPath !== objectPath) {
+            await bucket
+                .file(previousAudioObjectPath)
+                .delete({ ignoreNotFound: true })
+                .catch((cleanupError: unknown) => {
+                    console.warn(
+                        "[app/api/sessions/complete] Failed to delete previous audio",
+                        cleanupError,
+                    );
+                });
+        }
 
         await sessionRef.set(
             {
                 audioUrl,
+                audioObjectPath: objectPath,
                 transcript,
                 processingStatus: "processing",
                 processingStage: "analyzing_expression",
@@ -394,7 +415,8 @@ ${transcript}`,
         let completionReason: string | null;
         if (shouldSkipDeepAnalysis) {
             analysis = {
-                mainIssue: "Response was too short or off-task for reliable drill analysis.",
+                mainIssue:
+                    "Response was too short or off-task for reliable drill analysis.",
                 secondaryIssues: [skipReason].filter((v) => v.length > 0),
                 improvements: [],
                 regressions: [],
@@ -439,7 +461,8 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
                         role: userProfile.role,
                         industry: userProfile.industry,
                         companyName: userProfile.companyName ?? "",
-                        companyDescription: userProfile.companyDescription ?? "",
+                        companyDescription:
+                            userProfile.companyDescription ?? "",
                         workplaceCommunicationContext:
                             userProfile.workplaceCommunicationContext ?? "",
                         motivation: userProfile.motivation ?? "",
@@ -474,7 +497,10 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
             { merge: true },
         );
 
-        const stillActive = await isActiveProcessingJob(sessionRef, processingJobId);
+        const stillActive = await isActiveProcessingJob(
+            sessionRef,
+            processingJobId,
+        );
         if (!stillActive) {
             return NextResponse.json({
                 ok: true,
@@ -490,6 +516,7 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
         await sessionRef.set(
             {
                 audioUrl,
+                audioObjectPath: objectPath,
                 transcript,
                 analysis,
                 feedback,
@@ -522,7 +549,9 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
                     .collection(FirestoreCollections.sessions.path)
                     .doc(sessionId);
                 const snap = await sessionRef.get();
-                const existing = snap.data() as Partial<SessionType> | undefined;
+                const existing = snap.data() as
+                    | Partial<SessionType>
+                    | undefined;
                 if (
                     !processingJobId ||
                     existing?.processingJobId !== processingJobId
@@ -551,7 +580,10 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
                     { merge: true },
                 );
             } catch (persistError) {
-                console.error("Failed to persist session processing error", persistError);
+                console.error(
+                    "Failed to persist session processing error",
+                    persistError,
+                );
             }
         }
         return NextResponse.json(

@@ -165,6 +165,7 @@ export function buildSessionFromPlan(uid: string, plan: SessionPlanType): Sessio
         uid,
         plan,
         audioUrl: null,
+        audioObjectPath: null,
         transcript: null,
         analysis: null,
         feedback: null,
