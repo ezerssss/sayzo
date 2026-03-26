@@ -65,52 +65,67 @@ function markdownComponents(
     onSeekToSecond?: (seconds: number) => void,
 ): MarkdownComponents {
     return {
-    h2: ({ children }) => (
-        <h3 className="mt-3 text-sm font-semibold text-foreground/90">
-            {children}
-        </h3>
-    ),
-    ul: ({ children }) => (
-        <ul className="list-disc space-y-1 pl-4">{children}</ul>
-    ),
-    li: ({ children }) => (
-        <li className="text-sm leading-relaxed text-muted-foreground">{children}</li>
-    ),
-    p: ({ children }) => (
-        <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
-    ),
-    a: ({ children, ...props }: { children?: ReactNode; href?: string }) => {
-        const href = typeof props.href === "string" ? props.href : "";
-        const seconds = parseTimestampHref(href) ?? parseTimestampFromChildren(children);
-        if (seconds != null && onSeekToSecond) {
+        h2: ({ children }) => (
+            <h3 className="mt-3 text-sm font-semibold text-foreground/90">
+                {children}
+            </h3>
+        ),
+        ul: ({ children }) => (
+            <ul className="list-disc space-y-1 pl-4">{children}</ul>
+        ),
+        li: ({ children }) => (
+            <li className="text-sm leading-relaxed text-muted-foreground">
+                {children}
+            </li>
+        ),
+        p: ({ children }) => (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+                {children}
+            </p>
+        ),
+        a: ({
+            children,
+            ...props
+        }: {
+            children?: ReactNode;
+            href?: string;
+        }) => {
+            const href = typeof props.href === "string" ? props.href : "";
+            const seconds =
+                parseTimestampHref(href) ??
+                parseTimestampFromChildren(children);
+            if (seconds != null && onSeekToSecond) {
+                return (
+                    <button
+                        type="button"
+                        className="rounded-md bg-muted font-normal px-1.5 py-0.5 text-foreground underline decoration-dotted underline-offset-2 hover:bg-muted/80"
+                        onClick={() => onSeekToSecond(seconds)}
+                    >
+                        {children}
+                    </button>
+                );
+            }
             return (
-                <button
-                    type="button"
-                    className="rounded-md bg-muted px-1.5 py-0.5 text-foreground underline decoration-dotted underline-offset-2 hover:bg-muted/80"
-                    onClick={() => onSeekToSecond(seconds)}
+                <a
+                    href={href}
+                    className="underline decoration-dotted underline-offset-2"
                 >
                     {children}
-                </button>
+                </a>
             );
-        }
-        return (
-            <a
-                href={href}
-                className="underline decoration-dotted underline-offset-2"
-            >
-                {children}
-            </a>
-        );
-    },
-};
+        },
+    };
 }
 
 export function FeedbackPanel(props: Readonly<PropsInterface>) {
-    const { feedbackMarkdown, onSeekToSecond, needsRetry, completionReason } = props;
+    const { feedbackMarkdown, onSeekToSecond, needsRetry, completionReason } =
+        props;
     return (
         <div
             className={`rounded-xl border p-4 ${
-                needsRetry ? "border-amber-400/60 bg-amber-50/30" : "border-border/70"
+                needsRetry
+                    ? "border-amber-400/60 bg-amber-50/30"
+                    : "border-border/70"
             }`}
         >
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -118,7 +133,9 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                 {needsRetry ? "Feedback (retry needed)" : "Feedback"}
             </div>
             {needsRetry && completionReason ? (
-                <p className="mt-2 text-sm text-amber-700">{completionReason}</p>
+                <p className="mt-2 text-sm text-amber-700">
+                    {completionReason}
+                </p>
             ) : null}
             <div className="mt-2">
                 <ReactMarkdown
@@ -131,4 +148,3 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
         </div>
     );
 }
-
