@@ -87,16 +87,19 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     }, [session?.feedback]);
 
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
+    const isRecordingNow = isRecording || drillState === "recording";
     const isServerProcessing = session?.processingStatus === "processing";
     const requiresRetry =
-        session?.completionStatus === "needs_retry" && !isServerProcessing;
+        session?.completionStatus === "needs_retry" &&
+        !isServerProcessing &&
+        !isRecordingNow &&
+        drillState !== "analyzing";
     const processingStage = session?.processingStage;
     const hasServerResults = Boolean(
         session?.completionStatus !== "pending" &&
             (session?.transcript?.trim() || session?.feedback?.trim()),
     );
     const shouldShowResults = hasServerResults;
-    const isRecordingNow = isRecording || drillState === "recording";
     const showRecordAction =
         isRecordingNow || !shouldShowResults || requiresRetry;
     const showCompletionActions =
