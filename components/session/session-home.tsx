@@ -96,6 +96,14 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             (session?.transcript?.trim() || session?.feedback?.trim()),
     );
     const shouldShowResults = hasServerResults;
+    const isRecordingNow = isRecording || drillState === "recording";
+    const showRecordAction =
+        isRecordingNow || !shouldShowResults || requiresRetry;
+    const showCompletionActions =
+        shouldShowResults &&
+        !isRecordingNow &&
+        drillState !== "analyzing" &&
+        !requiresRetry;
 
     const mm = Math.floor(seconds / 60);
     const ss = seconds % 60;
@@ -373,7 +381,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                     <LiveWaveform stream={stream} active className="mt-3" />
                 ) : null}
                 <div className="mt-4 flex flex-wrap gap-2">
-                    {shouldShowResults ? null : (
+                    {showRecordAction ? (
                         <Button
                             variant={isRecording ? "secondary" : "outline"}
                             disabled={drillState === "analyzing"}
@@ -386,8 +394,8 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                             {isRecording ? <Square /> : <Mic />}
                             {isRecording ? "Stop recording" : "Record response"}
                         </Button>
-                    )}
-                    {shouldShowResults ? (
+                    ) : null}
+                    {showCompletionActions ? (
                         <>
                             <Button
                                 variant="outline"
