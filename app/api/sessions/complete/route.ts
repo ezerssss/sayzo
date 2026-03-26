@@ -1,19 +1,70 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
+import { openai } from "@ai-sdk/openai";
 import { analyzeSession, generateSessionFeedback } from "@/services/analyzer";
 import { measureSessionExpression } from "@/services/hume-expression";
+import { Output, generateText, zodSchema } from "ai";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { SessionType } from "@/types/sessions";
 import type { UserProfileType } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 
 const OPENAI_TRANSCRIPTIONS_URL =
     "https://api.openai.com/v1/audio/transcriptions";
 const DEFAULT_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe";
+const TIMESTAMP_FALLBACK_MODEL = "whisper-1";
 const VERBATIM_PROMPT =
     "Transcribe verbatim. Preserve disfluencies and speech artifacts (e.g., 'uh', 'um', 'ah', stutters, false starts, repetitions). Do not rewrite, summarize, or correct grammar. Keep the original wording and pacing cues as text.";
+
+type TranscriptionSegment = {
+    start?: number;
+    text?: string;
+};
+
+function formatTimestamp(totalSeconds: number): string {
+    const safe = Math.max(0, Math.floor(totalSeconds));
+    const hh = Math.floor(safe / 3600);
+    const mm = Math.floor((safe % 3600) / 60);
+    const ss = safe % 60;
+    if (hh > 0) {
+        return `${hh}:${mm.toString().padStart(2, "0")}:${ss
+            .toString()
+            .padStart(2, "0")}`;
+    }
+    return `${mm}:${ss.toString().padStart(2, "0")}`;
+}
+
+function buildTimestampedTranscript(
+    segments: TranscriptionSegment[] | undefined,
+    fallbackText: string,
+): string {
+    if (!Array.isArray(segments) || segments.length === 0) {
+        return fallbackText;
+    }
+    const lines = segments
+        .map((segment) => {
+            const text = (segment.text ?? "").trim();
+            if (!text) return "";
+            const start = typeof segment.start === "number" ? segment.start : 0;
+            return `[${formatTimestamp(start)}] ${text}`;
+        })
+        .filter((line) => line.length > 0);
+    return lines.length > 0 ? lines.join("\n") : fallbackText;
+}
+
+function countWords(text: string): number {
+    const matches = text.match(/[A-Za-z0-9']+/g);
+    return matches?.length ?? 0;
+}
+
+const attemptCheckSchema = z.object({
+    isAttemptUsable: z.boolean(),
+    isRelatedToDrill: z.boolean(),
+    reason: z.string(),
+});
 
 export async function POST(request: NextRequest) {
     const formData = await request.formData();
@@ -100,9 +151,16 @@ export async function POST(request: NextRequest) {
                   weaknesses: Array.isArray(skillData.weaknesses)
                       ? (skillData.weaknesses as string[])
                       : [],
-                  recentFocus: Array.isArray(skillData.recentFocus)
-                      ? (skillData.recentFocus as string[])
+                  masteredFocus: Array.isArray(skillData.masteredFocus)
+                      ? (skillData.masteredFocus as string[])
                       : [],
+                  reinforcementFocus: Array.isArray(skillData.reinforcementFocus)
+                      ? (skillData.reinforcementFocus as string[])
+                      : [],
+                  lastProcessedSessionId:
+                      typeof skillData.lastProcessedSessionId === "string"
+                          ? skillData.lastProcessedSessionId
+                          : null,
                   createdAt:
                       typeof skillData.createdAt === "string"
                           ? skillData.createdAt
@@ -116,7 +174,9 @@ export async function POST(request: NextRequest) {
                   uid,
                   strengths: [],
                   weaknesses: [],
-                  recentFocus: [],
+                  masteredFocus: [],
+                  reinforcementFocus: [],
+                  lastProcessedSessionId: null,
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
               };
@@ -131,19 +191,60 @@ export async function POST(request: NextRequest) {
         }
 
         const audioBytes = new Uint8Array(await audio.arrayBuffer());
-        const upstream = new FormData();
-        upstream.append(
-            "model",
-            process.env.TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL,
-        );
-        upstream.append("file", audio);
-        upstream.append("prompt", VERBATIM_PROMPT);
+        const configuredModel =
+            process.env.TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL;
 
-        const res = await fetch(OPENAI_TRANSCRIPTIONS_URL, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}` },
-            body: upstream,
-        });
+        const buildUpstream = (
+            model: string,
+            responseFormat: "verbose_json" | "json",
+        ) => {
+            const fd = new FormData();
+            fd.append("model", model);
+            fd.append("file", audio);
+            fd.append("prompt", VERBATIM_PROMPT);
+            fd.append("response_format", responseFormat);
+            if (responseFormat === "verbose_json") {
+                fd.append("timestamp_granularities[]", "segment");
+            }
+            return fd;
+        };
+
+        const sendTranscriptionRequest = async (
+            model: string,
+            responseFormat: "verbose_json" | "json",
+        ) => {
+            return fetch(OPENAI_TRANSCRIPTIONS_URL, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${apiKey}` },
+                body: buildUpstream(model, responseFormat),
+            });
+        };
+
+        let res = await sendTranscriptionRequest(configuredModel, "verbose_json");
+        if (!res.ok) {
+            const detail = await res.text();
+            const incompatibleVerboseJson =
+                detail.includes("response_format") &&
+                detail.includes("not compatible");
+
+            if (incompatibleVerboseJson) {
+                // Fallback to whisper-1 for timestamp support.
+                res = await sendTranscriptionRequest(
+                    TIMESTAMP_FALLBACK_MODEL,
+                    "verbose_json",
+                );
+                if (!res.ok) {
+                    // Final fallback: compatible plain json transcript.
+                    res = await sendTranscriptionRequest(configuredModel, "json");
+                }
+            } else {
+                return NextResponse.json(
+                    { error: "Transcription failed.", detail },
+                    { status: res.status },
+                );
+            }
+        }
+
         if (!res.ok) {
             const detail = await res.text();
             return NextResponse.json(
@@ -151,8 +252,15 @@ export async function POST(request: NextRequest) {
                 { status: res.status },
             );
         }
-        const body = (await res.json()) as { text?: string };
-        const transcript = (body.text ?? "").trim();
+
+        const body = (await res.json()) as {
+            text?: string;
+            segments?: TranscriptionSegment[];
+        };
+        const transcript = buildTimestampedTranscript(
+            body.segments,
+            (body.text ?? "").trim(),
+        ).trim();
         if (!transcript) {
             return NextResponse.json(
                 { error: "Transcription returned empty text." },
@@ -187,47 +295,123 @@ export async function POST(request: NextRequest) {
             contentType: audio.type || "application/octet-stream",
         });
 
-        // 4) Analyzer output (structured + markdown feedback)
-        const analysis = await analyzeSession({
-            userProfile: {
-                role: userProfile.role,
-                industry: userProfile.industry,
-                goals: userProfile.goals,
-                additionalContext: userProfile.additionalContext,
-            },
-            skillMemory: {
-                strengths: skillMemory.strengths,
-                weaknesses: skillMemory.weaknesses,
-                recentFocus: skillMemory.recentFocus,
-            },
-            session: {
-                plan: session.plan,
-                transcript,
-                humeContext: JSON.stringify(humeTrimmed),
-            },
-        });
+        const transcriptWordCount = countWords(transcript);
+        const obviouslyTooShort = transcriptWordCount < 8;
+        let shouldSkipDeepAnalysis = obviouslyTooShort;
+        let skipReason = obviouslyTooShort
+            ? "The response is too short to evaluate meaningfully."
+            : "";
 
-        const feedback = await generateSessionFeedback(
-            {
+        if (!obviouslyTooShort) {
+            const relevanceCheck = await generateText({
+                model: openai(process.env.ANALYZER_MODEL?.trim() || "gpt-4o-mini"),
+                output: Output.object({
+                    schema: zodSchema(attemptCheckSchema),
+                    name: "AttemptRelevanceCheck",
+                    description:
+                        "Checks whether a spoken response is usable and related to the assigned drill.",
+                }),
+                system: `You are a strict evaluator for spoken drill validity.
+If response is too short, empty, or clearly unrelated to the assigned drill, mark it not usable.
+Be conservative: do not infer relevance from weak evidence.
+Return only the schema fields.`,
+                prompt: `## Drill
+Title: ${session.plan.scenario.title}
+Situation: ${session.plan.scenario.situationContext}
+Given content: ${session.plan.scenario.givenContent}
+Framework: ${session.plan.scenario.framework}
+Skill target: ${session.plan.skillTarget}
+
+## Transcript
+${transcript}`,
+                temperature: 0,
+            });
+
+            if (
+                !relevanceCheck.output.isAttemptUsable ||
+                !relevanceCheck.output.isRelatedToDrill
+            ) {
+                shouldSkipDeepAnalysis = true;
+                skipReason = relevanceCheck.output.reason.trim() || "The response was not sufficiently related to the drill.";
+            }
+        }
+
+        // 4) Analyzer output (structured + markdown feedback)
+        let analysis;
+        let feedback;
+        let completionStatus: SessionType["completionStatus"];
+        let completionReason: string | null;
+        if (shouldSkipDeepAnalysis) {
+            analysis = {
+                mainIssue: "Response was too short or off-task for reliable drill analysis.",
+                secondaryIssues: [skipReason].filter((v) => v.length > 0),
+                improvements: [],
+                regressions: [],
+                notes: "Skipped deep analysis to avoid hallucinated feedback.",
+            };
+            feedback = `This attempt is too short or not aligned enough with the drill to generate reliable coaching.
+
+Reason: ${skipReason}
+
+Try one more pass and follow the framework for at least 45-90 seconds, using 2 or more concrete facts from the drill prompt.`;
+            completionStatus = "needs_retry";
+            completionReason = skipReason;
+        } else {
+            analysis = await analyzeSession({
                 userProfile: {
                     role: userProfile.role,
                     industry: userProfile.industry,
+                    companyName: userProfile.companyName ?? "",
+                    companyDescription: userProfile.companyDescription ?? "",
+                    workplaceCommunicationContext:
+                        userProfile.workplaceCommunicationContext ?? "",
+                    motivation: userProfile.motivation ?? "",
                     goals: userProfile.goals,
                     additionalContext: userProfile.additionalContext,
                 },
                 skillMemory: {
                     strengths: skillMemory.strengths,
                     weaknesses: skillMemory.weaknesses,
-                    recentFocus: skillMemory.recentFocus,
+                    masteredFocus: skillMemory.masteredFocus,
+                    reinforcementFocus: skillMemory.reinforcementFocus,
                 },
                 session: {
                     plan: session.plan,
                     transcript,
                     humeContext: JSON.stringify(humeTrimmed),
                 },
-            },
-            { sessionAnalysis: analysis },
-        );
+            });
+
+            feedback = await generateSessionFeedback(
+                {
+                    userProfile: {
+                        role: userProfile.role,
+                        industry: userProfile.industry,
+                        companyName: userProfile.companyName ?? "",
+                        companyDescription: userProfile.companyDescription ?? "",
+                        workplaceCommunicationContext:
+                            userProfile.workplaceCommunicationContext ?? "",
+                        motivation: userProfile.motivation ?? "",
+                        goals: userProfile.goals,
+                        additionalContext: userProfile.additionalContext,
+                    },
+                    skillMemory: {
+                        strengths: skillMemory.strengths,
+                        weaknesses: skillMemory.weaknesses,
+                        masteredFocus: skillMemory.masteredFocus,
+                        reinforcementFocus: skillMemory.reinforcementFocus,
+                    },
+                    session: {
+                        plan: session.plan,
+                        transcript,
+                        humeContext: JSON.stringify(humeTrimmed),
+                    },
+                },
+                { sessionAnalysis: analysis },
+            );
+            completionStatus = "passed";
+            completionReason = null;
+        }
 
         await sessionRef.set(
             {
@@ -235,6 +419,8 @@ export async function POST(request: NextRequest) {
                 transcript,
                 analysis,
                 feedback,
+                completionStatus,
+                completionReason,
             },
             { merge: true },
         );
@@ -245,6 +431,8 @@ export async function POST(request: NextRequest) {
             transcript,
             analysis,
             feedback,
+            completionStatus,
+            completionReason,
         });
     } catch (error) {
         console.error(error);

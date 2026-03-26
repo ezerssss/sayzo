@@ -18,19 +18,31 @@ const sessionPlanSchema = z.object({
         title: z.string(),
         situationContext: z.string(),
         givenContent: z.string(),
-        task: z.string(),
+        framework: z.string(),
     }),
-    focus: z.array(z.string()),
+    skillTarget: z.string(),
+    maxDurationSeconds: z.number(),
 });
 
 export type PlannerInput = {
     userProfile: Pick<
         UserProfileType,
-        "role" | "industry" | "goals" | "additionalContext"
+        | "role"
+        | "industry"
+        | "goals"
+        | "companyName"
+        | "companyDescription"
+        | "workplaceCommunicationContext"
+        | "motivation"
+        | "additionalContext"
+        | "companyResearch"
     >;
     skillMemory: Pick<
         SkillMemoryType,
-        "strengths" | "weaknesses" | "recentFocus"
+        | "strengths"
+        | "weaknesses"
+        | "masteredFocus"
+        | "reinforcementFocus"
     >;
 };
 
@@ -52,33 +64,82 @@ function plannerUserMessage(input: PlannerInput): string {
 ## User profile
 - Role: ${userProfile.role || "(not set)"}
 - Industry: ${userProfile.industry || "(not set)"}
+- Company: ${userProfile.companyName || "(not set)"}
+- Company description: ${userProfile.companyDescription || "(not set)"}
+- Workplace communication context: ${userProfile.workplaceCommunicationContext || "(not set)"}
+- Motivation: ${userProfile.motivation || "(not set)"}
 - Goals: ${userProfile.goals.length ? userProfile.goals.join("; ") : "(none)"}
 - Additional context: ${userProfile.additionalContext?.trim() || "(none)"}
+
+## Company grounding (for realism)
+- Confidence: ${userProfile.companyResearch?.confidence ?? "(none)"}
+- Research summary: ${userProfile.companyResearch?.summary ?? "(none)"}
+- Key products: ${
+        userProfile.companyResearch?.keyProducts?.length
+            ? userProfile.companyResearch.keyProducts.join("; ")
+            : "(none)"
+    }
+- Key features: ${
+        userProfile.companyResearch?.keyFeatures?.length
+            ? userProfile.companyResearch.keyFeatures.join("; ")
+            : "(none)"
+    }
+- Target customers: ${
+        userProfile.companyResearch?.targetCustomers?.length
+            ? userProfile.companyResearch.targetCustomers.join("; ")
+            : "(none)"
+    }
+- Domain signals: ${
+        userProfile.companyResearch?.domainSignals?.length
+            ? userProfile.companyResearch.domainSignals.join("; ")
+            : "(none)"
+    }
+- Supplemental facts: ${
+        userProfile.companyResearch?.supplementalFacts?.length
+            ? userProfile.companyResearch.supplementalFacts.join("; ")
+            : "(none)"
+    }
+- Grounded facts: ${
+        userProfile.companyResearch?.groundedFacts?.length
+            ? userProfile.companyResearch.groundedFacts.join("; ")
+            : "(none)"
+    }
+- Unknowns: ${
+        userProfile.companyResearch?.unknowns?.length
+            ? userProfile.companyResearch.unknowns.join("; ")
+            : "(none)"
+    }
+- Sources: ${
+        userProfile.companyResearch?.sources?.length
+            ? userProfile.companyResearch.sources.join("; ")
+            : "(none)"
+    }
 
 ## Skill memory
 - Strengths: ${skillMemory.strengths.length ? skillMemory.strengths.join("; ") : "(none)"}
 - Weaknesses: ${skillMemory.weaknesses.length ? skillMemory.weaknesses.join("; ") : "(none)"}
-- Recent focus: ${skillMemory.recentFocus.length ? skillMemory.recentFocus.join("; ") : "(none)"}
+- Mastered focus: ${skillMemory.masteredFocus.length ? skillMemory.masteredFocus.join("; ") : "(none)"}
+- Reinforcement focus: ${skillMemory.reinforcementFocus.length ? skillMemory.reinforcementFocus.join("; ") : "(none)"}
 `.trim();
 }
 
 function normalizePlan(plan: SessionPlanType): SessionPlanType {
-    const focus = Array.from(
-        new Set(
-            plan.focus
-                .map((s) => s.trim())
-                .filter((s) => s.length > 0),
-        ),
-    ).slice(0, 2);
+    const skillTarget = plan.skillTarget.trim() || "Structured speaking";
+
+    const maxDurationSeconds = Math.max(
+        120,
+        Math.min(1800, Math.round(plan.maxDurationSeconds || 0)),
+    );
 
     return {
         scenario: {
             title: plan.scenario.title.trim(),
             situationContext: plan.scenario.situationContext.trim(),
             givenContent: plan.scenario.givenContent.trim(),
-            task: plan.scenario.task.trim(),
+            framework: plan.scenario.framework.trim(),
         },
-        focus,
+        skillTarget,
+        maxDurationSeconds,
     };
 }
 
@@ -107,6 +168,8 @@ export function buildSessionFromPlan(uid: string, plan: SessionPlanType): Sessio
         transcript: null,
         analysis: null,
         feedback: null,
+        completionStatus: "pending",
+        completionReason: null,
         createdAt: new Date().toISOString(),
     };
 }

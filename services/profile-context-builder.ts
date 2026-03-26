@@ -10,7 +10,7 @@ import type { UserProfileType } from "@/types/user";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "profile-builder");
 
-/** The four profile fields produced from onboarding; merge with `uid`, timestamps, etc. when saving. */
+/** Profile fields produced from onboarding; merge with `uid`, timestamps, etc. when saving. */
 const userProfileFieldsSchema = z.object({
     role: z.string().describe("Professional role / function from user input."),
     industry: z
@@ -23,6 +23,20 @@ const userProfileFieldsSchema = z.object({
         .describe(
             "Professional English / communication goals from onboarding.",
         ),
+    companyName: z
+        .string()
+        .describe("Employer or organization name if provided, else empty string."),
+    companyDescription: z
+        .string()
+        .describe("Short plain-English description of what the company does."),
+    workplaceCommunicationContext: z
+        .string()
+        .describe(
+            "Specific situations where the user uses English at work and who they communicate with.",
+        ),
+    motivation: z
+        .string()
+        .describe("Why the user wants to improve professional English now."),
     additionalContext: z
         .string()
         .describe(
@@ -32,14 +46,23 @@ const userProfileFieldsSchema = z.object({
 
 export type UserProfileFieldsFromAI = Pick<
     UserProfileType,
-    "role" | "industry" | "goals" | "additionalContext"
+    | "role"
+    | "industry"
+    | "goals"
+    | "companyName"
+    | "companyDescription"
+    | "workplaceCommunicationContext"
+    | "motivation"
+    | "additionalContext"
 >;
 
 export type ProfileContextBuilderInput = {
     role: string;
-    industry?: string;
+    companyName?: string;
+    companyContext?: string;
     goals: string[];
     goalsFreeText?: string;
+    motivation?: string;
     painPoints?: string[];
     painFreeText?: string;
     additionalContext?: string;
@@ -70,14 +93,20 @@ function buildUserMessage(input: ProfileContextBuilderInput): string {
 ## Role (raw)
 ${input.role.trim() || "(empty)"}
 
-## Industry (raw, if collected)
-${(input.industry ?? "").trim() || "(empty)"}
+## Company name (raw)
+${(input.companyName ?? "").trim() || "(empty)"}
+
+## Company context (raw)
+${(input.companyContext ?? "").trim() || "(empty)"}
 
 ## Goals (selected chips)
 ${goalsSection}
 
 ## Goals (free text)
 ${input.goalsFreeText?.trim() || "(none)"}
+
+## Motivation (raw)
+${input.motivation?.trim() || "(none)"}
 
 ## Pain / difficulty (selected chips)
 ${painsSection}
@@ -93,9 +122,11 @@ ${input.additionalContext?.trim() || "(none)"}
 function requireMinimumInput(input: ProfileContextBuilderInput): void {
     const hasAny =
         input.role.trim() ||
-        (input.industry ?? "").trim() ||
+        (input.companyName ?? "").trim() ||
+        (input.companyContext ?? "").trim() ||
         input.goals.length > 0 ||
         input.goalsFreeText?.trim() ||
+        input.motivation?.trim() ||
         input.painPoints?.length ||
         input.painFreeText?.trim() ||
         input.additionalContext?.trim();
@@ -108,8 +139,8 @@ function requireMinimumInput(input: ProfileContextBuilderInput): void {
 }
 
 /**
- * Maps raw onboarding answers into the four profile fields on `UserProfileType`
- * (`role`, `industry`, `goals`, `additionalContext`). Returned object is JSON-serializable.
+ * Maps raw onboarding answers into normalized profile fields on `UserProfileType`.
+ * Returned object is JSON-serializable.
  */
 export async function buildUserProfileFieldsFromOnboarding(
     input: ProfileContextBuilderInput,

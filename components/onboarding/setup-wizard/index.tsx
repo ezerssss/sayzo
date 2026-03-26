@@ -1,10 +1,11 @@
 "use client";
 
 import ky from "ky";
-import { Loader2, Sparkles } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { GoalsStep } from "@/components/onboarding/setup-wizard/goals-step";
+import { MotivationStep } from "@/components/onboarding/setup-wizard/motivation-step";
 import { PainStep } from "@/components/onboarding/setup-wizard/pain-step";
 import { RoleStep } from "@/components/onboarding/setup-wizard/role-step";
 import {
@@ -16,6 +17,7 @@ import {
     SampleStep,
 } from "@/components/onboarding/setup-wizard/sample-step";
 import { WelcomeStep } from "@/components/onboarding/setup-wizard/welcome-step";
+import { WorkplaceStep } from "@/components/onboarding/setup-wizard/workplace-step";
 
 interface PropsInterface {
     uid: string;
@@ -26,8 +28,13 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     const { uid, onBack } = props;
     const [step, setStep] = useState<SetupWizardStep>("welcome");
     const [roleContext, setRoleContext] = useState("");
+    const [companyName, setCompanyName] = useState("");
+    const [companyUrl, setCompanyUrl] = useState("");
+    const [companyContext, setCompanyContext] = useState("");
+    const [workRoleContext, setWorkRoleContext] = useState("");
     const [goals, setGoals] = useState<string[]>([]);
     const [goalsFreeText, setGoalsFreeText] = useState("");
+    const [motivation, setMotivation] = useState("");
     const [painPoints, setPainPoints] = useState<string[]>([]);
     const [painFreeText, setPainFreeText] = useState("");
     const [introSample, setIntroSample] = useState<IntroSamplePayload | null>(
@@ -37,6 +44,13 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     const [createProfileError, setCreateProfileError] = useState<string | null>(
         null,
     );
+    const loadingStages = [
+        "Processing your intro sample",
+        "Building your professional profile",
+        "Analyzing communication baseline",
+        "Generating your first personalized drill",
+    ] as const;
+    const [loadingStageIndex, setLoadingStageIndex] = useState(0);
 
     const stepIndex = useMemo(
         () => SETUP_WIZARD_STEP_ORDER.indexOf(step),
@@ -70,13 +84,19 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             return;
         }
         setCreateProfileError(null);
+        setLoadingStageIndex(0);
         setIsCreatingProfile(true);
 
         const payload = {
             uid,
             roleContext: roleContext.trim(),
+            companyName: companyName.trim(),
+            companyUrl: companyUrl.trim(),
+            companyContext: companyContext.trim(),
+            workRoleContext: workRoleContext.trim(),
             goals,
             goalsFreeText: goalsFreeText.trim(),
+            motivation: motivation.trim(),
             painPoints,
             painFreeText: painFreeText.trim(),
             introTranscript: introSample.transcript.trim(),
@@ -107,19 +127,40 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         goals,
         goalsFreeText,
         introSample,
+        companyContext,
+        companyName,
+        companyUrl,
+        motivation,
         painFreeText,
         painPoints,
         roleContext,
+        workRoleContext,
         uid,
     ]);
 
     const canContinueRole = roleContext.trim().length > 0;
+    const canContinueWorkplace =
+        companyName.trim().length > 0 &&
+        companyContext.trim().length > 0 &&
+        workRoleContext.trim().length > 0;
     const canContinueGoals =
         goals.length > 0 || goalsFreeText.trim().length > 0;
+    const canContinueMotivation = motivation.trim().length > 0;
     const canContinuePain =
         painPoints.length > 0 || painFreeText.trim().length > 0;
     const canFinishSample =
         introSample !== null && introSample.transcript.trim().length > 0;
+    const totalSteps = SETUP_WIZARD_STEP_ORDER.length;
+
+    useEffect(() => {
+        if (!isCreatingProfile) return;
+        const id = setInterval(() => {
+            setLoadingStageIndex((prev) =>
+                prev < loadingStages.length - 1 ? prev + 1 : prev,
+            );
+        }, 1600);
+        return () => clearInterval(id);
+    }, [isCreatingProfile, loadingStages.length]);
 
     if (isCreatingProfile) {
         return (
@@ -127,18 +168,43 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                 <div className="space-y-6 py-6">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Sparkles className="size-4 shrink-0 text-foreground/70" />
-                        <span>Step 5 of 5</span>
+                        <span>Step {totalSteps} of {totalSteps}</span>
                     </div>
-                    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border bg-muted/30 p-8 text-center">
-                        <Loader2 className="size-7 animate-spin text-primary" />
-                        <div className="space-y-2">
-                            <h2 className="text-lg font-semibold tracking-tight">
-                                Creating your profile...
+                    <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-5">
+                        <div className="mb-4 flex items-center gap-2">
+                            <Loader2 className="size-5 animate-spin text-primary" />
+                            <h2 className="text-base font-semibold tracking-tight">
+                                Finalizing your setup
                             </h2>
-                            <p className="text-sm leading-relaxed text-muted-foreground">
-                                We are analyzing your intro and preparing your
-                                personalized Eloquy profile.
-                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            {loadingStages.map((stage, i) => {
+                                const done = i < loadingStageIndex;
+                                const active = i === loadingStageIndex;
+                                return (
+                                    <div
+                                        key={stage}
+                                        className="flex items-center gap-2 text-sm"
+                                    >
+                                        {done ? (
+                                            <CheckCircle2 className="size-4 text-emerald-600" />
+                                        ) : active ? (
+                                            <Loader2 className="size-4 animate-spin text-primary" />
+                                        ) : (
+                                            <div className="size-4 rounded-full border border-border" />
+                                        )}
+                                        <span
+                                            className={
+                                                active
+                                                    ? "text-foreground"
+                                                    : "text-muted-foreground"
+                                            }
+                                        >
+                                            {stage}
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                     {createProfileError ? (
@@ -159,7 +225,9 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             <div className="mb-6 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Sparkles className="size-4 shrink-0 text-foreground/70" />
-                    <span>Step {Math.max(1, stepIndex + 1)} of 5</span>
+                    <span>
+                        Step {Math.max(1, stepIndex + 1)} of {totalSteps}
+                    </span>
                 </div>
             </div>
 
@@ -182,6 +250,32 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                     goalsFreeText={goalsFreeText}
                     onGoalsFreeTextChange={setGoalsFreeText}
                     canContinue={canContinueGoals}
+                    onBack={goPrev}
+                    onNext={goNext}
+                />
+            ) : null}
+
+            {step === "workplace" ? (
+                <WorkplaceStep
+                    companyName={companyName}
+                    onCompanyNameChange={setCompanyName}
+                    companyUrl={companyUrl}
+                    onCompanyUrlChange={setCompanyUrl}
+                    companyContext={companyContext}
+                    onCompanyContextChange={setCompanyContext}
+                    workRoleContext={workRoleContext}
+                    onWorkRoleContextChange={setWorkRoleContext}
+                    canContinue={canContinueWorkplace}
+                    onBack={goPrev}
+                    onNext={goNext}
+                />
+            ) : null}
+
+            {step === "motivation" ? (
+                <MotivationStep
+                    motivation={motivation}
+                    onMotivationChange={setMotivation}
+                    canContinue={canContinueMotivation}
                     onBack={goPrev}
                     onNext={goNext}
                 />

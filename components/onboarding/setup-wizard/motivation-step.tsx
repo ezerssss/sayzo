@@ -6,37 +6,31 @@ import { VoiceInputBlock } from "@/components/onboarding/voice-input-block";
 import { Button } from "@/components/ui/button";
 
 interface PropsInterface {
-    roleContext: string;
-    onRoleContextChange: (value: string) => void;
+    motivation: string;
+    onMotivationChange: (value: string) => void;
     canContinue: boolean;
     onBack: () => void;
     onNext: () => void;
 }
 
-export function RoleStep(props: Readonly<PropsInterface>) {
-    const {
-        roleContext,
-        onRoleContextChange,
-        canContinue,
-        onBack,
-        onNext,
-    } = props;
+export function MotivationStep(props: Readonly<PropsInterface>) {
+    const { motivation, onMotivationChange, canContinue, onBack, onNext } = props;
 
     return (
         <div className="space-y-6">
             <div className="space-y-2">
                 <h2 className="text-lg font-semibold tracking-tight">
-                    What is your role?
+                    Why improve your English now?
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                    Start with your current job function and responsibilities.
+                    This helps us prioritize scenarios that matter most in your role.
                 </p>
             </div>
             <VoiceInputBlock
-                label="What do you do for work?"
-                value={roleContext}
-                onChange={onRoleContextChange}
-                placeholder="e.g. Product manager leading roadmap planning and sprint reviews."
+                label="What outcomes are you aiming for in the next 3-6 months?"
+                value={motivation}
+                onChange={onMotivationChange}
+                placeholder="e.g. Lead project updates clearly, handle client objections, and feel confident in cross-team meetings."
                 minRows={4}
             />
             <div className="flex gap-2">

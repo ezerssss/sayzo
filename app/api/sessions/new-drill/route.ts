@@ -1,5 +1,9 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import {
+    enrichCompanyContext,
+    isCompanyResearchStale,
+} from "@/services/company-context-enricher";
 import { buildSessionFromPlan, planNextSession } from "@/services/planner";
 import { updateSkillMemoryFromLatestSession } from "@/services/skill-memory-updater";
 import type { SkillMemoryType } from "@/types/skill-memory";
@@ -20,7 +24,14 @@ function hydrateSkillMemory(
         uid,
         strengths: Array.isArray(data.strengths) ? data.strengths : [],
         weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
-        recentFocus: Array.isArray(data.recentFocus) ? data.recentFocus : [],
+        masteredFocus: Array.isArray(data.masteredFocus) ? data.masteredFocus : [],
+        reinforcementFocus: Array.isArray(data.reinforcementFocus)
+            ? data.reinforcementFocus
+            : [],
+        lastProcessedSessionId:
+            typeof data.lastProcessedSessionId === "string"
+                ? data.lastProcessedSessionId
+                : null,
         createdAt: typeof data.createdAt === "string" ? data.createdAt : nowIso,
         updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : nowIso,
     };
@@ -42,6 +53,12 @@ async function refreshSkillMemoryFromLatestSession(
     const latestSession = latestSessionSnap.docs[0]?.data() as
         | SessionType
         | undefined;
+    if (!latestSession?.id) {
+        return current;
+    }
+    if (current.lastProcessedSessionId === latestSession.id) {
+        return current;
+    }
     const latestAnalysis = latestSession?.analysis;
     const latestFeedback = latestSession?.feedback;
     if (
@@ -56,17 +73,23 @@ async function refreshSkillMemoryFromLatestSession(
         skillMemory: {
             strengths: current.strengths,
             weaknesses: current.weaknesses,
-            recentFocus: current.recentFocus,
+            masteredFocus: current.masteredFocus,
+            reinforcementFocus: current.reinforcementFocus,
         },
         latestSession: {
+            completionStatus: latestSession?.completionStatus,
+            completionReason: latestSession?.completionReason ?? null,
             analysis: latestAnalysis,
             feedback: latestFeedback,
+            skillTarget: latestSession?.plan?.skillTarget ?? "",
+            framework: latestSession?.plan?.scenario?.framework ?? "",
         },
     });
 
     const updatedSkillMemory: SkillMemoryType = {
         ...current,
         ...updatedFields,
+        lastProcessedSessionId: latestSession.id,
         updatedAt: new Date().toISOString(),
     };
 
@@ -76,6 +99,48 @@ async function refreshSkillMemoryFromLatestSession(
         .set(updatedSkillMemory, { merge: true });
 
     return updatedSkillMemory;
+}
+
+async function refreshCompanyResearchIfNeeded(
+    db: ReturnType<typeof getAdminFirestore>,
+    uid: string,
+    profile: UserProfileType,
+): Promise<UserProfileType> {
+    const companyName = profile.companyName?.trim();
+    if (!companyName) return profile;
+    if (!isCompanyResearchStale(profile.companyResearch)) return profile;
+
+    const enrichment = await enrichCompanyContext({
+        companyName,
+        companyUrl: profile.companyUrl,
+        companyContext: profile.workplaceCommunicationContext,
+        role: profile.role,
+        industry: profile.industry,
+    });
+    if (enrichment == null) return profile;
+
+    const updatedProfile: UserProfileType = {
+        ...profile,
+        industry: profile.industry || enrichment.guessedIndustry,
+        companyDescription: profile.companyDescription || enrichment.summary,
+        companyResearch: enrichment,
+        updatedAt: new Date().toISOString(),
+    };
+
+    await db
+        .collection(FirestoreCollections.users.path)
+        .doc(uid)
+        .set(
+            {
+                industry: updatedProfile.industry,
+                companyDescription: updatedProfile.companyDescription,
+                companyResearch: updatedProfile.companyResearch,
+                updatedAt: updatedProfile.updatedAt,
+            },
+            { merge: true },
+        );
+
+    return updatedProfile;
 }
 
 export async function POST(request: NextRequest) {
@@ -110,6 +175,33 @@ export async function POST(request: NextRequest) {
             .get();
 
         const userProfile = userDoc.data() as UserProfileType;
+        const enrichedUserProfile = await refreshCompanyResearchIfNeeded(
+            db,
+            uid,
+            userProfile,
+        );
+
+        const latestSessionSnap = await db
+            .collection(FirestoreCollections.sessions.path)
+            .where("uid", "==", uid)
+            .orderBy("createdAt", "desc")
+            .limit(1)
+            .get();
+        const latestSession = latestSessionSnap.docs[0]?.data() as
+            | SessionType
+            | undefined;
+        if (latestSession?.completionStatus === "needs_retry") {
+            return NextResponse.json(
+                {
+                    error:
+                        latestSession.completionReason?.trim() ||
+                        "Please redo your current drill before creating a new one.",
+                    code: "DRILL_RETRY_REQUIRED",
+                },
+                { status: 409 },
+            );
+        }
+
         const hydratedSkillMemory = hydrateSkillMemory(uid, skillDoc.data());
         const skillMemory = await refreshSkillMemoryFromLatestSession(
             db,
@@ -119,15 +211,22 @@ export async function POST(request: NextRequest) {
 
         const plan = await planNextSession({
             userProfile: {
-                role: userProfile.role,
-                industry: userProfile.industry,
-                goals: userProfile.goals,
-                additionalContext: userProfile.additionalContext,
+                role: enrichedUserProfile.role,
+                industry: enrichedUserProfile.industry,
+                companyName: enrichedUserProfile.companyName ?? "",
+                companyDescription: enrichedUserProfile.companyDescription ?? "",
+                workplaceCommunicationContext:
+                    enrichedUserProfile.workplaceCommunicationContext ?? "",
+                motivation: enrichedUserProfile.motivation ?? "",
+                goals: enrichedUserProfile.goals,
+                additionalContext: enrichedUserProfile.additionalContext,
+                companyResearch: enrichedUserProfile.companyResearch,
             },
             skillMemory: {
                 strengths: skillMemory.strengths,
                 weaknesses: skillMemory.weaknesses,
-                recentFocus: skillMemory.recentFocus,
+                masteredFocus: skillMemory.masteredFocus,
+                reinforcementFocus: skillMemory.reinforcementFocus,
             },
         });
 

@@ -14,14 +14,25 @@ const PROMPTS_DIR = join(process.cwd(), "prompts", "skill-memory-updater");
 const skillMemoryPatchSchema = z.object({
     strengths: z.array(z.string()),
     weaknesses: z.array(z.string()),
-    recentFocus: z.array(z.string()),
+    masteredFocus: z.array(z.string()),
+    reinforcementFocus: z.array(z.string()),
 });
 
 export type SkillMemoryUpdaterInput = {
-    skillMemory: Pick<SkillMemoryType, "strengths" | "weaknesses" | "recentFocus">;
+    skillMemory: Pick<
+        SkillMemoryType,
+        | "strengths"
+        | "weaknesses"
+        | "masteredFocus"
+        | "reinforcementFocus"
+    >;
     latestSession: {
+        completionStatus?: "pending" | "passed" | "needs_retry";
+        completionReason?: string | null;
         analysis: SessionAnalysisType;
         feedback: string;
+        skillTarget?: string;
+        framework?: string;
     };
 };
 
@@ -42,7 +53,14 @@ function buildUserMessage(input: SkillMemoryUpdaterInput): string {
 ## Current skill memory
 - Strengths: ${input.skillMemory.strengths.length ? input.skillMemory.strengths.join("; ") : "(none)"}
 - Weaknesses: ${input.skillMemory.weaknesses.length ? input.skillMemory.weaknesses.join("; ") : "(none)"}
-- Recent focus: ${input.skillMemory.recentFocus.length ? input.skillMemory.recentFocus.join("; ") : "(none)"}
+- Mastered focus: ${input.skillMemory.masteredFocus.length ? input.skillMemory.masteredFocus.join("; ") : "(none)"}
+- Reinforcement focus: ${input.skillMemory.reinforcementFocus.length ? input.skillMemory.reinforcementFocus.join("; ") : "(none)"}
+
+## Latest session context
+- Completion status: ${input.latestSession.completionStatus?.trim() || "(unknown)"}
+- Completion reason: ${input.latestSession.completionReason?.trim() || "(none)"}
+- Skill target: ${input.latestSession.skillTarget?.trim() || "(none)"}
+- Framework: ${input.latestSession.framework?.trim() || "(none)"}
 
 ## Latest session analysis
 \`\`\`json
@@ -66,14 +84,22 @@ function normalizeItems(values: string[], limit: number): string[] {
 
 export async function updateSkillMemoryFromLatestSession(
     input: SkillMemoryUpdaterInput,
-): Promise<Pick<SkillMemoryType, "strengths" | "weaknesses" | "recentFocus">> {
+): Promise<
+    Pick<
+        SkillMemoryType,
+        | "strengths"
+        | "weaknesses"
+        | "masteredFocus"
+        | "reinforcementFocus"
+    >
+> {
     const result = await generateText({
         model: openai(defaultModel()),
         output: Output.object({
             schema: zodSchema(skillMemoryPatchSchema),
             name: "SkillMemoryPatch",
             description:
-                "Updated strengths, weaknesses, and recentFocus after the latest completed session.",
+                "Updated strengths, weaknesses, and progression priorities after the latest completed session.",
         }),
         system: readPrompt(),
         prompt: buildUserMessage(input),
@@ -83,6 +109,7 @@ export async function updateSkillMemoryFromLatestSession(
     return {
         strengths: normalizeItems(result.output.strengths, 8),
         weaknesses: normalizeItems(result.output.weaknesses, 8),
-        recentFocus: normalizeItems(result.output.recentFocus, 3),
+        masteredFocus: normalizeItems(result.output.masteredFocus, 8),
+        reinforcementFocus: normalizeItems(result.output.reinforcementFocus, 5),
     };
 }

@@ -2,12 +2,15 @@ export type ScenarioType = {
     title: string;
     situationContext: string;
     givenContent: string; // Specific details of the situation that are relevant to the session.
-    task: string; // Clear, structured instructions for the given context
+    framework: string; // Recommended speaking framework/structure for this context.
 };
 
 export type SessionPlanType = {
     scenario: ScenarioType;
-    focus: string[]; // Behaviour constraints that the user should follow.
+    /** Primary user skill this drill aims to improve. */
+    skillTarget: string;
+    /** Maximum recording duration for this drill (seconds). */
+    maxDurationSeconds: number;
 };
 
 export type SessionAnalysisType = {
@@ -17,6 +20,11 @@ export type SessionAnalysisType = {
     regressions: string[];
     notes: string;
 };
+
+export type SessionCompletionStatus =
+    | "pending"
+    | "passed"
+    | "needs_retry";
 
 export type SessionType = {
     id: string;
@@ -29,6 +37,8 @@ export type SessionType = {
 
     analysis: SessionAnalysisType | null;
     feedback: string | null;
+    completionStatus: SessionCompletionStatus;
+    completionReason: string | null;
 
     createdAt: string;
 };

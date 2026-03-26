@@ -78,7 +78,7 @@ export function SampleStep(props: Readonly<PropsInterface>) {
             const data = await ky
                 .post("/api/transcribe", {
                     body: fd,
-                    timeout: 45_000,
+                    timeout: 120_000,
                 })
                 .json<{
                 text?: string;
@@ -135,6 +135,8 @@ export function SampleStep(props: Readonly<PropsInterface>) {
         timerHint = "Turning your intro into text…";
     } else if (isRecording) {
         timerHint = "Recording... stops automatically at 0:00";
+    } else if (canFinish) {
+        timerHint = "Intro captured. Re-record only if you want a new take.";
     } else {
         timerHint = "Tap the button to start recording";
     }
@@ -219,7 +221,7 @@ export function SampleStep(props: Readonly<PropsInterface>) {
                     variant={isRecording ? "secondary" : "outline"}
                     size="lg"
                     className="gap-2 rounded-full"
-                    disabled={isTranscribing}
+                    disabled={isTranscribing || (!isRecording && canFinish)}
                     onClick={async () => {
                         if (isRecording) {
                             await handleStop();
@@ -233,6 +235,23 @@ export function SampleStep(props: Readonly<PropsInterface>) {
                     {recordButtonInner}
                 </Button>
             </div>
+            {canFinish && !isRecording && !isTranscribing ? (
+                <div className="flex justify-center">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={async () => {
+                            onIntroClear?.();
+                            setTranscribeError(null);
+                            setSampleSeconds(MAX_SECONDS);
+                            await start();
+                        }}
+                    >
+                        <Mic />
+                        Re-record intro
+                    </Button>
+                </div>
+            ) : null}
             <div className="flex gap-2">
                 <Button
                     type="button"

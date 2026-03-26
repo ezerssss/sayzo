@@ -9,7 +9,7 @@ import {
     Square,
 } from "lucide-react";
 import ky from "ky";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,8 @@ interface PropsInterface {
 
 type DrillState = "idle" | "recording" | "analyzing" | "complete";
 
-const MAX_SECONDS = 5 * 60; // Max time allowed for a drill.
+const DEFAULT_MAX_SECONDS = 5 * 60; // Fallback max time allowed for a drill.
+const HARD_MAX_SECONDS = 30 * 60; // Absolute safety cap.
 const EMPTY_CAPTIONS_VTT = "data:text/vtt,WEBVTT";
 
 const FALLBACK_PLAN: SessionPlanType = {
@@ -39,9 +40,11 @@ const FALLBACK_PLAN: SessionPlanType = {
             "You are presenting a brief professional update to your team.",
         givenContent:
             "Summarize what changed, why it matters, and what you need from stakeholders.",
-        task: "Keep your response clear, concise, and confident.",
+        framework:
+            "Use PREP: Point -> Reason -> Example -> Point. Keep it concise and confident.",
     },
-    focus: ["Concise structure"],
+    skillTarget: "Concise structure",
+    maxDurationSeconds: DEFAULT_MAX_SECONDS,
 };
 
 // Transcript + feedback rendering live in dedicated components.
@@ -49,12 +52,13 @@ const FALLBACK_PLAN: SessionPlanType = {
 export function SessionHome(props: Readonly<PropsInterface>) {
     const { uid, userLabel, onSignOut, authError } = props;
     const [drillState, setDrillState] = useState<DrillState>("idle");
-    const [seconds, setSeconds] = useState(MAX_SECONDS);
+    const [seconds, setSeconds] = useState(DEFAULT_MAX_SECONDS);
     const [drillError, setDrillError] = useState<string | null>(null);
     const [isCreatingDrill, setIsCreatingDrill] = useState(false);
     const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(
         null,
     );
+    const audioRef = useRef<HTMLAudioElement | null>(null);
     const { isRecording, stream, start, stop } = useVoiceRecorder();
     const {
         session,
@@ -63,6 +67,13 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     } = useLatestSession(uid);
 
     const currentPlan = session?.plan ?? FALLBACK_PLAN;
+    const maxSeconds = Math.max(
+        120,
+        Math.min(
+            HARD_MAX_SECONDS,
+            Math.round(currentPlan.maxDurationSeconds ?? DEFAULT_MAX_SECONDS),
+        ),
+    );
     const currentTranscript = useMemo(() => {
         return session?.transcript?.trim() ?? "";
     }, [session?.transcript]);
@@ -72,6 +83,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     }, [session?.feedback]);
 
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
+    const requiresRetry = session?.completionStatus === "needs_retry";
     const hasServerResults = Boolean(
         session?.audioUrl &&
             (session?.transcript?.trim() || session?.feedback?.trim()),
@@ -95,8 +107,8 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             return;
         }
         setDrillState("idle");
-        setSeconds(MAX_SECONDS);
-    }, [drillState, hasServerResults, isRecording, session]);
+        setSeconds(maxSeconds);
+    }, [drillState, hasServerResults, isRecording, maxSeconds, session]);
 
     useEffect(() => {
         if (drillState !== "recording") {
@@ -142,7 +154,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             URL.revokeObjectURL(recordedAudioUrl);
             setRecordedAudioUrl(null);
         }
-        setSeconds(MAX_SECONDS);
+        setSeconds(maxSeconds);
         setDrillState("recording");
         await start();
     };
@@ -195,9 +207,9 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         try {
             await ky.post("/api/sessions/new-drill", {
                 json: { uid },
-                timeout: 60_000,
+                timeout: 180_000,
             });
-            setSeconds(MAX_SECONDS);
+            setSeconds(maxSeconds);
             setDrillState("idle");
             if (recordedAudioUrl) {
                 URL.revokeObjectURL(recordedAudioUrl);
@@ -212,6 +224,13 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         } finally {
             setIsCreatingDrill(false);
         }
+    };
+
+    const seekToSecond = (seconds: number) => {
+        const el = audioRef.current;
+        if (!el || !Number.isFinite(seconds)) return;
+        el.currentTime = Math.max(0, seconds);
+        void el.play();
     };
 
     return (
@@ -246,11 +265,13 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                     {drillState === "complete" ? (
                         <Button
                             onClick={() => void startAnotherDrill()}
-                            disabled={loadingSession || isCreatingDrill}
+                            disabled={
+                                loadingSession || isCreatingDrill || requiresRetry
+                            }
                         >
                             <ArrowRight />
                             {isCreatingDrill
-                                ? "Creating another drill..."
+                                ? "Building next drill..."
                                 : "Start another drill"}
                         </Button>
                     ) : null}
@@ -264,27 +285,25 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 />
                 <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3">
                     <p className="text-xs font-medium text-muted-foreground">
-                        Task
+                        Framework
                     </p>
                     <MarkdownBlock
                         className="mt-2"
-                        markdown={currentPlan.scenario.task}
+                        markdown={currentPlan.scenario.framework}
                     />
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                    {currentPlan.focus.map((item) => (
-                        <span
-                            key={item}
-                            className="rounded-full border border-border bg-background px-2.5 py-1 text-xs"
-                        >
-                            {item}
-                        </span>
-                    ))}
+                <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        Skill target
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        {currentPlan.skillTarget}
+                    </p>
                 </div>
             </div>
             {loadingSession ? (
                 <p className="mt-3 text-sm text-muted-foreground">
-                    Loading latest drill...
+                    Syncing your latest drill...
                 </p>
             ) : null}
             {drillError ? (
@@ -301,6 +320,11 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 <p className="mt-2 text-sm text-muted-foreground">
                     {stateLabel}
                 </p>
+                {requiresRetry ? (
+                    <p className="mt-2 text-sm text-amber-700">
+                        Please redo this drill before creating a new one.
+                    </p>
+                ) : null}
                 {isRecording ? (
                     <LiveWaveform stream={stream} active className="mt-3" />
                 ) : null}
@@ -324,10 +348,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                             <Button
                                 variant="outline"
                                 onClick={() => {
-                                    const el = document.getElementById(
-                                        "session-audio-playback",
-                                    ) as HTMLAudioElement | null;
-                                    void el?.play();
+                                    void audioRef.current?.play();
                                 }}
                                 disabled={!playbackSrc}
                             >
@@ -347,6 +368,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 {drillState === "complete" && playbackSrc ? (
                     <audio
                         id="session-audio-playback"
+                        ref={audioRef}
                         className="mt-4 w-full"
                         controls
                         src={playbackSrc}
@@ -363,7 +385,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 {drillState === "analyzing" ? (
                     <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
-                        Running analysis...
+                        Transcribing, scoring delivery, and generating feedback...
                     </div>
                 ) : null}
             </div>
@@ -371,7 +393,10 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             {drillState === "complete" ? (
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
                     {currentTranscript ? (
-                        <TranscriptPanel transcript={currentTranscript} />
+                        <TranscriptPanel
+                            transcript={currentTranscript}
+                            onSeekToSecond={seekToSecond}
+                        />
                     ) : (
                         <div className="rounded-xl border border-border/70 p-4">
                             <p className="text-sm font-medium">Transcript</p>
@@ -381,7 +406,12 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                         </div>
                     )}
                     {currentFeedback ? (
-                        <FeedbackPanel feedbackMarkdown={currentFeedback} />
+                        <FeedbackPanel
+                            feedbackMarkdown={currentFeedback}
+                            onSeekToSecond={seekToSecond}
+                            needsRetry={requiresRetry}
+                            completionReason={session?.completionReason ?? null}
+                        />
                     ) : (
                         <div className="rounded-xl border border-border/70 p-4">
                             <p className="text-sm font-medium">Feedback</p>

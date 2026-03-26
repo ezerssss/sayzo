@@ -1,6 +1,7 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { analyzeSession } from "@/services/analyzer";
+import { enrichCompanyContext } from "@/services/company-context-enricher";
 import { buildSessionFromPlan, planNextSession } from "@/services/planner";
 import { buildUserProfileFieldsFromOnboarding } from "@/services/profile-context-builder";
 import { measureSessionExpression } from "@/services/hume-expression";
@@ -11,8 +12,13 @@ import { NextResponse, type NextRequest } from "next/server";
 type CompleteOnboardingPayload = {
     uid: string;
     roleContext: string;
+    companyName: string;
+    companyUrl: string;
+    companyContext: string;
+    workRoleContext: string;
     goals: string[];
     goalsFreeText: string;
+    motivation: string;
     painPoints: string[];
     painFreeText: string;
     introTranscript: string;
@@ -69,22 +75,41 @@ export async function POST(request: NextRequest) {
 
         const profileFields = await buildUserProfileFieldsFromOnboarding({
             role: payload.roleContext,
-            industry: "",
+            companyName: payload.companyName,
+            companyContext: `${payload.companyContext}\nRole at company:\n${payload.workRoleContext}`,
             goals: payload.goals ?? [],
             goalsFreeText: payload.goalsFreeText,
+            motivation: payload.motivation,
             painPoints: payload.painPoints ?? [],
             painFreeText: payload.painFreeText,
             additionalContext: `Intro transcript:\n${introTranscript}\n\nVoice expression summary:\n${JSON.stringify(humeTrimmed)}`,
         });
 
         const nowIso = new Date().toISOString();
+        const companyResearch = await enrichCompanyContext({
+            companyName: profileFields.companyName,
+            companyUrl: payload.companyUrl,
+            companyContext: profileFields.workplaceCommunicationContext,
+            role: profileFields.role,
+            industry: profileFields.industry,
+        });
+
         const profile: UserProfileType = {
             uid,
             onboardingComplete: true,
             role: profileFields.role,
-            industry: profileFields.industry,
+            industry:
+                profileFields.industry || companyResearch?.guessedIndustry || "",
             goals: profileFields.goals,
             additionalContext: profileFields.additionalContext,
+            companyName: profileFields.companyName,
+            companyUrl: payload.companyUrl?.trim() || "",
+            companyDescription:
+                profileFields.companyDescription || companyResearch?.summary || "",
+            workplaceCommunicationContext:
+                profileFields.workplaceCommunicationContext,
+            motivation: profileFields.motivation,
+            companyResearch: companyResearch ?? undefined,
             createdAt: nowIso,
             updatedAt: nowIso,
         };
@@ -93,13 +118,20 @@ export async function POST(request: NextRequest) {
             userProfile: {
                 role: profile.role,
                 industry: profile.industry,
+                companyName: profile.companyName,
+                companyDescription: profile.companyDescription,
+                workplaceCommunicationContext:
+                    profile.workplaceCommunicationContext,
+                motivation: profile.motivation,
                 goals: profile.goals,
                 additionalContext: profile.additionalContext,
+                companyResearch: profile.companyResearch,
             },
             skillMemory: {
                 strengths: [],
                 weaknesses: [],
-                recentFocus: [],
+                masteredFocus: [],
+                reinforcementFocus: [],
             },
             session: {
                 plan: {
@@ -107,9 +139,10 @@ export async function POST(request: NextRequest) {
                         title: "Onboarding self-introduction",
                         situationContext: "",
                         givenContent: "",
-                        task: "",
+                        framework: "",
                     },
-                    focus: payload.painPoints ?? [],
+                    skillTarget: "Confident self-introduction",
+                    maxDurationSeconds: 120,
                 },
                 transcript: introTranscript,
                 humeContext: JSON.stringify(humeTrimmed),
@@ -138,7 +171,9 @@ export async function POST(request: NextRequest) {
             uid,
             strengths,
             weaknesses,
-            recentFocus: [],
+            masteredFocus: [],
+            reinforcementFocus: [],
+            lastProcessedSessionId: null,
             createdAt: nowIso,
             updatedAt: nowIso,
         };
@@ -147,13 +182,20 @@ export async function POST(request: NextRequest) {
             userProfile: {
                 role: profile.role,
                 industry: profile.industry,
+                companyName: profile.companyName,
+                companyDescription: profile.companyDescription,
+                workplaceCommunicationContext:
+                    profile.workplaceCommunicationContext,
+                motivation: profile.motivation,
                 goals: profile.goals,
                 additionalContext: profile.additionalContext,
+                companyResearch: profile.companyResearch,
             },
             skillMemory: {
                 strengths: skillMemory.strengths,
                 weaknesses: skillMemory.weaknesses,
-                recentFocus: skillMemory.recentFocus,
+                masteredFocus: skillMemory.masteredFocus,
+                reinforcementFocus: skillMemory.reinforcementFocus,
             },
         });
         const initialSession = buildSessionFromPlan(uid, initialPlan);

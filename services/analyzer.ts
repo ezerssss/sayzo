@@ -23,11 +23,22 @@ const sessionAnalysisSchema = z.object({
 export type AnalyzerInput = {
     userProfile: Pick<
         UserProfileType,
-        "role" | "industry" | "goals" | "additionalContext"
+        | "role"
+        | "industry"
+        | "goals"
+        | "companyName"
+        | "companyDescription"
+        | "workplaceCommunicationContext"
+        | "motivation"
+        | "additionalContext"
+        | "companyResearch"
     >;
     skillMemory: Pick<
         SkillMemoryType,
-        "strengths" | "weaknesses" | "recentFocus"
+        | "strengths"
+        | "weaknesses"
+        | "masteredFocus"
+        | "reinforcementFocus"
     >;
     session: {
         plan: SessionPlanType;
@@ -56,6 +67,31 @@ function requireTranscript(transcript: string): void {
     }
 }
 
+function parseTimestampToken(token: string): number | null {
+    const m = token.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!m) return null;
+    if (m[3] != null) {
+        const hh = Number(m[1]);
+        const mm = Number(m[2]);
+        const ss = Number(m[3]);
+        return hh * 3600 + mm * 60 + ss;
+    }
+    const mm = Number(m[1]);
+    const ss = Number(m[2]);
+    return mm * 60 + ss;
+}
+
+function linkifyFeedbackTimestamps(markdown: string): string {
+    return markdown.replace(
+        /\[(\d{1,2}:\d{2}(?::\d{2})?)\](?!\()/g,
+        (_full, stamp: string) => {
+            const seconds = parseTimestampToken(stamp);
+            if (seconds == null) return `[${stamp}]`;
+            return `[${stamp}](time:${seconds})`;
+        },
+    );
+}
+
 function buildContextUserMessage(input: AnalyzerInput): string {
     const { userProfile, skillMemory, session } = input;
     const hume = session.humeContext?.trim();
@@ -64,20 +100,25 @@ function buildContextUserMessage(input: AnalyzerInput): string {
 ## User profile
 - Role: ${userProfile.role || "(not set)"}
 - Industry: ${userProfile.industry || "(not set)"}
+- Company: ${userProfile.companyName || "(not set)"}
+- Company description: ${userProfile.companyDescription || "(not set)"}
+- Workplace communication context: ${userProfile.workplaceCommunicationContext || "(not set)"}
+- Motivation: ${userProfile.motivation || "(not set)"}
 - Goals: ${userProfile.goals.length ? userProfile.goals.join("; ") : "(none)"}
 - Additional context: ${userProfile.additionalContext?.trim() || "(none)"}
 
 ## Skill memory
 - Strengths: ${skillMemory.strengths.length ? skillMemory.strengths.join("; ") : "(none)"}
 - Weaknesses: ${skillMemory.weaknesses.length ? skillMemory.weaknesses.join("; ") : "(none)"}
-- Recent focus: ${skillMemory.recentFocus.length ? skillMemory.recentFocus.join("; ") : "(none)"}
+- Mastered focus: ${skillMemory.masteredFocus.length ? skillMemory.masteredFocus.join("; ") : "(none)"}
+- Reinforcement focus: ${skillMemory.reinforcementFocus.length ? skillMemory.reinforcementFocus.join("; ") : "(none)"}
 
 ## Session plan
 - Scenario title: ${session.plan.scenario.title || "(none)"}
 - Situation context: ${session.plan.scenario.situationContext || "(none)"}
 - Given content: ${session.plan.scenario.givenContent || "(none)"}
-- Task: ${session.plan.scenario.task || "(none)"}
-- Focus: ${session.plan.focus.length ? session.plan.focus.join("; ") : "(none)"}
+- Framework: ${session.plan.scenario.framework || "(none)"}
+- Skill target: ${session.plan.skillTarget || "(none)"}
 
 ## Session transcript
 ${session.transcript.trim()}
@@ -137,5 +178,5 @@ export async function generateSessionFeedback(
         temperature: 0.35,
     });
 
-    return text.trim();
+    return linkifyFeedbackTimestamps(text.trim());
 }

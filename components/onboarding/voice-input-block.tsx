@@ -1,5 +1,6 @@
 "use client";
 
+import ky from "ky";
 import { Loader2, Mic, Square } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 
@@ -48,22 +49,16 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
                     "file",
                     new File([blob], "voice-input.webm", { type: mimeType }),
                 );
-                const res = await fetch("/api/transcribe", {
-                    method: "POST",
-                    body: fd,
-                });
-                const data = (await res.json()) as {
+                const data = await ky
+                    .post("/api/transcribe", {
+                        body: fd,
+                        timeout: 120_000,
+                    })
+                    .json<{
                     text?: string;
                     error?: string;
                     detail?: string;
-                };
-                if (!res.ok) {
-                    throw new Error(
-                        data.error ??
-                            data.detail ??
-                            "Transcription request failed.",
-                    );
-                }
+                }>();
                 const nextText = data.text?.trim();
                 if (nextText) {
                     onChange(nextText);
