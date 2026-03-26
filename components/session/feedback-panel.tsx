@@ -71,12 +71,15 @@ function markdownComponents(
             </h3>
         ),
         ul: ({ children }) => (
-            <ul className="list-disc space-y-1 pl-4">{children}</ul>
+            <ul className="list-disc space-y-1.5 pl-4">{children}</ul>
         ),
         li: ({ children }) => (
             <li className="text-sm leading-relaxed text-muted-foreground">
                 {children}
             </li>
+        ),
+        strong: ({ children }) => (
+            <strong className="font-semibold text-foreground/90">{children}</strong>
         ),
         p: ({ children }) => (
             <p className="text-sm leading-relaxed text-muted-foreground">

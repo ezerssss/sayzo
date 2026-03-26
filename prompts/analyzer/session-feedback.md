@@ -30,11 +30,11 @@ Use short sections with `##` headings using this structure:
 ### Inline better-option rule (critical)
 
 - In `## Moments to tighten`, each primary bullet should include a directly paired improved alternative right there (same bullet), so the learner does not need to scroll to another section.
-- Use this pattern when possible:
-  - `- [timestamp] Problem observed ...`
-  - `  Why to tighten: ...` (impact on clarity, structure, confidence, credibility, or listener effort)
-  - `  Better option: "..."` (or `  Better structure: ...`)
-  - `  Why this is better: ...` (what improves and why it works better in this context)
+- Use this exact markdown shape (line breaks required; do not collapse into one paragraph):
+  - `- [timestamp] Problem observed: ...`
+  - `  - **Why to tighten:** ...` (impact on clarity, structure, confidence, credibility, or listener effort)
+  - `  - **Better option:** "..."` (or `**Better structure:** ...`)
+  - `  - **Why this is better:** ...` (what improves and why it works better in this context)
 - Keep the paired alternative specific to that exact moment (wording, structure, or delivery cue).
 - Use `## Better options` only for additional scripts/alternatives that are not tied to a specific bullet above.
 - Do not only rewrite; always explain the reasoning for both the issue and the improved option.
