@@ -46,7 +46,8 @@ export type SessionType = {
         | "uploading"
         | "analyzing_expression"
         | "analyzing"
-        | "combining";
+        | "combining"
+        | null;
     processingJobId?: string | null;
     processingError?: string | null;
     processingUpdatedAt?: string;

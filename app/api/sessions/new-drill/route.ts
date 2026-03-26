@@ -192,7 +192,10 @@ export async function POST(request: NextRequest) {
         const latestSession = latestSessionSnap.docs[0]?.data() as
             | SessionType
             | undefined;
-        if (latestSession?.completionStatus === "needs_retry") {
+        if (
+            latestSession?.completionStatus === "needs_retry" &&
+            latestSession?.processingStatus !== "processing"
+        ) {
             return NextResponse.json(
                 {
                     error:

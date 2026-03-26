@@ -140,6 +140,12 @@ export async function POST(request: NextRequest) {
 
         await sessionRef.set(
             {
+                audioUrl: null,
+                transcript: null,
+                analysis: null,
+                feedback: null,
+                completionStatus: "pending",
+                completionReason: null,
                 processingStatus: "processing",
                 processingStage: "transcribing",
                 processingJobId,
@@ -332,21 +338,13 @@ export async function POST(request: NextRequest) {
             { merge: true },
         );
 
-        // 3) Hume trimmed signals for delivery context (optional, but powerful for analyzer)
-        let humeTrimmed = null;
-        try {
-            humeTrimmed = await measureSessionExpression({
-                audio: audioBytes,
-                transcript,
-                filename: audio.name || "response.webm",
-                contentType: audio.type || "application/octet-stream",
-            });
-        } catch (error) {
-            console.error(
-                "[app/api/sessions/complete] Hume expression measurement failed",
-                error,
-            );
-        }
+        // 3) Hume expression is required for final analysis.
+        const humeTrimmed = await measureSessionExpression({
+            audio: audioBytes,
+            transcript,
+            filename: audio.name || "response.webm",
+            contentType: audio.type || "application/octet-stream",
+        });
 
         await sessionRef.set(
             {
@@ -508,7 +506,7 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
                 completionStatus,
                 completionReason,
                 processingStatus: "idle",
-                processingStage: undefined,
+                processingStage: null,
                 processingJobId: null,
                 processingError: null,
                 processingUpdatedAt: new Date().toISOString(),
@@ -552,7 +550,7 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
                 await sessionRef.set(
                     {
                         processingStatus: "failed",
-                        processingStage: undefined,
+                        processingStage: null,
                         processingJobId: null,
                         processingError:
                             error instanceof Error

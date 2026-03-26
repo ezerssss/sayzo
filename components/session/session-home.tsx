@@ -91,7 +91,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     const isServerProcessing = session?.processingStatus === "processing";
     const processingStage = session?.processingStage;
     const hasServerResults = Boolean(
-        session?.audioUrl &&
+        session?.completionStatus !== "pending" &&
             (session?.transcript?.trim() || session?.feedback?.trim()),
     );
 
