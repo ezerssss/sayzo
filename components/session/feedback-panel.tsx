@@ -52,25 +52,22 @@ function markdownComponents(
     a: ({ children, ...props }: { children?: ReactNode; href?: string }) => {
         const href = typeof props.href === "string" ? props.href : "";
         const seconds = parseTimestampHref(href);
-        if (seconds == null || !onSeekToSecond) {
-            return (
-                <a
-                    href={href}
-                    className="underline decoration-dotted underline-offset-2"
-                >
-                    {children}
-                </a>
-            );
-        }
-
         return (
-            <button
-                type="button"
-                className="rounded-md bg-muted px-1.5 py-0.5 text-foreground underline decoration-dotted underline-offset-2 hover:bg-muted/80"
-                onClick={() => onSeekToSecond(seconds)}
+            <a
+                href={href}
+                className={
+                    seconds != null && onSeekToSecond
+                        ? "rounded-md bg-muted px-1.5 py-0.5 text-foreground underline decoration-dotted underline-offset-2 hover:bg-muted/80"
+                        : "underline decoration-dotted underline-offset-2"
+                }
+                onClick={(event) => {
+                    if (seconds == null || !onSeekToSecond) return;
+                    event.preventDefault();
+                    onSeekToSecond(seconds);
+                }}
             >
                 {children}
-            </button>
+            </a>
         );
     },
 };
