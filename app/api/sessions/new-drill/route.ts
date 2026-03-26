@@ -1,11 +1,82 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { buildSessionFromPlan, planNextSession } from "@/services/planner";
+import { updateSkillMemoryFromLatestSession } from "@/services/skill-memory-updater";
 import type { SkillMemoryType } from "@/types/skill-memory";
+import type { SessionType } from "@/types/sessions";
 import type { UserProfileType } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";
 
 type NewDrillPayload = { uid: string };
+
+function hydrateSkillMemory(
+    uid: string,
+    skillMemoryData: unknown,
+): SkillMemoryType {
+    const data = (skillMemoryData ?? {}) as Partial<SkillMemoryType>;
+    const nowIso = new Date().toISOString();
+
+    return {
+        uid,
+        strengths: Array.isArray(data.strengths) ? data.strengths : [],
+        weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
+        recentFocus: Array.isArray(data.recentFocus) ? data.recentFocus : [],
+        createdAt: typeof data.createdAt === "string" ? data.createdAt : nowIso,
+        updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : nowIso,
+    };
+}
+
+async function refreshSkillMemoryFromLatestSession(
+    db: ReturnType<typeof getAdminFirestore>,
+    uid: string,
+    current: SkillMemoryType,
+): Promise<SkillMemoryType> {
+    const latestSessionSnap = await db
+        .collection(FirestoreCollections.sessions.path)
+        .where("uid", "==", uid)
+        .orderBy("createdAt", "desc")
+        .limit(1)
+        .get();
+    if (latestSessionSnap.empty) return current;
+
+    const latestSession = latestSessionSnap.docs[0]?.data() as
+        | SessionType
+        | undefined;
+    const latestAnalysis = latestSession?.analysis;
+    const latestFeedback = latestSession?.feedback;
+    if (
+        latestAnalysis == null ||
+        typeof latestFeedback !== "string" ||
+        latestFeedback.trim().length === 0
+    ) {
+        return current;
+    }
+
+    const updatedFields = await updateSkillMemoryFromLatestSession({
+        skillMemory: {
+            strengths: current.strengths,
+            weaknesses: current.weaknesses,
+            recentFocus: current.recentFocus,
+        },
+        latestSession: {
+            analysis: latestAnalysis,
+            feedback: latestFeedback,
+        },
+    });
+
+    const updatedSkillMemory: SkillMemoryType = {
+        ...current,
+        ...updatedFields,
+        updatedAt: new Date().toISOString(),
+    };
+
+    await db
+        .collection(FirestoreCollections.skillMemories.path)
+        .doc(uid)
+        .set(updatedSkillMemory, { merge: true });
+
+    return updatedSkillMemory;
+}
 
 export async function POST(request: NextRequest) {
     let payload: NewDrillPayload;
@@ -39,36 +110,12 @@ export async function POST(request: NextRequest) {
             .get();
 
         const userProfile = userDoc.data() as UserProfileType;
-        const skillMemoryData = skillDoc.data();
-        const skillMemory: SkillMemoryType = skillMemoryData
-            ? {
-                  uid,
-                  strengths: Array.isArray(skillMemoryData.strengths)
-                      ? (skillMemoryData.strengths as string[])
-                      : [],
-                  weaknesses: Array.isArray(skillMemoryData.weaknesses)
-                      ? (skillMemoryData.weaknesses as string[])
-                      : [],
-                  recentFocus: Array.isArray(skillMemoryData.recentFocus)
-                      ? (skillMemoryData.recentFocus as string[])
-                      : [],
-                  createdAt:
-                      typeof skillMemoryData.createdAt === "string"
-                          ? skillMemoryData.createdAt
-                          : new Date().toISOString(),
-                  updatedAt:
-                      typeof skillMemoryData.updatedAt === "string"
-                          ? skillMemoryData.updatedAt
-                          : new Date().toISOString(),
-              }
-            : {
-                  uid,
-                  strengths: [],
-                  weaknesses: [],
-                  recentFocus: [],
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-              };
+        const hydratedSkillMemory = hydrateSkillMemory(uid, skillDoc.data());
+        const skillMemory = await refreshSkillMemoryFromLatestSession(
+            db,
+            uid,
+            hydratedSkillMemory,
+        );
 
         const plan = await planNextSession({
             userProfile: {
