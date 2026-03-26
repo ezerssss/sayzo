@@ -31,6 +31,36 @@ function parseTimestampHref(href: string): number | null {
     return null;
 }
 
+function parseTimestampFromChildren(children?: ReactNode): number | null {
+    if (typeof children === "string") {
+        const cleaned = children.trim().replaceAll(/^\[|\]$/g, "");
+        return parseTimestampToken(cleaned);
+    }
+    if (Array.isArray(children) && children.length === 1) {
+        const first = children[0];
+        if (typeof first === "string") {
+            const cleaned = first.trim().replaceAll(/^\[|\]$/g, "");
+            return parseTimestampToken(cleaned);
+        }
+    }
+    return null;
+}
+
+function parseTimestampToken(token: string): number | null {
+    const tokenPattern = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/;
+    const m = tokenPattern.exec(token);
+    if (!m) return null;
+    if (m[3] != null) {
+        const hh = Number(m[1]);
+        const mm = Number(m[2]);
+        const ss = Number(m[3]);
+        return hh * 3600 + mm * 60 + ss;
+    }
+    const mm = Number(m[1]);
+    const ss = Number(m[2]);
+    return mm * 60 + ss;
+}
+
 function markdownComponents(
     onSeekToSecond?: (seconds: number) => void,
 ): MarkdownComponents {
@@ -51,20 +81,22 @@ function markdownComponents(
     ),
     a: ({ children, ...props }: { children?: ReactNode; href?: string }) => {
         const href = typeof props.href === "string" ? props.href : "";
-        const seconds = parseTimestampHref(href);
+        const seconds = parseTimestampHref(href) ?? parseTimestampFromChildren(children);
+        if (seconds != null && onSeekToSecond) {
+            return (
+                <button
+                    type="button"
+                    className="rounded-md bg-muted px-1.5 py-0.5 text-foreground underline decoration-dotted underline-offset-2 hover:bg-muted/80"
+                    onClick={() => onSeekToSecond(seconds)}
+                >
+                    {children}
+                </button>
+            );
+        }
         return (
             <a
                 href={href}
-                className={
-                    seconds != null && onSeekToSecond
-                        ? "rounded-md bg-muted px-1.5 py-0.5 text-foreground underline decoration-dotted underline-offset-2 hover:bg-muted/80"
-                        : "underline decoration-dotted underline-offset-2"
-                }
-                onClick={(event) => {
-                    if (seconds == null || !onSeekToSecond) return;
-                    event.preventDefault();
-                    onSeekToSecond(seconds);
-                }}
+                className="underline decoration-dotted underline-offset-2"
             >
                 {children}
             </a>
@@ -89,7 +121,10 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                 <p className="mt-2 text-sm text-amber-700">{completionReason}</p>
             ) : null}
             <div className="mt-2">
-                <ReactMarkdown components={markdownComponents(onSeekToSecond)}>
+                <ReactMarkdown
+                    components={markdownComponents(onSeekToSecond)}
+                    urlTransform={(url) => url}
+                >
                     {feedbackMarkdown}
                 </ReactMarkdown>
             </div>
