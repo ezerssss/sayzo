@@ -87,13 +87,15 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     }, [session?.feedback]);
 
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
-    const requiresRetry = session?.completionStatus === "needs_retry";
     const isServerProcessing = session?.processingStatus === "processing";
+    const requiresRetry =
+        session?.completionStatus === "needs_retry" && !isServerProcessing;
     const processingStage = session?.processingStage;
     const hasServerResults = Boolean(
         session?.completionStatus !== "pending" &&
             (session?.transcript?.trim() || session?.feedback?.trim()),
     );
+    const shouldShowResults = hasServerResults;
 
     const mm = Math.floor(seconds / 60);
     const ss = seconds % 60;
@@ -104,16 +106,16 @@ export function SessionHome(props: Readonly<PropsInterface>) {
 
     useEffect(() => {
         if (!session) return;
-        if (isRecording || drillState === "analyzing" || drillState === "recording") {
-            return;
-        }
-        if (isServerProcessing) {
-            setDrillState("analyzing");
+        if (isRecording || drillState === "recording") {
             return;
         }
         if (hasServerResults) {
             setDrillState("complete");
             setSeconds(0);
+            return;
+        }
+        if (isServerProcessing) {
+            setDrillState("analyzing");
             return;
         }
         setDrillState("idle");
@@ -304,7 +306,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                             {currentPlan.scenario.title}
                         </h2>
                     </div>
-                    {drillState === "complete" ? (
+                    {shouldShowResults ? (
                         <Button
                             onClick={() => void startAnotherDrill()}
                             disabled={
@@ -371,7 +373,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                     <LiveWaveform stream={stream} active className="mt-3" />
                 ) : null}
                 <div className="mt-4 flex flex-wrap gap-2">
-                    {drillState === "complete" ? null : (
+                    {shouldShowResults ? null : (
                         <Button
                             variant={isRecording ? "secondary" : "outline"}
                             disabled={drillState === "analyzing"}
@@ -385,7 +387,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                             {isRecording ? "Stop recording" : "Record response"}
                         </Button>
                     )}
-                    {drillState === "complete" ? (
+                    {shouldShowResults ? (
                         <>
                             <Button
                                 variant="outline"
@@ -407,7 +409,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                         </>
                     ) : null}
                 </div>
-                {drillState === "complete" && playbackSrc ? (
+                {shouldShowResults && playbackSrc ? (
                     <audio
                         id="session-audio-playback"
                         ref={audioRef}
@@ -432,7 +434,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 ) : null}
             </div>
 
-            {drillState === "complete" ? (
+            {shouldShowResults ? (
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
                     {currentTranscript ? (
                         <TranscriptPanel

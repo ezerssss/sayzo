@@ -56,11 +56,6 @@ function buildTimestampedTranscript(
     return lines.length > 0 ? lines.join("\n") : fallbackText;
 }
 
-function countWords(text: string): number {
-    const matches = text.match(/[A-Za-z0-9']+/g);
-    return matches?.length ?? 0;
-}
-
 const attemptCheckSchema = z.object({
     isAttemptUsable: z.boolean(),
     isRelatedToDrill: z.boolean(),
@@ -356,27 +351,21 @@ export async function POST(request: NextRequest) {
             { merge: true },
         );
 
-        const transcriptWordCount = countWords(transcript);
-        const obviouslyTooShort = transcriptWordCount < 8;
-        let shouldSkipDeepAnalysis = obviouslyTooShort;
-        let skipReason = obviouslyTooShort
-            ? "The response is too short to evaluate meaningfully."
-            : "";
-
-        if (!obviouslyTooShort) {
-            const relevanceCheck = await generateText({
-                model: openai(process.env.ANALYZER_MODEL?.trim() || "gpt-4o-mini"),
-                output: Output.object({
-                    schema: zodSchema(attemptCheckSchema),
-                    name: "AttemptRelevanceCheck",
-                    description:
-                        "Checks whether a spoken response is usable and related to the assigned drill.",
-                }),
-                system: `You are a strict evaluator for spoken drill validity.
+        let shouldSkipDeepAnalysis = false;
+        let skipReason = "";
+        const relevanceCheck = await generateText({
+            model: openai(process.env.ANALYZER_MODEL?.trim() || "gpt-4o-mini"),
+            output: Output.object({
+                schema: zodSchema(attemptCheckSchema),
+                name: "AttemptRelevanceCheck",
+                description:
+                    "Checks whether a spoken response is usable and related to the assigned drill.",
+            }),
+            system: `You are a strict evaluator for spoken drill validity.
 If response is too short, empty, or clearly unrelated to the assigned drill, mark it not usable.
 Be conservative: do not infer relevance from weak evidence.
 Return only the schema fields.`,
-                prompt: `## Drill
+            prompt: `## Drill
 Title: ${session.plan.scenario.title}
 Situation: ${session.plan.scenario.situationContext}
 Given content: ${session.plan.scenario.givenContent}
@@ -385,16 +374,17 @@ Skill target: ${session.plan.skillTarget}
 
 ## Transcript
 ${transcript}`,
-                temperature: 0,
-            });
+            temperature: 0,
+        });
 
-            if (
-                !relevanceCheck.output.isAttemptUsable ||
-                !relevanceCheck.output.isRelatedToDrill
-            ) {
-                shouldSkipDeepAnalysis = true;
-                skipReason = relevanceCheck.output.reason.trim() || "The response was not sufficiently related to the drill.";
-            }
+        if (
+            !relevanceCheck.output.isAttemptUsable ||
+            !relevanceCheck.output.isRelatedToDrill
+        ) {
+            shouldSkipDeepAnalysis = true;
+            skipReason =
+                relevanceCheck.output.reason.trim() ||
+                "The response was not sufficiently related to the drill.";
         }
 
         // 4) Analyzer output (structured + markdown feedback)
