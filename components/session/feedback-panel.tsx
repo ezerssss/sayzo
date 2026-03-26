@@ -17,9 +17,11 @@ interface PropsInterface {
 }
 
 function parseTimestampHref(href: string): number | null {
-    const value = href.trim().toLowerCase();
-    if (value.startsWith("time:")) {
-        const maybe = Number(value.replace("time:", ""));
+    const value = decodeURIComponent(href.trim().toLowerCase());
+    const timePattern = /(?:^|\/)time:(\d+(?:\.\d+)?)(?:$|[/?#])/;
+    const timeMatch = timePattern.exec(value);
+    if (timeMatch?.[1]) {
+        const maybe = Number(timeMatch[1]);
         return Number.isFinite(maybe) ? maybe : null;
     }
     if (value.startsWith("#t=")) {
