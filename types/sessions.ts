@@ -39,6 +39,9 @@ export type SessionType = {
     feedback: string | null;
     completionStatus: SessionCompletionStatus;
     completionReason: string | null;
+    processingStatus?: "idle" | "processing" | "failed";
+    processingError?: string | null;
+    processingUpdatedAt?: string;
 
     createdAt: string;
 };

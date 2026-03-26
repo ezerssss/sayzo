@@ -11,7 +11,12 @@ import { useUserProfileExists } from "@/hooks/use-user-profile-exists";
 export default function Home() {
     const { user, loading, authError, signInWithGoogle, signOut } =
         useAuthUser();
-    const { loading: profileLoading, exists: profileExists } =
+    const {
+        loading: profileLoading,
+        exists: profileExists,
+        onboardingComplete,
+        onboardingStatus,
+    } =
         useUserProfileExists(user?.uid);
 
     let content: ReactNode;
@@ -40,7 +45,11 @@ export default function Home() {
                 </p>
             </section>
         );
-    } else if (profileExists === false) {
+    } else if (
+        profileExists === false ||
+        onboardingComplete === false ||
+        onboardingStatus === "processing"
+    ) {
         content = <SetupWizard uid={user.uid} />;
     } else {
         content = (

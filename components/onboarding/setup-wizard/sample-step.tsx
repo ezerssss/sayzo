@@ -13,6 +13,7 @@ import {
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import { getKyErrorMessage } from "@/lib/ky-error-message";
 import { cn } from "@/lib/utils";
 
 const MAX_SECONDS = 30;
@@ -78,7 +79,7 @@ export function SampleStep(props: Readonly<PropsInterface>) {
             const data = await ky
                 .post("/api/transcribe", {
                     body: fd,
-                    timeout: 120_000,
+                    timeout: 180_000,
                 })
                 .json<{
                 text?: string;
@@ -97,9 +98,7 @@ export function SampleStep(props: Readonly<PropsInterface>) {
                 filename: `intro.${ext}`,
             });
         } catch (e) {
-            setTranscribeError(
-                e instanceof Error ? e.message : "Transcription failed.",
-            );
+            setTranscribeError(await getKyErrorMessage(e, "Transcription failed."));
         } finally {
             setIsTranscribing(false);
         }

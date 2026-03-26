@@ -1,6 +1,8 @@
 import { measureSessionExpression } from "@/services/hume-expression";
 import { type NextRequest, NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
     let formData: FormData;
     try {

@@ -24,6 +24,8 @@ type CompleteOnboardingPayload = {
     introTranscript: string;
 };
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const rawPayload = formData.get("payload");
@@ -65,13 +67,35 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+        const db = getAdminFirestore();
+        const nowIso = new Date().toISOString();
+        await db
+            .collection(FirestoreCollections.users.path)
+            .doc(uid)
+            .set(
+                {
+                    uid,
+                    onboardingComplete: false,
+                    onboardingStatus: "processing",
+                    onboardingError: null,
+                    onboardingJobUpdatedAt: nowIso,
+                    updatedAt: nowIso,
+                },
+                { merge: true },
+            );
+
         const audioBytes = new Uint8Array(await audio.arrayBuffer());
-        const humeTrimmed = await measureSessionExpression({
-            audio: audioBytes,
-            transcript: introTranscript,
-            filename: audio.name || "intro.webm",
-            contentType: audio.type || "application/octet-stream",
-        });
+        let humeTrimmed = null;
+        try {
+            humeTrimmed = await measureSessionExpression({
+                audio: audioBytes,
+                transcript: introTranscript,
+                filename: audio.name || "intro.webm",
+                contentType: audio.type || "application/octet-stream",
+            });
+        } catch (error) {
+            console.warn("Hume expression measurement failed, continuing.", error);
+        }
 
         const profileFields = await buildUserProfileFieldsFromOnboarding({
             role: payload.roleContext,
@@ -85,7 +109,7 @@ export async function POST(request: NextRequest) {
             additionalContext: `Intro transcript:\n${introTranscript}\n\nVoice expression summary:\n${JSON.stringify(humeTrimmed)}`,
         });
 
-        const nowIso = new Date().toISOString();
+        const profileNowIso = new Date().toISOString();
         const companyResearch = await enrichCompanyContext({
             companyName: profileFields.companyName,
             companyUrl: payload.companyUrl,
@@ -97,6 +121,9 @@ export async function POST(request: NextRequest) {
         const profile: UserProfileType = {
             uid,
             onboardingComplete: true,
+            onboardingStatus: "completed",
+            onboardingError: null,
+            onboardingJobUpdatedAt: profileNowIso,
             role: profileFields.role,
             industry:
                 profileFields.industry || companyResearch?.guessedIndustry || "",
@@ -110,8 +137,8 @@ export async function POST(request: NextRequest) {
                 profileFields.workplaceCommunicationContext,
             motivation: profileFields.motivation,
             companyResearch: companyResearch ?? undefined,
-            createdAt: nowIso,
-            updatedAt: nowIso,
+            createdAt: profileNowIso,
+            updatedAt: profileNowIso,
         };
 
         const introAnalysis = await analyzeSession({
@@ -174,8 +201,8 @@ export async function POST(request: NextRequest) {
             masteredFocus: [],
             reinforcementFocus: [],
             lastProcessedSessionId: null,
-            createdAt: nowIso,
-            updatedAt: nowIso,
+            createdAt: profileNowIso,
+            updatedAt: profileNowIso,
         };
 
         const initialPlan = await planNextSession({
@@ -200,7 +227,6 @@ export async function POST(request: NextRequest) {
         });
         const initialSession = buildSessionFromPlan(uid, initialPlan);
 
-        const db = getAdminFirestore();
         const userRef = db.collection(FirestoreCollections.users.path).doc(uid);
         const userExisting = await userRef.get();
         if (userExisting.exists) {
@@ -210,7 +236,7 @@ export async function POST(request: NextRequest) {
                     createdAt:
                         (userExisting.data()?.["createdAt"] as
                             | string
-                            | undefined) ?? nowIso,
+                            | undefined) ?? profileNowIso,
                 },
                 { merge: true },
             );
@@ -229,7 +255,7 @@ export async function POST(request: NextRequest) {
                     createdAt:
                         (skillMemoryExisting.data()?.["createdAt"] as
                             | string
-                            | undefined) ?? nowIso,
+                            | undefined) ?? profileNowIso,
                 },
                 { merge: true },
             );
@@ -244,6 +270,27 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ ok: true });
     } catch (error) {
+        try {
+            const db = getAdminFirestore();
+            await db
+                .collection(FirestoreCollections.users.path)
+                .doc(uid)
+                .set(
+                    {
+                        onboardingComplete: false,
+                        onboardingStatus: "failed",
+                        onboardingError:
+                            error instanceof Error
+                                ? error.message
+                                : "Failed to complete onboarding.",
+                        onboardingJobUpdatedAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    },
+                    { merge: true },
+                );
+        } catch (persistError) {
+            console.error("Failed to persist onboarding processing error", persistError);
+        }
         return NextResponse.json(
             {
                 error:

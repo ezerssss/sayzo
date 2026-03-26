@@ -21,6 +21,9 @@ export type CompanyResearchType = {
 export type UserProfileType = {
     uid: string;
     onboardingComplete: boolean;
+    onboardingStatus?: "idle" | "processing" | "failed" | "completed";
+    onboardingError?: string | null;
+    onboardingJobUpdatedAt?: string;
 
     role: string;
     industry: string;

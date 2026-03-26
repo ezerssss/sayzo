@@ -6,6 +6,8 @@ type CompanyResearchPayload = {
     companyUrl?: string;
 };
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
     let payload: CompanyResearchPayload;
     try {

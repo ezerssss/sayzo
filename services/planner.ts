@@ -170,6 +170,9 @@ export function buildSessionFromPlan(uid: string, plan: SessionPlanType): Sessio
         feedback: null,
         completionStatus: "pending",
         completionReason: null,
+        processingStatus: "idle",
+        processingError: null,
+        processingUpdatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
     };
 }

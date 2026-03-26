@@ -125,6 +125,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        await sessionRef.set(
+            {
+                processingStatus: "processing",
+                processingError: null,
+                processingUpdatedAt: new Date().toISOString(),
+            },
+            { merge: true },
+        );
+
         const userSnap = await db
             .collection(FirestoreCollections.users.path)
             .doc(uid)
@@ -288,12 +297,17 @@ export async function POST(request: NextRequest) {
         });
 
         // 3) Hume trimmed signals for delivery context (optional, but powerful for analyzer)
-        const humeTrimmed = await measureSessionExpression({
-            audio: audioBytes,
-            transcript,
-            filename: audio.name || "response.webm",
-            contentType: audio.type || "application/octet-stream",
-        });
+        let humeTrimmed = null;
+        try {
+            humeTrimmed = await measureSessionExpression({
+                audio: audioBytes,
+                transcript,
+                filename: audio.name || "response.webm",
+                contentType: audio.type || "application/octet-stream",
+            });
+        } catch (error) {
+            console.warn("Hume expression measurement failed, continuing.", error);
+        }
 
         const transcriptWordCount = countWords(transcript);
         const obviouslyTooShort = transcriptWordCount < 8;
@@ -421,6 +435,9 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
                 feedback,
                 completionStatus,
                 completionReason,
+                processingStatus: "idle",
+                processingError: null,
+                processingUpdatedAt: new Date().toISOString(),
             },
             { merge: true },
         );
@@ -436,6 +453,27 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
         });
     } catch (error) {
         console.error(error);
+        if (sessionId) {
+            try {
+                const db = getAdminFirestore();
+                await db
+                    .collection(FirestoreCollections.sessions.path)
+                    .doc(sessionId)
+                    .set(
+                        {
+                            processingStatus: "failed",
+                            processingError:
+                                error instanceof Error
+                                    ? error.message
+                                    : "Failed to complete session.",
+                            processingUpdatedAt: new Date().toISOString(),
+                        },
+                        { merge: true },
+                    );
+            } catch (persistError) {
+                console.error("Failed to persist session processing error", persistError);
+            }
+        }
         return NextResponse.json(
             {
                 error:

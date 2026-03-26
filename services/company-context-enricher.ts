@@ -136,6 +136,12 @@ export async function enrichCompanyContext(
     const sources = [ddg, wiki, site].filter(
         (value): value is SourceSnippet => value !== null,
     );
+    const sourceSnippetsText =
+        sources.length > 0
+            ? sources
+                  .map((source) => `- Source: ${source.url}\n${source.text}`)
+                  .join("\n\n")
+            : "(none)";
 
     const result = await generateText({
         model: openai(modelName()),
@@ -158,7 +164,7 @@ User role: ${input.role?.trim() || "(none)"}
 User industry: ${input.industry?.trim() || "(none)"}
 
 Source snippets:
-${sources.length > 0 ? sources.map((source) => `- Source: ${source.url}\n${source.text}`).join("\n\n") : "(none)"}`,
+${sourceSnippetsText}`,
         temperature: 0.1,
     });
 

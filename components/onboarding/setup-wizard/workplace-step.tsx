@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { VoiceInputBlock } from "@/components/onboarding/voice-input-block";
 import { Button } from "@/components/ui/button";
+import { getKyErrorMessage } from "@/lib/ky-error-message";
 
 type CompanyResearchResponse = {
     summary: string;
@@ -66,7 +67,7 @@ export function WorkplaceStep(props: Readonly<PropsInterface>) {
                         companyName: trimmedName,
                         companyUrl: companyUrl.trim(),
                     },
-                    timeout: 120_000,
+                    timeout: 210_000,
                 })
                 .json<CompanyResearchResponse>();
             setSummary(data.summary);
@@ -76,9 +77,10 @@ export function WorkplaceStep(props: Readonly<PropsInterface>) {
             setNeedsManualDescription(false);
         } catch (error) {
             setResearchError(
-                error instanceof Error
-                    ? error.message
-                    : "Could not look up that company right now.",
+                await getKyErrorMessage(
+                    error,
+                    "Could not look up that company right now.",
+                ),
             );
         } finally {
             setIsResearching(false);

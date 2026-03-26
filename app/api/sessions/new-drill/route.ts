@@ -13,6 +13,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type NewDrillPayload = { uid: string };
 
+export const runtime = "nodejs";
+
 function hydrateSkillMemory(
     uid: string,
     skillMemoryData: unknown,

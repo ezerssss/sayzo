@@ -19,6 +19,10 @@ import type { SessionPlanType } from "@/types/sessions";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
 import { MarkdownBlock } from "@/components/session/markdown-block";
 import { TranscriptPanel } from "@/components/session/transcript-panel";
+import {
+    getKyErrorMessage,
+    isKyTimeoutLikeError,
+} from "@/lib/ky-error-message";
 
 interface PropsInterface {
     uid: string;
@@ -84,6 +88,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
 
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
     const requiresRetry = session?.completionStatus === "needs_retry";
+    const isServerProcessing = session?.processingStatus === "processing";
     const hasServerResults = Boolean(
         session?.audioUrl &&
             (session?.transcript?.trim() || session?.feedback?.trim()),
@@ -101,6 +106,10 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         if (isRecording || drillState === "analyzing" || drillState === "recording") {
             return;
         }
+        if (isServerProcessing) {
+            setDrillState("analyzing");
+            return;
+        }
         if (hasServerResults) {
             setDrillState("complete");
             setSeconds(0);
@@ -108,7 +117,14 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         }
         setDrillState("idle");
         setSeconds(maxSeconds);
-    }, [drillState, hasServerResults, isRecording, maxSeconds, session]);
+    }, [
+        drillState,
+        hasServerResults,
+        isRecording,
+        isServerProcessing,
+        maxSeconds,
+        session,
+    ]);
 
     useEffect(() => {
         if (drillState !== "recording") {
@@ -141,13 +157,15 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             return "Recording your response...";
         }
         if (drillState === "analyzing") {
-            return "Analyzing your session...";
+            return isServerProcessing
+                ? "Still processing on the server..."
+                : "Analyzing your session...";
         }
         if (drillState === "complete") {
             return "Session complete. Review your feedback below.";
         }
         return "Ready when you are.";
-    }, [drillState, isRecording]);
+    }, [drillState, isRecording, isServerProcessing]);
 
     const startRecording = async () => {
         if (recordedAudioUrl) {
@@ -188,14 +206,18 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             );
             await ky.post("/api/sessions/complete", {
                 body: fd,
-                timeout: 300_000,
+                timeout: 330_000,
             });
             setDrillState("complete");
         } catch (error) {
+            if (isKyTimeoutLikeError(error)) {
+                setDrillError(
+                    "Still processing in the background. We will update once results are ready.",
+                );
+                return;
+            }
             setDrillError(
-                error instanceof Error
-                    ? error.message
-                    : "Could not analyze your response.",
+                await getKyErrorMessage(error, "Could not analyze your response."),
             );
             setDrillState("idle");
         }
@@ -207,7 +229,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         try {
             await ky.post("/api/sessions/new-drill", {
                 json: { uid },
-                timeout: 180_000,
+                timeout: 330_000,
             });
             setSeconds(maxSeconds);
             setDrillState("idle");
@@ -217,9 +239,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             }
         } catch (error) {
             setDrillError(
-                error instanceof Error
-                    ? error.message
-                    : "Could not create a new drill.",
+                await getKyErrorMessage(error, "Could not create a new drill."),
             );
         } finally {
             setIsCreatingDrill(false);
