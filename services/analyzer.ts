@@ -81,15 +81,69 @@ function parseTimestampToken(token: string): number | null {
     return mm * 60 + ss;
 }
 
-function linkifyFeedbackTimestamps(markdown: string): string {
-    return markdown.replace(
+function extractTranscriptTimestampSeconds(transcript: string): Set<number> {
+    const seconds = new Set<number>();
+    const re = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
+    let hit: RegExpExecArray | null;
+    while ((hit = re.exec(transcript)) !== null) {
+        const stamp = hit[1];
+        if (!stamp) continue;
+        const parsed = parseTimestampToken(stamp);
+        if (parsed != null) {
+            seconds.add(parsed);
+        }
+    }
+    return seconds;
+}
+
+function listTranscriptTimestampTokens(transcript: string, limit = 60): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const re = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
+    let hit: RegExpExecArray | null;
+    while ((hit = re.exec(transcript)) !== null) {
+        const token = hit[1];
+        if (!token || seen.has(token)) continue;
+        seen.add(token);
+        out.push(token);
+        if (out.length >= limit) break;
+    }
+    return out;
+}
+
+function sanitizeFeedbackTimestampLinks(
+    markdown: string,
+    validSeconds: Set<number>,
+): string {
+    let next = markdown.replaceAll(
+        /\[(\d{1,2}:\d{2}(?::\d{2})?)\]\(time:(\d+)\)/g,
+        (_full, stamp: string, secRaw: string) => {
+            const fromStamp = parseTimestampToken(stamp);
+            const fromLink = Number(secRaw);
+            if (
+                fromStamp == null ||
+                !Number.isFinite(fromLink) ||
+                fromStamp !== fromLink ||
+                !validSeconds.has(fromLink)
+            ) {
+                return `[${stamp}]`;
+            }
+            return `[${stamp}](time:${fromLink})`;
+        },
+    );
+
+    next = next.replaceAll(
         /\[(\d{1,2}:\d{2}(?::\d{2})?)\](?!\()/g,
         (_full, stamp: string) => {
             const seconds = parseTimestampToken(stamp);
-            if (seconds == null) return `[${stamp}]`;
+            if (seconds == null || !validSeconds.has(seconds)) {
+                return `[${stamp}]`;
+            }
             return `[${stamp}](time:${seconds})`;
         },
     );
+
+    return next;
 }
 
 function buildContextUserMessage(input: AnalyzerInput): string {
@@ -166,6 +220,13 @@ export async function generateSessionFeedback(
 
     const system = readAnalyzerPrompt("session-feedback.md");
     const context = buildContextUserMessage(input);
+    const transcriptTimestamps = listTranscriptTimestampTokens(
+        input.session.transcript,
+    );
+    const timestampGuidance =
+        transcriptTimestamps.length > 0
+            ? `\n\n## Transcript timestamps available\nUse these exact tokens when citing moments: ${transcriptTimestamps.join(", ")}`
+            : "\n\n## Transcript timestamps available\nNone. Do not include timestamp links.";
     let analysisBlock = "";
     if (options.sessionAnalysis != null) {
         analysisBlock = `\n\n## Prior structured analysis (for alignment)\n\`\`\`json\n${JSON.stringify(options.sessionAnalysis, null, 2)}\n\`\`\``;
@@ -174,9 +235,12 @@ export async function generateSessionFeedback(
     const { text } = await generateText({
         model: openai(defaultAnalyzerModel()),
         system,
-        prompt: `${context}${analysisBlock}`,
+        prompt: `${context}${timestampGuidance}${analysisBlock}`,
         temperature: 0.35,
     });
 
-    return linkifyFeedbackTimestamps(text.trim());
+    const validSeconds = extractTranscriptTimestampSeconds(
+        input.session.transcript,
+    );
+    return sanitizeFeedbackTimestampLinks(text.trim(), validSeconds);
 }

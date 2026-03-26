@@ -107,6 +107,8 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         !isRecordingNow &&
         drillState !== "analyzing" &&
         !requiresRetry;
+    const shouldShowAnalyzingState =
+        !shouldShowResults && (isServerProcessing || drillState === "analyzing");
 
     const mm = Math.floor(seconds / 60);
     const ss = seconds % 60;
@@ -114,6 +116,14 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     useEffect(() => {
         setDrillError(latestSessionError);
     }, [latestSessionError]);
+
+    useEffect(() => {
+        // Snapshot is source of truth: clear transient local timeout error
+        // once server state advances or final results are available.
+        if (isServerProcessing || shouldShowResults) {
+            setDrillError(null);
+        }
+    }, [isServerProcessing, shouldShowResults]);
 
     useEffect(() => {
         if (!session) return;
@@ -170,10 +180,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         if (isRecording || drillState === "recording") {
             return "Recording your response...";
         }
-        if (drillState === "analyzing") {
-            if (!isServerProcessing) {
-                return "Analyzing your session...";
-            }
+        if (isServerProcessing) {
             if (processingStage === "transcribing") {
                 return "Transcribing your response...";
             }
@@ -190,6 +197,9 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 return "Combining signals and generating coaching...";
             }
             return "Still processing on the server...";
+        }
+        if (drillState === "analyzing") {
+            return "Syncing latest session status...";
         }
         if (drillState === "complete") {
             return "Session complete. Review your feedback below.";
@@ -437,7 +447,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                         />
                     </audio>
                 ) : null}
-                {drillState === "analyzing" ? (
+                {shouldShowAnalyzingState ? (
                     <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
                         {stateLabel}

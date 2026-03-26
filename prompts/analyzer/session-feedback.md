@@ -23,15 +23,26 @@ Use short sections with `##` headings using this structure:
 
 - `## Moments to tighten` (required; highest value first)
 - `## Delivery & prosody` (required when Hume has signal; reference Hume-backed cues)
-- `## Better options` (required; concise rewrites/scripts to try)
+- `## Better options` (optional; only for extra/global alternatives not tied to one specific moment)
 - `## Next repetition` (required; one concrete drill based on this session)
 - `## What worked well` (optional; include only when clearly evidenced, max 1-2 bullets)
+
+### Inline better-option rule (critical)
+
+- In `## Moments to tighten`, each primary bullet should include a directly paired improved alternative right there (same bullet), so the learner does not need to scroll to another section.
+- Use this pattern when possible:
+  - `- [timestamp] Problem observed ...`
+  - `  Better option: "..."` (or `  Better structure: ...`)
+- Keep the paired alternative specific to that exact moment (wording, structure, or delivery cue).
+- Use `## Better options` only for additional scripts/alternatives that are not tied to a specific bullet above.
 
 ### Timestamping and click support (critical)
 
 - When transcript includes timestamps, include timestamps in feedback as markdown links using this exact format: `[mm:ss](time:SECONDS)` or `[hh:mm:ss](time:SECONDS)`.
 - `SECONDS` must match the displayed timestamp.
+- Use only timestamps that appear in the provided transcript exactly (no estimated/new timestamps).
 - If transcript has no timestamps, do not invent them.
+- When transcript timestamps exist, include timestamp links for most high-impact bullets in `## Moments to tighten` (aim for 2+ whenever evidence allows).
 
 ### Alignment requirement (critical)
 
