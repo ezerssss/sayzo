@@ -385,8 +385,12 @@ export async function POST(request: NextRequest) {
                     "Checks whether a spoken response is usable and related to the assigned drill.",
             }),
             system: `You are a strict evaluator for spoken drill validity.
-If response is too short, empty, or clearly unrelated to the assigned drill, mark it not usable.
-Set hasCoachableSignal=true when there is enough meaningful content to provide at least partial constructive coaching (for example: attempted structure but broke flow mid-way, obvious filler overload, weak relevance, or delivery issues).
+Distinguish "retry needed" from "skip deep analysis":
+- Retry needed can include incomplete but on-task attempts.
+- Skip deep analysis is only for clearly off-task responses or evidence that is too thin to coach reliably.
+Mark isRelatedToDrill=false only when the transcript is clearly unrelated to the assigned drill.
+Mark isAttemptUsable=false for very incomplete attempts that should be retried, even if they are partially on-task.
+Set hasCoachableSignal=true when there is enough meaningful signal to provide partial coaching (for example: attempted structure but broke flow mid-way, obvious filler overload, weak relevance, or delivery issues).
 Set hasCoachableSignal=false only when content is effectively uncoachable (e.g., extremely short greeting/noise, no meaningful attempt, or unrelated chatter).
 Be conservative: do not infer relevance from weak evidence.
 Return only the schema fields.`,
@@ -405,11 +409,13 @@ ${transcript}`,
         const relevanceReason =
             relevanceCheck.output.reason.trim() ||
             "The response was not sufficiently related to the drill.";
-        shouldRequireRetry =
-            !relevanceCheck.output.isAttemptUsable ||
-            !relevanceCheck.output.isRelatedToDrill;
+        const isAttemptUsable = relevanceCheck.output.isAttemptUsable;
+        const isRelatedToDrill = relevanceCheck.output.isRelatedToDrill;
+        const hasCoachableSignal = relevanceCheck.output.hasCoachableSignal;
+
+        shouldRequireRetry = !isAttemptUsable || !isRelatedToDrill;
         shouldSkipDeepAnalysis =
-            shouldRequireRetry && !relevanceCheck.output.hasCoachableSignal;
+            !isRelatedToDrill || (!isAttemptUsable && !hasCoachableSignal);
         if (shouldRequireRetry) {
             skipReason = relevanceReason;
         }
@@ -422,9 +428,9 @@ ${transcript}`,
         if (shouldSkipDeepAnalysis) {
             analysis = {
                 overview:
-                    "Attempt quality is too limited for deep diagnosis. The main priority is producing a fuller, drill-aligned response so coaching can be specific and reliable.",
+                    "Attempt evidence is too limited or off-target for deep diagnosis. The main priority is producing a drill-aligned response with enough substance so coaching can be specific and reliable.",
                 mainIssue:
-                    "Response was too short or off-task for reliable drill analysis.",
+                    "Response was off-task or too limited for reliable drill analysis.",
                 secondaryIssues: [skipReason].filter((v) => v.length > 0),
                 structureAndFlow: [],
                 clarityAndConciseness: [],
@@ -442,7 +448,7 @@ ${transcript}`,
                 momentsToTighten:
                     "Not enough usable evidence from this attempt to give moment-level coaching.",
                 structureAndFlow:
-                    "This response is too short or off-task, so structure and transitions cannot be evaluated reliably.",
+                    "This response is off-task or too limited, so structure and transitions cannot be evaluated reliably.",
                 clarityAndConciseness:
                     "Please give a fuller answer so clarity, filler-word usage, and conciseness can be measured.",
                 relevanceAndFocus: `Reason: ${skipReason}`,
@@ -451,7 +457,7 @@ ${transcript}`,
                 professionalism:
                     "Cannot evaluate professional communication quality from this attempt yet.",
                 deliveryAndProsody:
-                    "Prosody interpretation is limited when the response is too short or unrelated to the drill.",
+                    "Prosody interpretation is limited when the response is off-task or too limited.",
                 betterOptions: null,
                 nextRepetition:
                     "Redo this drill for 45-90 seconds, follow the framework, and include at least two concrete facts from the prompt.",

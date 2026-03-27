@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import type { SessionFeedbackType } from "@/types/sessions";
 
@@ -10,11 +10,28 @@ type MarkdownComponents = Record<
     (props: { children?: ReactNode }) => ReactElement
 >;
 
+type FeedbackSectionKey =
+    | "overview"
+    | "momentsToTighten"
+    | "structureAndFlow"
+    | "clarityAndConciseness"
+    | "relevanceAndFocus"
+    | "engagement"
+    | "professionalism"
+    | "deliveryAndProsody"
+    | "betterOptions"
+    | "nextRepetition"
+    | "whatWorkedWell";
+
 interface PropsInterface {
     feedback: SessionFeedbackType;
     onSeekToSecond?: (seconds: number) => void;
     needsRetry?: boolean;
     completionReason?: string | null;
+    variant?: "all" | "overview-only" | "without-overview";
+    sectionKey?: FeedbackSectionKey;
+    sectionKeys?: FeedbackSectionKey[];
+    showHeader?: boolean;
 }
 
 function parseTimestampHref(href: string): number | null {
@@ -122,7 +139,16 @@ function markdownComponents(
 }
 
 export function FeedbackPanel(props: Readonly<PropsInterface>) {
-    const { feedback, onSeekToSecond, needsRetry, completionReason } = props;
+    const {
+        feedback,
+        onSeekToSecond,
+        needsRetry,
+        completionReason,
+        variant = "all",
+        sectionKey,
+        sectionKeys,
+        showHeader = true,
+    } = props;
     const sections: Array<{ key: string; title: string; content: string | null }> =
         [
             {
@@ -181,6 +207,30 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                 content: feedback.whatWorkedWell,
             },
         ];
+    const availableSections = sections.filter(
+        (section) =>
+            typeof section.content === "string" &&
+            section.content.trim().length > 0,
+    );
+    const visibleSections = (() => {
+        if (sectionKeys && sectionKeys.length > 0) {
+            const keySet = new Set(sectionKeys);
+            return availableSections.filter((section) =>
+                keySet.has(section.key as FeedbackSectionKey),
+            );
+        }
+        if (sectionKey) {
+            return availableSections.filter((section) => section.key === sectionKey);
+        }
+        if (variant === "overview-only") {
+            return availableSections.filter((section) => section.key === "overview");
+        }
+        if (variant === "without-overview") {
+            return availableSections.filter((section) => section.key !== "overview");
+        }
+        return availableSections;
+    })();
+
     return (
         <div
             className={`rounded-xl border p-4 ${
@@ -189,40 +239,41 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                     : "border-border/70"
             }`}
         >
-            <div className="flex items-center gap-2 text-sm font-medium">
-                <Sparkles className="size-4" />
-                {needsRetry ? "Feedback (retry needed)" : "Feedback"}
-            </div>
+            {showHeader ? (
+                <div className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="size-4" />
+                    {needsRetry ? "Feedback (retry needed)" : "Feedback"}
+                </div>
+            ) : null}
             {needsRetry && completionReason ? (
                 <p className="mt-2 text-sm text-amber-700">
                     {completionReason}
                 </p>
             ) : null}
             <div className="mt-3 space-y-3">
-                {sections
-                    .filter(
-                        (section) =>
-                            typeof section.content === "string" &&
-                            section.content.trim().length > 0,
-                    )
-                    .map((section) => (
-                        <div
-                            key={section.key}
-                            className="rounded-lg border border-border/50 bg-background/50 p-3"
-                        >
-                            <h4 className="text-sm font-medium text-foreground/90">
-                                {section.title}
-                            </h4>
-                            <div className="mt-2">
-                                <ReactMarkdown
-                                    components={markdownComponents(onSeekToSecond)}
-                                    urlTransform={(url) => url}
-                                >
-                                    {section.content ?? ""}
-                                </ReactMarkdown>
-                            </div>
+                {visibleSections.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        Feedback is not available yet.
+                    </p>
+                ) : null}
+                {visibleSections.map((section) => (
+                    <div
+                        key={section.key}
+                        className="rounded-lg border border-border/50 bg-background/50 p-3"
+                    >
+                        <h4 className="text-sm font-medium text-foreground/90">
+                            {section.title}
+                        </h4>
+                        <div className="mt-2">
+                            <ReactMarkdown
+                                components={markdownComponents(onSeekToSecond)}
+                                urlTransform={(url) => url}
+                            >
+                                {section.content ?? ""}
+                            </ReactMarkdown>
                         </div>
-                    ))}
+                    </div>
+                ))}
             </div>
         </div>
     );

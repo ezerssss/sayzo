@@ -18,8 +18,10 @@ Your job is to produce a **structured session analysis** (not coaching copy for 
 
 ### Off-task / too-short guardrail (critical)
 
-- If the response is clearly too short or off-task, state that explicitly as the primary issue.
-- In that case, do not fabricate detailed communication strengths/weaknesses from missing evidence.
+- If the response is clearly off-task, state that explicitly as the primary issue.
+- If the response is short but still on-task, treat it as a partial attempt: diagnose where breakdown started (for example structure loss, drift, hesitation, or delivery collapse) and what that implies.
+- Do not use "too short" alone as a reason to skip all analysis when there is coachable signal.
+- Do not fabricate detailed communication strengths/weaknesses when evidence is genuinely insufficient.
 
 ### Field semantics
 

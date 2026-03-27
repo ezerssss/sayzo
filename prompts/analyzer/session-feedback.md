@@ -35,14 +35,29 @@ Return content for these fields (the app will render each field in its own UI se
 Each field must contain learner-facing markdown text (not JSON inside the field).
 Write as if the learner never sees internal telemetry: only qualitative observations and practical coaching.
 
+### Evidence rule across sections (critical)
+
+- Keep `overview` as a short summary of priorities, but ground the rest of the feedback in concrete moments.
+- When transcript timestamps exist, include timestamp links as evidence in all relevant diagnostic sections, not only `momentsToTighten`:
+    - `structureAndFlow`
+    - `clarityAndConciseness`
+    - `relevanceAndFocus`
+    - `engagement`
+    - `professionalism`
+    - `deliveryAndProsody`
+    - `whatWorkedWell` (when present)
+- For each substantive claim across any feedback dimension (including structure, flow, clarity, relevance, engagement, professionalism, delivery, and strengths), point to at least one specific transcript moment whenever evidence allows.
+- Prefer concise evidence bullets over vague advice (for example: "At [03:12](03:12), your tone became apologetic...").
+- If a section has too little evidence, state that briefly instead of inventing examples.
+
 ### Moments format rule (critical)
 
 - In `momentsToTighten`, each primary bullet must include a directly paired improved alternative in the same bullet.
 - Use this exact markdown shape (line breaks required; do not collapse into one paragraph):
-  - `- [timestamp] ...`
-  - `  - **Why to tighten:** ...`
-  - `  - **Better option:** "..."` (or `**Better structure:** ...`)
-  - `  - **Why this is better:** ...`
+    - `- [timestamp] ...`
+    - `  - **Why to tighten:** ...`
+    - `  - **Better option:** "..."` (or `**Better structure:** ...`)
+    - `  - **Why this is better:** ...`
 - Keep alternatives specific to that exact moment.
 - Do not only rewrite; explain the reasoning for both issue and improvement.
 
@@ -53,6 +68,7 @@ Write as if the learner never sees internal telemetry: only qualitative observat
 - Use only timestamps that appear in the provided transcript exactly (no estimated/new timestamps).
 - If transcript has no timestamps, do not invent them.
 - When transcript timestamps exist, include timestamp links for most high-impact bullets in `momentsToTighten` (aim for 2+ whenever evidence allows).
+- Also include timestamp links in other sections whenever you make a specific claim about performance in any dimension (for example structure, flow, clarity, conciseness, relevance, engagement, professionalism, tone, confidence, pace, emphasis, emotional delivery, and audience impact).
 
 ### Alignment requirement (critical)
 
@@ -61,7 +77,13 @@ Write as if the learner never sees internal telemetry: only qualitative observat
 
 ### Off-task / too-short guardrail (critical)
 
-- If transcript is too short or clearly unrelated to the drill, say so directly and keep feedback brief.
+- If transcript is clearly unrelated to the drill, say so directly and keep feedback brief.
+- If the attempt is short but still related to the drill, treat it as a coachable attempt:
+  - Diagnose likely breakdown points (for example structure loss, drift, hesitation, tone shift, pacing collapse, or confidence drop).
+  - Cite the exact moments where the speaker got stuck, looped, or lost direction.
+  - Give targeted recovery guidance (what to say next, how to re-structure, and how to deliver it).
+- Do not label a response "too short" as a reason to skip meaningful coaching when there is usable evidence.
+- Only keep feedback minimal when evidence is genuinely insufficient for reliable claims.
 - Do not invent detailed critique or fake examples when evidence is insufficient.
 
 Keep total length reasonable for a single session (roughly 450–1000 words unless the transcript is very long).

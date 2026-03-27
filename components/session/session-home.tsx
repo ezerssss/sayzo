@@ -19,6 +19,7 @@ import type { SessionFeedbackType, SessionPlanType } from "@/types/sessions";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
 import { MarkdownBlock } from "@/components/session/markdown-block";
 import { TranscriptPanel } from "@/components/session/transcript-panel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     getKyErrorMessage,
     isKyTimeoutLikeError,
@@ -51,6 +52,20 @@ const FALLBACK_PLAN: SessionPlanType = {
     maxDurationSeconds: DEFAULT_MAX_SECONDS,
 };
 
+const FEEDBACK_SECTION_LABELS: Record<keyof SessionFeedbackType, string> = {
+    overview: "Overview",
+    momentsToTighten: "Moments",
+    structureAndFlow: "Structure",
+    clarityAndConciseness: "Clarity",
+    relevanceAndFocus: "Relevance",
+    engagement: "Engagement",
+    professionalism: "Professionalism",
+    deliveryAndProsody: "Voice & tone",
+    betterOptions: "Better options",
+    nextRepetition: "Next repetition",
+    whatWorkedWell: "What worked well",
+};
+
 // Transcript + feedback rendering live in dedicated components.
 
 export function SessionHome(props: Readonly<PropsInterface>) {
@@ -62,6 +77,8 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(
         null,
     );
+    const [hasPendingAnalysisRequest, setHasPendingAnalysisRequest] =
+        useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const { isRecording, stream, start, stop } = useVoiceRecorder();
     const {
@@ -92,6 +109,36 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             (value) => typeof value === "string" && value.trim().length > 0,
         );
     }, [currentFeedback]);
+    const hasMainOverview = Boolean(currentFeedback?.overview?.trim());
+    const coachingSectionKeys = useMemo<Array<keyof SessionFeedbackType>>(() => {
+        if (!currentFeedback) return [];
+        const keys: Array<keyof SessionFeedbackType> = [
+            "momentsToTighten",
+            "structureAndFlow",
+            "clarityAndConciseness",
+            "relevanceAndFocus",
+            "engagement",
+            "professionalism",
+            "deliveryAndProsody",
+        ];
+        return keys.filter((key) => {
+            const value = currentFeedback[key];
+            return typeof value === "string" && value.trim().length > 0;
+        });
+    }, [currentFeedback]);
+    const practiceSectionKeys = useMemo<Array<keyof SessionFeedbackType>>(() => {
+        if (!currentFeedback) return [];
+        const keys: Array<keyof SessionFeedbackType> = [
+            "betterOptions",
+            "nextRepetition",
+            "whatWorkedWell",
+        ];
+        return keys.filter((key) => {
+            const value = currentFeedback[key];
+            return typeof value === "string" && value.trim().length > 0;
+        });
+    }, [currentFeedback]);
+    const hasSinglePracticeSection = practiceSectionKeys.length === 1;
 
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
     const isRecordingNow = isRecording || drillState === "recording";
@@ -115,7 +162,10 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         drillState !== "analyzing" &&
         !requiresRetry;
     const shouldShowAnalyzingState =
-        !shouldShowResults && (isServerProcessing || drillState === "analyzing");
+        !shouldShowResults &&
+        (isServerProcessing ||
+            drillState === "analyzing" ||
+            hasPendingAnalysisRequest);
 
     const mm = Math.floor(seconds / 60);
     const ss = seconds % 60;
@@ -137,6 +187,10 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         if (isRecording || drillState === "recording") {
             return;
         }
+        if (hasPendingAnalysisRequest && !isServerProcessing && !hasServerResults) {
+            setDrillState("analyzing");
+            return;
+        }
         if (hasServerResults) {
             setDrillState("complete");
             setSeconds(0);
@@ -151,11 +205,18 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     }, [
         drillState,
         hasServerResults,
+        hasPendingAnalysisRequest,
         isRecording,
         isServerProcessing,
         maxSeconds,
         session,
     ]);
+
+    useEffect(() => {
+        if (hasServerResults || isServerProcessing) {
+            setHasPendingAnalysisRequest(false);
+        }
+    }, [hasServerResults, isServerProcessing]);
 
     useEffect(() => {
         if (drillState !== "recording") {
@@ -187,6 +248,9 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         if (isRecording || drillState === "recording") {
             return "Recording your response...";
         }
+        if (hasPendingAnalysisRequest) {
+            return "Starting analysis...";
+        }
         if (isServerProcessing) {
             if (processingStage === "transcribing") {
                 return "Transcribing your response...";
@@ -212,9 +276,16 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             return "Session complete. Review your feedback below.";
         }
         return "Ready when you are.";
-    }, [drillState, isRecording, isServerProcessing, processingStage]);
+    }, [
+        drillState,
+        hasPendingAnalysisRequest,
+        isRecording,
+        isServerProcessing,
+        processingStage,
+    ]);
 
     const startRecording = async () => {
+        setHasPendingAnalysisRequest(false);
         if (recordedAudioUrl) {
             URL.revokeObjectURL(recordedAudioUrl);
             setRecordedAudioUrl(null);
@@ -225,6 +296,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     };
 
     const stopRecording = async () => {
+        setHasPendingAnalysisRequest(true);
         const result = await stop();
         if (result?.blob.size) {
             if (recordedAudioUrl) {
@@ -237,6 +309,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
 
         if (!session?.id || !result?.blob.size) {
             setDrillError("No active drill found to save this recording.");
+            setHasPendingAnalysisRequest(false);
             setDrillState("idle");
             return;
         }
@@ -255,6 +328,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                 body: fd,
                 timeout: 330_000,
             });
+            setHasPendingAnalysisRequest(false);
             setDrillState("complete");
         } catch (error) {
             console.error("[components/session/session-home] stopRecording failed", error);
@@ -267,12 +341,14 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             setDrillError(
                 await getKyErrorMessage(error, "Could not analyze your response."),
             );
+            setHasPendingAnalysisRequest(false);
             setDrillState("idle");
         }
     };
 
     const startAnotherDrill = async () => {
         setDrillError(null);
+        setHasPendingAnalysisRequest(false);
         setIsCreatingDrill(true);
         try {
             await ky.post("/api/sessions/new-drill", {
@@ -304,6 +380,62 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         el.currentTime = Math.max(0, seconds);
         void el.play();
     };
+
+    const practiceTabContent = (() => {
+        if (!currentFeedback || practiceSectionKeys.length === 0) {
+            return (
+                <div className="rounded-xl border border-border/70 p-4">
+                    <p className="text-sm font-medium">Practice</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        Waiting for practice guidance…
+                    </p>
+                </div>
+            );
+        }
+        if (hasSinglePracticeSection) {
+            return (
+                <FeedbackPanel
+                    feedback={currentFeedback}
+                    onSeekToSecond={seekToSecond}
+                    needsRetry={requiresRetry}
+                    completionReason={session?.completionReason ?? null}
+                    sectionKey={practiceSectionKeys[0]}
+                />
+            );
+        }
+        return (
+            <Tabs
+                defaultValue={`practice-${practiceSectionKeys[0]}`}
+                className="space-y-3"
+            >
+                <TabsList className="w-full justify-start gap-1 overflow-x-auto">
+                    {practiceSectionKeys.map((key) => (
+                        <TabsTrigger
+                            key={`practice-trigger-${key}`}
+                            value={`practice-${key}`}
+                            className="shrink-0"
+                        >
+                            {FEEDBACK_SECTION_LABELS[key]}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+                {practiceSectionKeys.map((key) => (
+                    <TabsContent
+                        key={`practice-content-${key}`}
+                        value={`practice-${key}`}
+                    >
+                        <FeedbackPanel
+                            feedback={currentFeedback}
+                            onSeekToSecond={seekToSecond}
+                            needsRetry={requiresRetry}
+                            completionReason={session?.completionReason ?? null}
+                            sectionKey={key}
+                        />
+                    </TabsContent>
+                ))}
+            </Tabs>
+        );
+    })();
 
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
@@ -404,7 +536,10 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                     {showRecordAction ? (
                         <Button
                             variant={isRecording ? "secondary" : "outline"}
-                            disabled={drillState === "analyzing"}
+                            disabled={
+                                drillState === "analyzing" ||
+                                hasPendingAnalysisRequest
+                            }
                             onClick={() =>
                                 void (isRecording
                                     ? stopRecording()
@@ -463,36 +598,96 @@ export function SessionHome(props: Readonly<PropsInterface>) {
             </div>
 
             {shouldShowResults ? (
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    {currentTranscript ? (
-                        <TranscriptPanel
-                            transcript={currentTranscript}
-                            onSeekToSecond={seekToSecond}
-                        />
-                    ) : (
-                        <div className="rounded-xl border border-border/70 p-4">
-                            <p className="text-sm font-medium">Transcript</p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                Waiting for transcription…
-                            </p>
-                        </div>
-                    )}
-                    {hasFeedback && currentFeedback ? (
-                        <FeedbackPanel
-                            feedback={currentFeedback}
-                            onSeekToSecond={seekToSecond}
-                            needsRetry={requiresRetry}
-                            completionReason={session?.completionReason ?? null}
-                        />
-                    ) : (
-                        <div className="rounded-xl border border-border/70 p-4">
-                            <p className="text-sm font-medium">Feedback</p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                Waiting for feedback…
-                            </p>
-                        </div>
-                    )}
-                </div>
+                <Tabs defaultValue="main" className="mt-6">
+                    <TabsList className="w-full justify-start gap-1 overflow-x-auto">
+                        <TabsTrigger value="main" className="shrink-0">
+                            Main
+                        </TabsTrigger>
+                        <TabsTrigger value="coaching" className="shrink-0">
+                            Coaching
+                        </TabsTrigger>
+                        <TabsTrigger value="practice" className="shrink-0">
+                            Practice
+                        </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="main" className="mt-3 space-y-4">
+                        {hasMainOverview && currentFeedback ? (
+                            <FeedbackPanel
+                                feedback={currentFeedback}
+                                onSeekToSecond={seekToSecond}
+                                needsRetry={requiresRetry}
+                                completionReason={session?.completionReason ?? null}
+                                sectionKey="overview"
+                            />
+                        ) : (
+                            <div className="rounded-xl border border-border/70 p-4">
+                                <p className="text-sm font-medium">Overview</p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    Waiting for overview…
+                                </p>
+                            </div>
+                        )}
+                        {currentTranscript ? (
+                            <TranscriptPanel
+                                transcript={currentTranscript}
+                                onSeekToSecond={seekToSecond}
+                            />
+                        ) : (
+                            <div className="rounded-xl border border-border/70 p-4">
+                                <p className="text-sm font-medium">Transcript</p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    Waiting for transcription…
+                                </p>
+                            </div>
+                        )}
+                    </TabsContent>
+                    <TabsContent value="coaching" className="mt-3">
+                        {currentFeedback && coachingSectionKeys.length > 0 ? (
+                            <Tabs
+                                defaultValue={`coaching-${coachingSectionKeys[0]}`}
+                                className="space-y-3"
+                            >
+                                <TabsList className="w-full justify-start gap-1 overflow-x-auto">
+                                    {coachingSectionKeys.map((key) => (
+                                        <TabsTrigger
+                                            key={`coaching-trigger-${key}`}
+                                            value={`coaching-${key}`}
+                                            className="shrink-0"
+                                        >
+                                            {FEEDBACK_SECTION_LABELS[key]}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                                {coachingSectionKeys.map((key) => (
+                                    <TabsContent
+                                        key={`coaching-content-${key}`}
+                                        value={`coaching-${key}`}
+                                    >
+                                        <FeedbackPanel
+                                            feedback={currentFeedback}
+                                            onSeekToSecond={seekToSecond}
+                                            needsRetry={requiresRetry}
+                                            completionReason={
+                                                session?.completionReason ?? null
+                                            }
+                                            sectionKey={key}
+                                        />
+                                    </TabsContent>
+                                ))}
+                            </Tabs>
+                        ) : (
+                            <div className="rounded-xl border border-border/70 p-4">
+                                <p className="text-sm font-medium">Coaching</p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    Waiting for coaching feedback…
+                                </p>
+                            </div>
+                        )}
+                    </TabsContent>
+                    <TabsContent value="practice" className="mt-3">
+                        {practiceTabContent}
+                    </TabsContent>
+                </Tabs>
             ) : null}
 
             {authError ? (
