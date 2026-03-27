@@ -59,6 +59,7 @@ function buildTimestampedTranscript(
 const attemptCheckSchema = z.object({
     isAttemptUsable: z.boolean(),
     isRelatedToDrill: z.boolean(),
+    hasCoachableSignal: z.boolean(),
     reason: z.string(),
 });
 
@@ -373,6 +374,7 @@ export async function POST(request: NextRequest) {
         );
 
         let shouldSkipDeepAnalysis = false;
+        let shouldRequireRetry = false;
         let skipReason = "";
         const relevanceCheck = await generateText({
             model: openai(process.env.ANALYZER_MODEL?.trim() || "gpt-4o-mini"),
@@ -384,6 +386,8 @@ export async function POST(request: NextRequest) {
             }),
             system: `You are a strict evaluator for spoken drill validity.
 If response is too short, empty, or clearly unrelated to the assigned drill, mark it not usable.
+Set hasCoachableSignal=true when there is enough meaningful content to provide at least partial constructive coaching (for example: attempted structure but broke flow mid-way, obvious filler overload, weak relevance, or delivery issues).
+Set hasCoachableSignal=false only when content is effectively uncoachable (e.g., extremely short greeting/noise, no meaningful attempt, or unrelated chatter).
 Be conservative: do not infer relevance from weak evidence.
 Return only the schema fields.`,
             prompt: `## Drill
@@ -398,14 +402,16 @@ ${transcript}`,
             temperature: 0,
         });
 
-        if (
+        const relevanceReason =
+            relevanceCheck.output.reason.trim() ||
+            "The response was not sufficiently related to the drill.";
+        shouldRequireRetry =
             !relevanceCheck.output.isAttemptUsable ||
-            !relevanceCheck.output.isRelatedToDrill
-        ) {
-            shouldSkipDeepAnalysis = true;
-            skipReason =
-                relevanceCheck.output.reason.trim() ||
-                "The response was not sufficiently related to the drill.";
+            !relevanceCheck.output.isRelatedToDrill;
+        shouldSkipDeepAnalysis =
+            shouldRequireRetry && !relevanceCheck.output.hasCoachableSignal;
+        if (shouldRequireRetry) {
+            skipReason = relevanceReason;
         }
 
         // 4) Analyzer output (structured + markdown feedback)
@@ -415,18 +421,42 @@ ${transcript}`,
         let completionReason: string | null;
         if (shouldSkipDeepAnalysis) {
             analysis = {
+                overview:
+                    "Attempt quality is too limited for deep diagnosis. The main priority is producing a fuller, drill-aligned response so coaching can be specific and reliable.",
                 mainIssue:
                     "Response was too short or off-task for reliable drill analysis.",
                 secondaryIssues: [skipReason].filter((v) => v.length > 0),
+                structureAndFlow: [],
+                clarityAndConciseness: [],
+                relevanceAndFocus: [skipReason].filter((v) => v.length > 0),
+                engagement: [],
+                professionalism: [],
+                voiceToneExpression: [],
                 improvements: [],
                 regressions: [],
                 notes: "Skipped deep analysis to avoid hallucinated feedback.",
             };
-            feedback = `This attempt is too short or not aligned enough with the drill to generate reliable coaching.
-
-Reason: ${skipReason}
-
-Try one more pass and follow the framework for at least 45-90 seconds, using 2 or more concrete facts from the drill prompt.`;
+            feedback = {
+                overview:
+                    "This attempt is not yet usable enough for deep coaching. Your next pass should focus on giving a complete, drill-aligned response so feedback can be more specific.",
+                momentsToTighten:
+                    "Not enough usable evidence from this attempt to give moment-level coaching.",
+                structureAndFlow:
+                    "This response is too short or off-task, so structure and transitions cannot be evaluated reliably.",
+                clarityAndConciseness:
+                    "Please give a fuller answer so clarity, filler-word usage, and conciseness can be measured.",
+                relevanceAndFocus: `Reason: ${skipReason}`,
+                engagement:
+                    "Cannot evaluate audience engagement from this attempt due to limited relevant content.",
+                professionalism:
+                    "Cannot evaluate professional communication quality from this attempt yet.",
+                deliveryAndProsody:
+                    "Prosody interpretation is limited when the response is too short or unrelated to the drill.",
+                betterOptions: null,
+                nextRepetition:
+                    "Redo this drill for 45-90 seconds, follow the framework, and include at least two concrete facts from the prompt.",
+                whatWorkedWell: null,
+            };
             completionStatus = "needs_retry";
             completionReason = skipReason;
         } else {
@@ -483,8 +513,8 @@ Try one more pass and follow the framework for at least 45-90 seconds, using 2 o
                 },
                 { sessionAnalysis: analysis },
             );
-            completionStatus = "passed";
-            completionReason = null;
+            completionStatus = shouldRequireRetry ? "needs_retry" : "passed";
+            completionReason = shouldRequireRetry ? skipReason : null;
         }
 
         await sessionRef.set(

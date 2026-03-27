@@ -39,6 +39,13 @@ function hydrateSkillMemory(
     };
 }
 
+function hasSessionFeedbackContent(feedback: SessionType["feedback"]): boolean {
+    if (!feedback) return false;
+    return Object.values(feedback).some(
+        (value) => typeof value === "string" && value.trim().length > 0,
+    );
+}
+
 async function refreshSkillMemoryFromLatestSession(
     db: ReturnType<typeof getAdminFirestore>,
     uid: string,
@@ -65,8 +72,7 @@ async function refreshSkillMemoryFromLatestSession(
     const latestFeedback = latestSession?.feedback;
     if (
         latestAnalysis == null ||
-        typeof latestFeedback !== "string" ||
-        latestFeedback.trim().length === 0
+        !hasSessionFeedbackContent(latestFeedback)
     ) {
         return current;
     }

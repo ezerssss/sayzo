@@ -15,7 +15,7 @@ import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
 import { useLatestSession } from "@/hooks/use-latest-session";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
-import type { SessionPlanType } from "@/types/sessions";
+import type { SessionFeedbackType, SessionPlanType } from "@/types/sessions";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
 import { MarkdownBlock } from "@/components/session/markdown-block";
 import { TranscriptPanel } from "@/components/session/transcript-panel";
@@ -82,9 +82,16 @@ export function SessionHome(props: Readonly<PropsInterface>) {
         return session?.transcript?.trim() ?? "";
     }, [session?.transcript]);
 
-    const currentFeedback = useMemo(() => {
-        return session?.feedback?.trim() ?? "";
+    const currentFeedback = useMemo<SessionFeedbackType | null>(() => {
+        return session?.feedback ?? null;
     }, [session?.feedback]);
+
+    const hasFeedback = useMemo(() => {
+        if (!currentFeedback) return false;
+        return Object.values(currentFeedback).some(
+            (value) => typeof value === "string" && value.trim().length > 0,
+        );
+    }, [currentFeedback]);
 
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
     const isRecordingNow = isRecording || drillState === "recording";
@@ -97,7 +104,7 @@ export function SessionHome(props: Readonly<PropsInterface>) {
     const processingStage = session?.processingStage;
     const hasServerResults = Boolean(
         session?.completionStatus !== "pending" &&
-            (session?.transcript?.trim() || session?.feedback?.trim()),
+            (session?.transcript?.trim() || hasFeedback),
     );
     const shouldShowResults = hasServerResults;
     const showRecordAction =
@@ -470,9 +477,9 @@ export function SessionHome(props: Readonly<PropsInterface>) {
                             </p>
                         </div>
                     )}
-                    {currentFeedback ? (
+                    {hasFeedback && currentFeedback ? (
                         <FeedbackPanel
-                            feedbackMarkdown={currentFeedback}
+                            feedback={currentFeedback}
                             onSeekToSecond={seekToSecond}
                             needsRetry={requiresRetry}
                             completionReason={session?.completionReason ?? null}

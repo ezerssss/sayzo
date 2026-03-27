@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
+import type { SessionFeedbackType } from "@/types/sessions";
 
 type MarkdownComponents = Record<
     string,
@@ -10,7 +11,7 @@ type MarkdownComponents = Record<
 >;
 
 interface PropsInterface {
-    feedbackMarkdown: string;
+    feedback: SessionFeedbackType;
     onSeekToSecond?: (seconds: number) => void;
     needsRetry?: boolean;
     completionReason?: string | null;
@@ -121,8 +122,65 @@ function markdownComponents(
 }
 
 export function FeedbackPanel(props: Readonly<PropsInterface>) {
-    const { feedbackMarkdown, onSeekToSecond, needsRetry, completionReason } =
-        props;
+    const { feedback, onSeekToSecond, needsRetry, completionReason } = props;
+    const sections: Array<{ key: string; title: string; content: string | null }> =
+        [
+            {
+                key: "overview",
+                title: "Overview",
+                content: feedback.overview,
+            },
+            {
+                key: "momentsToTighten",
+                title: "Moments to tighten",
+                content: feedback.momentsToTighten,
+            },
+            {
+                key: "structureAndFlow",
+                title: "Structure & flow",
+                content: feedback.structureAndFlow,
+            },
+            {
+                key: "clarityAndConciseness",
+                title: "Clarity & conciseness",
+                content: feedback.clarityAndConciseness,
+            },
+            {
+                key: "relevanceAndFocus",
+                title: "Relevance & focus",
+                content: feedback.relevanceAndFocus,
+            },
+            {
+                key: "engagement",
+                title: "Engagement",
+                content: feedback.engagement,
+            },
+            {
+                key: "professionalism",
+                title: "Professionalism",
+                content: feedback.professionalism,
+            },
+            {
+                key: "deliveryAndProsody",
+                title: "Voice, tone & expression",
+                content: feedback.deliveryAndProsody,
+            },
+            {
+                key: "betterOptions",
+                title: "Better options",
+                content: feedback.betterOptions,
+            },
+            {
+                key: "nextRepetition",
+                title: "Next repetition",
+                content: feedback.nextRepetition,
+            },
+            {
+                key: "whatWorkedWell",
+                title: "What worked well",
+                content: feedback.whatWorkedWell,
+            },
+        ];
     return (
         <div
             className={`rounded-xl border p-4 ${
@@ -140,13 +198,31 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                     {completionReason}
                 </p>
             ) : null}
-            <div className="mt-2">
-                <ReactMarkdown
-                    components={markdownComponents(onSeekToSecond)}
-                    urlTransform={(url) => url}
-                >
-                    {feedbackMarkdown}
-                </ReactMarkdown>
+            <div className="mt-3 space-y-3">
+                {sections
+                    .filter(
+                        (section) =>
+                            typeof section.content === "string" &&
+                            section.content.trim().length > 0,
+                    )
+                    .map((section) => (
+                        <div
+                            key={section.key}
+                            className="rounded-lg border border-border/50 bg-background/50 p-3"
+                        >
+                            <h4 className="text-sm font-medium text-foreground/90">
+                                {section.title}
+                            </h4>
+                            <div className="mt-2">
+                                <ReactMarkdown
+                                    components={markdownComponents(onSeekToSecond)}
+                                    urlTransform={(url) => url}
+                                >
+                                    {section.content ?? ""}
+                                </ReactMarkdown>
+                            </div>
+                        </div>
+                    ))}
             </div>
         </div>
     );

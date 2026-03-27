@@ -23,11 +23,18 @@ Your job is to produce a **structured session analysis** (not coaching copy for 
 
 ### Field semantics
 
+- **overview** — 2-4 sentence high-level synopsis of performance for downstream systems (not user-facing copy). Include the dominant pattern and practical implication.
 - **mainIssue** — The single most important pattern or gap _in this session_ relative to the plan and professional context (one clear sentence).
 - **secondaryIssues** — Other notable issues (short phrases; empty array if none).
+- **structureAndFlow** — Findings about organization, sequencing, and transitions (short evidence-backed points; empty array if none).
+- **clarityAndConciseness** — Findings about fillers, redundancy, vagueness, precision, and sentence economy (empty array if none).
+- **relevanceAndFocus** — Findings about staying on prompt, useful detail selection, and drift (empty array if none).
+- **engagement** — Findings about audience pull, energy, conviction, and listener attention management (empty array if none).
+- **professionalism** — Findings about workplace-appropriate tone, credibility, confidence, and business framing (empty array if none).
+- **voiceToneExpression** — Findings about delivery signals (pace/rhythm/emphasis/intonation/expressiveness/vocal bursts) grounded in provided voice-expression evidence (empty array if none).
 - **improvements** — Observable positive shifts vs. the learner’s known weaknesses or session focus (even small wins).
 - **regressions** — Where they underperformed vs. strengths, plan, or recent focus (be fair; empty if none).
-- **notes** — Brief analyst notes: uncertainties, missing transcript, or what you’d want in a longer recording. Can be empty string if nothing to add.
+- **notes** — Brief analyst notes: uncertainties, missing evidence, contradictions, or what a longer attempt would clarify. Can be empty string if nothing to add.
 
 Stay professional, kind, and honest.
 

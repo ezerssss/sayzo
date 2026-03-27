@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import type { SessionAnalysisType } from "@/types/sessions";
+import type { SessionAnalysisType, SessionFeedbackType } from "@/types/sessions";
 import type { SkillMemoryType } from "@/types/skill-memory";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "skill-memory-updater");
@@ -30,7 +30,7 @@ export type SkillMemoryUpdaterInput = {
         completionStatus?: "pending" | "passed" | "needs_retry";
         completionReason?: string | null;
         analysis: SessionAnalysisType;
-        feedback: string;
+        feedback: SessionFeedbackType;
         skillTarget?: string;
         framework?: string;
     };
@@ -49,6 +49,43 @@ function defaultModel(): string {
 }
 
 function buildUserMessage(input: SkillMemoryUpdaterInput): string {
+    const feedbackText = [
+        "## Overview",
+        input.latestSession.feedback.overview,
+        "",
+        "## Moments to tighten",
+        input.latestSession.feedback.momentsToTighten,
+        "",
+        "## Structure and flow",
+        input.latestSession.feedback.structureAndFlow,
+        "",
+        "## Clarity and conciseness",
+        input.latestSession.feedback.clarityAndConciseness,
+        "",
+        "## Relevance and focus",
+        input.latestSession.feedback.relevanceAndFocus,
+        "",
+        "## Engagement",
+        input.latestSession.feedback.engagement,
+        "",
+        "## Professionalism",
+        input.latestSession.feedback.professionalism,
+        "",
+        "## Delivery and prosody",
+        input.latestSession.feedback.deliveryAndProsody,
+        "",
+        "## Better options",
+        input.latestSession.feedback.betterOptions ?? "(none)",
+        "",
+        "## Next repetition",
+        input.latestSession.feedback.nextRepetition,
+        "",
+        "## What worked well",
+        input.latestSession.feedback.whatWorkedWell ?? "(none)",
+    ]
+        .join("\n")
+        .trim();
+
     return `
 ## Current skill memory
 - Strengths: ${input.skillMemory.strengths.length ? input.skillMemory.strengths.join("; ") : "(none)"}
@@ -68,7 +105,7 @@ ${JSON.stringify(input.latestSession.analysis, null, 2)}
 \`\`\`
 
 ## Latest session feedback
-${input.latestSession.feedback.trim()}
+${feedbackText}
 `.trim();
 }
 

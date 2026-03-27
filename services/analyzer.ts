@@ -6,15 +6,26 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import type { SessionAnalysisType, SessionPlanType } from "@/types/sessions";
+import type {
+    SessionAnalysisType,
+    SessionFeedbackType,
+    SessionPlanType,
+} from "@/types/sessions";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "analyzer");
 
 const sessionAnalysisSchema = z.object({
+    overview: z.string(),
     mainIssue: z.string(),
     secondaryIssues: z.array(z.string()),
+    structureAndFlow: z.array(z.string()),
+    clarityAndConciseness: z.array(z.string()),
+    relevanceAndFocus: z.array(z.string()),
+    engagement: z.array(z.string()),
+    professionalism: z.array(z.string()),
+    voiceToneExpression: z.array(z.string()),
     improvements: z.array(z.string()),
     regressions: z.array(z.string()),
     notes: z.string(),
@@ -53,6 +64,20 @@ export type GenerateSessionFeedbackOptions = {
     sessionAnalysis?: SessionAnalysisType | null;
 };
 
+const sessionFeedbackSchema = z.object({
+    overview: z.string(),
+    momentsToTighten: z.string(),
+    structureAndFlow: z.string(),
+    clarityAndConciseness: z.string(),
+    relevanceAndFocus: z.string(),
+    engagement: z.string(),
+    professionalism: z.string(),
+    deliveryAndProsody: z.string(),
+    betterOptions: z.string().nullable(),
+    nextRepetition: z.string(),
+    whatWorkedWell: z.string().nullable(),
+});
+
 function readAnalyzerPrompt(filename: string): string {
     return readFileSync(join(PROMPTS_DIR, filename), "utf-8");
 }
@@ -68,7 +93,7 @@ function requireTranscript(transcript: string): void {
 }
 
 function parseTimestampToken(token: string): number | null {
-    const m = token.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(token);
     if (!m) return null;
     if (m[3] != null) {
         const hh = Number(m[1]);
@@ -146,6 +171,51 @@ function sanitizeFeedbackTimestampLinks(
     return next;
 }
 
+function sanitizeFeedbackObjectTimestamps(
+    feedback: SessionFeedbackType,
+    validSeconds: Set<number>,
+): SessionFeedbackType {
+    return {
+        ...feedback,
+        overview: sanitizeFeedbackTimestampLinks(feedback.overview, validSeconds),
+        momentsToTighten: sanitizeFeedbackTimestampLinks(
+            feedback.momentsToTighten,
+            validSeconds,
+        ),
+        structureAndFlow: sanitizeFeedbackTimestampLinks(
+            feedback.structureAndFlow,
+            validSeconds,
+        ),
+        clarityAndConciseness: sanitizeFeedbackTimestampLinks(
+            feedback.clarityAndConciseness,
+            validSeconds,
+        ),
+        relevanceAndFocus: sanitizeFeedbackTimestampLinks(
+            feedback.relevanceAndFocus,
+            validSeconds,
+        ),
+        engagement: sanitizeFeedbackTimestampLinks(feedback.engagement, validSeconds),
+        professionalism: sanitizeFeedbackTimestampLinks(
+            feedback.professionalism,
+            validSeconds,
+        ),
+        deliveryAndProsody: sanitizeFeedbackTimestampLinks(
+            feedback.deliveryAndProsody,
+            validSeconds,
+        ),
+        betterOptions: feedback.betterOptions
+            ? sanitizeFeedbackTimestampLinks(feedback.betterOptions, validSeconds)
+            : null,
+        nextRepetition: sanitizeFeedbackTimestampLinks(
+            feedback.nextRepetition,
+            validSeconds,
+        ),
+        whatWorkedWell: feedback.whatWorkedWell
+            ? sanitizeFeedbackTimestampLinks(feedback.whatWorkedWell, validSeconds)
+            : null,
+    };
+}
+
 function buildContextUserMessage(input: AnalyzerInput): string {
     const { userProfile, skillMemory, session } = input;
     const hume = session.humeContext?.trim();
@@ -215,7 +285,7 @@ export async function analyzeSession(
 export async function generateSessionFeedback(
     input: AnalyzerInput,
     options: GenerateSessionFeedbackOptions = {},
-): Promise<string> {
+): Promise<SessionFeedbackType> {
     requireTranscript(input.session.transcript);
 
     const system = readAnalyzerPrompt("session-feedback.md");
@@ -232,8 +302,14 @@ export async function generateSessionFeedback(
         analysisBlock = `\n\n## Prior structured analysis (for alignment)\n\`\`\`json\n${JSON.stringify(options.sessionAnalysis, null, 2)}\n\`\`\``;
     }
 
-    const { text } = await generateText({
+    const result = await generateText({
         model: openai(defaultAnalyzerModel()),
+        output: Output.object({
+            schema: zodSchema(sessionFeedbackSchema),
+            name: "SessionFeedback",
+            description:
+                "Structured learner-facing coaching feedback with nuanced communication dimensions.",
+        }),
         system,
         prompt: `${context}${timestampGuidance}${analysisBlock}`,
         temperature: 0.35,
@@ -242,5 +318,5 @@ export async function generateSessionFeedback(
     const validSeconds = extractTranscriptTimestampSeconds(
         input.session.transcript,
     );
-    return sanitizeFeedbackTimestampLinks(text.trim(), validSeconds);
+    return sanitizeFeedbackObjectTimestamps(result.output, validSeconds);
 }

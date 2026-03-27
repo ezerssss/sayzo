@@ -14,11 +14,32 @@ export type SessionPlanType = {
 };
 
 export type SessionAnalysisType = {
+    overview: string;
     mainIssue: string;
     secondaryIssues: string[];
+    structureAndFlow: string[];
+    clarityAndConciseness: string[];
+    relevanceAndFocus: string[];
+    engagement: string[];
+    professionalism: string[];
+    voiceToneExpression: string[];
     improvements: string[];
     regressions: string[];
     notes: string;
+};
+
+export type SessionFeedbackType = {
+    overview: string;
+    momentsToTighten: string;
+    structureAndFlow: string;
+    clarityAndConciseness: string;
+    relevanceAndFocus: string;
+    engagement: string;
+    professionalism: string;
+    deliveryAndProsody: string;
+    betterOptions: string | null;
+    nextRepetition: string;
+    whatWorkedWell: string | null;
 };
 
 export type SessionCompletionStatus =
@@ -37,7 +58,7 @@ export type SessionType = {
     transcript: string | null;
 
     analysis: SessionAnalysisType | null;
-    feedback: string | null;
+    feedback: SessionFeedbackType | null;
     completionStatus: SessionCompletionStatus;
     completionReason: string | null;
     processingStatus?: "idle" | "processing" | "failed";
