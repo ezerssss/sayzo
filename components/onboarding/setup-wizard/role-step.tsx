@@ -29,14 +29,14 @@ export function RoleStep(props: Readonly<PropsInterface>) {
                     What is your role?
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                    Start with your current job function and responsibilities.
+                    Share your current role, or the role you are preparing for.
                 </p>
             </div>
             <VoiceInputBlock
-                label="What do you do for work?"
+                label="What role best describes you?"
                 value={roleContext}
                 onChange={onRoleContextChange}
-                placeholder="e.g. Product manager leading roadmap planning and sprint reviews."
+                placeholder="e.g. Product manager leading roadmap planning, or candidate preparing for customer success interviews."
                 minRows={4}
             />
             <div className="flex gap-2">

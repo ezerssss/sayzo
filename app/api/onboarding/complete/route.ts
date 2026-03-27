@@ -12,6 +12,8 @@ import { NextResponse, type NextRequest } from "next/server";
 type CompleteOnboardingPayload = {
     uid: string;
     roleContext: string;
+    employmentStatus: "employed" | "unemployed";
+    wantsInterviewPractice: boolean;
     companyName: string;
     companyUrl: string;
     companyContext: string;
@@ -56,8 +58,24 @@ export async function POST(request: NextRequest) {
 
     const uid = payload.uid?.trim();
     const introTranscript = payload.introTranscript?.trim();
+    const employmentStatus = payload.employmentStatus;
+    const wantsInterviewPractice = payload.wantsInterviewPractice;
+    const effectiveInterviewPractice =
+        employmentStatus === "unemployed" || wantsInterviewPractice;
     if (!uid) {
         return NextResponse.json({ error: "Missing uid." }, { status: 400 });
+    }
+    if (employmentStatus !== "employed" && employmentStatus !== "unemployed") {
+        return NextResponse.json(
+            { error: "Invalid employment status." },
+            { status: 400 },
+        );
+    }
+    if (typeof wantsInterviewPractice !== "boolean") {
+        return NextResponse.json(
+            { error: "Invalid interview practice flag." },
+            { status: 400 },
+        );
     }
     if (!introTranscript) {
         return NextResponse.json(
@@ -99,8 +117,13 @@ export async function POST(request: NextRequest) {
 
         const profileFields = await buildUserProfileFieldsFromOnboarding({
             role: payload.roleContext,
+            employmentStatus,
             companyName: payload.companyName,
-            companyContext: `${payload.companyContext}\nRole at company:\n${payload.workRoleContext}`,
+            companyContext: `${payload.companyContext}\n${
+                employmentStatus === "unemployed"
+                    ? "Target interview role:"
+                    : "Role at company:"
+            }\n${payload.workRoleContext}`,
             goals: payload.goals ?? [],
             goalsFreeText: payload.goalsFreeText,
             motivation: payload.motivation,
@@ -124,6 +147,8 @@ export async function POST(request: NextRequest) {
             onboardingStatus: "completed",
             onboardingError: null,
             onboardingJobUpdatedAt: profileNowIso,
+            employmentStatus,
+            wantsInterviewPractice: effectiveInterviewPractice,
             role: profileFields.role,
             industry:
                 profileFields.industry || companyResearch?.guessedIndustry || "",
@@ -149,6 +174,7 @@ export async function POST(request: NextRequest) {
                 companyDescription: profile.companyDescription,
                 workplaceCommunicationContext:
                     profile.workplaceCommunicationContext,
+                wantsInterviewPractice: profile.wantsInterviewPractice,
                 motivation: profile.motivation,
                 goals: profile.goals,
                 additionalContext: profile.additionalContext,
@@ -213,6 +239,7 @@ export async function POST(request: NextRequest) {
                 companyDescription: profile.companyDescription,
                 workplaceCommunicationContext:
                     profile.workplaceCommunicationContext,
+                wantsInterviewPractice: profile.wantsInterviewPractice,
                 motivation: profile.motivation,
                 goals: profile.goals,
                 additionalContext: profile.additionalContext,

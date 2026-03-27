@@ -70,10 +70,10 @@ async function refreshSkillMemoryFromLatestSession(
     }
     const latestAnalysis = latestSession?.analysis;
     const latestFeedback = latestSession?.feedback;
-    if (
-        latestAnalysis == null ||
-        !hasSessionFeedbackContent(latestFeedback)
-    ) {
+    if (latestAnalysis == null || latestFeedback == null) {
+        return current;
+    }
+    if (!hasSessionFeedbackContent(latestFeedback)) {
         return current;
     }
 
@@ -228,6 +228,8 @@ export async function POST(request: NextRequest) {
                 companyDescription: enrichedUserProfile.companyDescription ?? "",
                 workplaceCommunicationContext:
                     enrichedUserProfile.workplaceCommunicationContext ?? "",
+                wantsInterviewPractice:
+                    enrichedUserProfile.wantsInterviewPractice ?? false,
                 motivation: enrichedUserProfile.motivation ?? "",
                 goals: enrichedUserProfile.goals,
                 additionalContext: enrichedUserProfile.additionalContext,

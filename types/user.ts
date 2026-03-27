@@ -24,6 +24,8 @@ export type UserProfileType = {
     onboardingStatus?: "idle" | "processing" | "failed" | "completed";
     onboardingError?: string | null;
     onboardingJobUpdatedAt?: string;
+    employmentStatus: "employed" | "unemployed";
+    wantsInterviewPractice: boolean;
 
     role: string;
     industry: string;

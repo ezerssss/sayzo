@@ -6,6 +6,7 @@ import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { GoalsStep } from "@/components/onboarding/setup-wizard/goals-step";
+import { EmploymentStep } from "@/components/onboarding/setup-wizard/employment-step";
 import { MotivationStep } from "@/components/onboarding/setup-wizard/motivation-step";
 import { PainStep } from "@/components/onboarding/setup-wizard/pain-step";
 import { RoleStep } from "@/components/onboarding/setup-wizard/role-step";
@@ -33,6 +34,10 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     const { uid, onBack } = props;
     const [step, setStep] = useState<SetupWizardStep>("welcome");
     const [roleContext, setRoleContext] = useState("");
+    const [employmentStatus, setEmploymentStatus] = useState<
+        "employed" | "unemployed"
+    >("employed");
+    const [wantsInterviewPractice, setWantsInterviewPractice] = useState(false);
     const [companyName, setCompanyName] = useState("");
     const [companyUrl, setCompanyUrl] = useState("");
     const [companyContext, setCompanyContext] = useState("");
@@ -99,6 +104,9 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         const payload = {
             uid,
             roleContext: roleContext.trim(),
+            employmentStatus,
+            wantsInterviewPractice:
+                employmentStatus === "unemployed" ? true : wantsInterviewPractice,
             companyName: companyName.trim(),
             companyUrl: companyUrl.trim(),
             companyContext: companyContext.trim(),
@@ -150,15 +158,19 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         painFreeText,
         painPoints,
         roleContext,
+        employmentStatus,
+        wantsInterviewPractice,
         workRoleContext,
         uid,
     ]);
 
     const canContinueRole = roleContext.trim().length > 0;
     const canContinueWorkplace =
-        companyName.trim().length > 0 &&
-        companyContext.trim().length > 0 &&
-        workRoleContext.trim().length > 0;
+        (employmentStatus === "employed"
+            ? companyName.trim().length > 0 &&
+              companyContext.trim().length > 0 &&
+              workRoleContext.trim().length > 0
+            : workRoleContext.trim().length > 0);
     const canContinueGoals =
         goals.length > 0 || goalsFreeText.trim().length > 0;
     const canContinueMotivation = motivation.trim().length > 0;
@@ -311,6 +323,9 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
 
             {step === "workplace" ? (
                 <WorkplaceStep
+                    employmentStatus={employmentStatus}
+                    wantsInterviewPractice={wantsInterviewPractice}
+                    onWantsInterviewPracticeChange={setWantsInterviewPractice}
                     companyName={companyName}
                     onCompanyNameChange={setCompanyName}
                     companyUrl={companyUrl}
@@ -320,6 +335,20 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                     workRoleContext={workRoleContext}
                     onWorkRoleContextChange={setWorkRoleContext}
                     canContinue={canContinueWorkplace}
+                    onBack={goPrev}
+                    onNext={goNext}
+                />
+            ) : null}
+
+            {step === "employment" ? (
+                <EmploymentStep
+                    employmentStatus={employmentStatus}
+                    onEmploymentStatusChange={(value) => {
+                        setEmploymentStatus(value);
+                        if (value === "unemployed") {
+                            setWantsInterviewPractice(true);
+                        }
+                    }}
                     onBack={goPrev}
                     onNext={goNext}
                 />

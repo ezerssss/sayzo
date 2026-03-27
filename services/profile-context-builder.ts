@@ -58,6 +58,7 @@ export type UserProfileFieldsFromAI = Pick<
 
 export type ProfileContextBuilderInput = {
     role: string;
+    employmentStatus: "employed" | "unemployed";
     companyName?: string;
     companyContext?: string;
     goals: string[];
@@ -92,6 +93,9 @@ function buildUserMessage(input: ProfileContextBuilderInput): string {
     return `
 ## Role (raw)
 ${input.role.trim() || "(empty)"}
+
+## Employment status (raw)
+${input.employmentStatus}
 
 ## Company name (raw)
 ${(input.companyName ?? "").trim() || "(empty)"}

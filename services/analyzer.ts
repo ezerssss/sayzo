@@ -40,6 +40,7 @@ export type AnalyzerInput = {
         | "companyName"
         | "companyDescription"
         | "workplaceCommunicationContext"
+        | "wantsInterviewPractice"
         | "motivation"
         | "additionalContext"
         | "companyResearch"
@@ -226,7 +227,8 @@ function buildContextUserMessage(input: AnalyzerInput): string {
 - Industry: ${userProfile.industry || "(not set)"}
 - Company: ${userProfile.companyName || "(not set)"}
 - Company description: ${userProfile.companyDescription || "(not set)"}
-- Workplace communication context: ${userProfile.workplaceCommunicationContext || "(not set)"}
+- Communication context (work/interviews): ${userProfile.workplaceCommunicationContext || "(not set)"}
+- Wants interview practice: ${userProfile.wantsInterviewPractice ? "yes" : "no"}
 - Motivation: ${userProfile.motivation || "(not set)"}
 - Goals: ${userProfile.goals.length ? userProfile.goals.join("; ") : "(none)"}
 - Additional context: ${userProfile.additionalContext?.trim() || "(none)"}

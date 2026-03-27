@@ -468,6 +468,8 @@ ${transcript}`,
                     companyDescription: userProfile.companyDescription ?? "",
                     workplaceCommunicationContext:
                         userProfile.workplaceCommunicationContext ?? "",
+                    wantsInterviewPractice:
+                        userProfile.wantsInterviewPractice ?? false,
                     motivation: userProfile.motivation ?? "",
                     goals: userProfile.goals,
                     additionalContext: userProfile.additionalContext,
@@ -495,6 +497,8 @@ ${transcript}`,
                             userProfile.companyDescription ?? "",
                         workplaceCommunicationContext:
                             userProfile.workplaceCommunicationContext ?? "",
+                        wantsInterviewPractice:
+                            userProfile.wantsInterviewPractice ?? false,
                         motivation: userProfile.motivation ?? "",
                         goals: userProfile.goals,
                         additionalContext: userProfile.additionalContext,

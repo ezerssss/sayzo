@@ -33,6 +33,7 @@ export type PlannerInput = {
         | "companyName"
         | "companyDescription"
         | "workplaceCommunicationContext"
+        | "wantsInterviewPractice"
         | "motivation"
         | "additionalContext"
         | "companyResearch"
@@ -67,6 +68,7 @@ function plannerUserMessage(input: PlannerInput): string {
 - Company: ${userProfile.companyName || "(not set)"}
 - Company description: ${userProfile.companyDescription || "(not set)"}
 - Workplace communication context: ${userProfile.workplaceCommunicationContext || "(not set)"}
+- Wants interview practice: ${userProfile.wantsInterviewPractice ? "yes" : "no"}
 - Motivation: ${userProfile.motivation || "(not set)"}
 - Goals: ${userProfile.goals.length ? userProfile.goals.join("; ") : "(none)"}
 - Additional context: ${userProfile.additionalContext?.trim() || "(none)"}

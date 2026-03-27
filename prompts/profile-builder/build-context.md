@@ -6,12 +6,12 @@ The model must produce a **JSON object** with **only** these fields (same names,
 
 | Field | Type | Meaning |
 |-------|------|--------|
-| `role` | string | What they do professionally (title/function), polished from their words. |
+| `role` | string | What they do professionally (current role or target role), polished from their words. |
 | `industry` | string | Sector or domain inferred from the provided inputs if reasonably clear; otherwise `""`. |
-| `goals` | string[] | What they want to improve in **professional English**; merge goal tags and goal free-text into one deduplicated list of short strings. |
-| `companyName` | string | Employer or organization name from user input; `""` if not provided. |
-| `companyDescription` | string | What the company does, in one concise sentence from user input (plus cautious inference if obvious). |
-| `workplaceCommunicationContext` | string | Where/with whom they use English at work (meetings, clients, stakeholders, etc.). |
+| `goals` | string[] | What they want to improve in **professional/interview English**; merge goal tags and goal free-text into one deduplicated list of short strings. |
+| `companyName` | string | Employer or target organization name from user input; `""` if not provided. |
+| `companyDescription` | string | What the company or target organization/domain does, in one concise sentence from user input (plus cautious inference if obvious). |
+| `workplaceCommunicationContext` | string | Where/with whom they need English (work meetings, clients, interviewers, recruiters, hiring managers, etc.). |
 | `motivation` | string | Why they want to improve now, from their own words. |
 | `additionalContext` | string | Everything else that should travel with the profile: pain chips, pain free-text, intro notes, expression summary, and extra narrative. Combine clearly. Use `""` only if there is truly nothing beyond other fields. |
 
