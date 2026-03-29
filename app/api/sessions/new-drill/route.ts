@@ -4,7 +4,12 @@ import {
     enrichCompanyContext,
     isCompanyResearchStale,
 } from "@/services/company-context-enricher";
-import { buildSessionFromPlan, planNextSession } from "@/services/planner";
+import {
+    buildSessionFromPlan,
+    planNextSession,
+    PLANNER_RECENT_DRILLS_LOOKBACK,
+    summarizeSessionsForPlanner,
+} from "@/services/planner";
 import { updateSkillMemoryFromLatestSession } from "@/services/skill-memory-updater";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { SessionType } from "@/types/sessions";
@@ -50,18 +55,19 @@ async function refreshSkillMemoryFromLatestSession(
     db: ReturnType<typeof getAdminFirestore>,
     uid: string,
     current: SkillMemoryType,
+    preloadedLatestSession?: SessionType,
 ): Promise<SkillMemoryType> {
-    const latestSessionSnap = await db
-        .collection(FirestoreCollections.sessions.path)
-        .where("uid", "==", uid)
-        .orderBy("createdAt", "desc")
-        .limit(1)
-        .get();
-    if (latestSessionSnap.empty) return current;
-
-    const latestSession = latestSessionSnap.docs[0]?.data() as
-        | SessionType
-        | undefined;
+    let latestSession = preloadedLatestSession;
+    if (latestSession == null) {
+        const latestSessionSnap = await db
+            .collection(FirestoreCollections.sessions.path)
+            .where("uid", "==", uid)
+            .orderBy("createdAt", "desc")
+            .limit(1)
+            .get();
+        if (latestSessionSnap.empty) return current;
+        latestSession = latestSessionSnap.docs[0]?.data() as SessionType;
+    }
     if (!latestSession?.id) {
         return current;
     }
@@ -189,15 +195,16 @@ export async function POST(request: NextRequest) {
             userProfile,
         );
 
-        const latestSessionSnap = await db
+        const recentSessionsSnap = await db
             .collection(FirestoreCollections.sessions.path)
             .where("uid", "==", uid)
             .orderBy("createdAt", "desc")
-            .limit(1)
+            .limit(PLANNER_RECENT_DRILLS_LOOKBACK)
             .get();
-        const latestSession = latestSessionSnap.docs[0]?.data() as
-            | SessionType
-            | undefined;
+        const recentSessions = recentSessionsSnap.docs.map(
+            (docSnap) => docSnap.data() as SessionType,
+        );
+        const latestSession = recentSessions[0];
         if (
             latestSession?.completionStatus === "needs_retry" &&
             latestSession?.processingStatus !== "processing"
@@ -218,7 +225,10 @@ export async function POST(request: NextRequest) {
             db,
             uid,
             hydratedSkillMemory,
+            latestSession,
         );
+
+        const recentDrills = summarizeSessionsForPlanner(recentSessions);
 
         const plan = await planNextSession({
             userProfile: {
@@ -234,6 +244,7 @@ export async function POST(request: NextRequest) {
                 goals: enrichedUserProfile.goals,
                 additionalContext: enrichedUserProfile.additionalContext,
                 companyResearch: enrichedUserProfile.companyResearch,
+                internalLearnerContext: enrichedUserProfile.internalLearnerContext,
             },
             skillMemory: {
                 strengths: skillMemory.strengths,
@@ -241,6 +252,7 @@ export async function POST(request: NextRequest) {
                 masteredFocus: skillMemory.masteredFocus,
                 reinforcementFocus: skillMemory.reinforcementFocus,
             },
+            recentDrills,
         });
 
         const session = buildSessionFromPlan(uid, plan);

@@ -39,6 +39,14 @@ export type UserProfileType = {
     additionalContext: string;
     companyResearch?: CompanyResearchType;
 
+    /**
+     * Server-only bullet notes merged from drill transcripts over time.
+     * Never shown in the app; used to personalize future drill plans. Empty string when none.
+     */
+    internalLearnerContext: string;
+    /** Idempotency: last session id merged into `internalLearnerContext`; empty string if never updated. */
+    lastInternalLearnerContextSessionId: string;
+
     createdAt: string;
     updatedAt: string;
 };

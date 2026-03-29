@@ -42,11 +42,12 @@ const FALLBACK_PLAN: SessionPlanType = {
     scenario: {
         title: "Practice Drill",
         situationContext:
-            "You are presenting a brief professional update to your team.",
+            "You are giving a brief professional update to your team.",
         givenContent:
             "Summarize what changed, why it matters, and what you need from stakeholders.",
         framework:
             "Use PREP: Point -> Reason -> Example -> Point. Keep it concise and confident.",
+        category: "status_update",
     },
     skillTarget: "Concise structure",
     maxDurationSeconds: DEFAULT_MAX_SECONDS,

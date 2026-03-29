@@ -2,6 +2,7 @@ import { FirestoreCollections } from "@/constants/firebase/firestore-collections
 import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
 import { openai } from "@ai-sdk/openai";
 import { analyzeSession, generateSessionFeedback } from "@/services/analyzer";
+import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
 import { randomUUID } from "node:crypto";
@@ -395,6 +396,7 @@ Set hasCoachableSignal=false only when content is effectively uncoachable (e.g.,
 Be conservative: do not infer relevance from weak evidence.
 Return only the schema fields.`,
             prompt: `## Drill
+Category: ${session.plan.scenario.category}
 Title: ${session.plan.scenario.title}
 Situation: ${session.plan.scenario.situationContext}
 Given content: ${session.plan.scenario.givenContent}
@@ -570,6 +572,45 @@ ${transcript}`,
             },
             { merge: true },
         );
+
+        try {
+            if (!shouldSkipDeepAnalysis && transcript.trim().length >= 120) {
+                const userRef = db
+                    .collection(FirestoreCollections.users.path)
+                    .doc(uid);
+                const freshUserSnap = await userRef.get();
+                const freshProfile = freshUserSnap.data() as
+                    | UserProfileType
+                    | undefined;
+                if (
+                    freshProfile &&
+                    freshProfile.lastInternalLearnerContextSessionId !==
+                        sessionId
+                ) {
+                    const { internalLearnerContext } =
+                        await mergeInternalLearnerContextFromSession({
+                            previousInternalLearnerContext:
+                                freshProfile.internalLearnerContext.trim(),
+                            plan: session.plan,
+                            transcript,
+                            completionStatus,
+                        });
+                    await userRef.set(
+                        {
+                            internalLearnerContext,
+                            lastInternalLearnerContextSessionId: sessionId,
+                            updatedAt: new Date().toISOString(),
+                        },
+                        { merge: true },
+                    );
+                }
+            }
+        } catch (learnerContextError) {
+            console.error(
+                "[app/api/sessions/complete] internal learner context update failed",
+                learnerContextError,
+            );
+        }
 
         return NextResponse.json({
             ok: true,

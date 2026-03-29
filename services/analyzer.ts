@@ -240,6 +240,7 @@ function buildContextUserMessage(input: AnalyzerInput): string {
 - Reinforcement focus: ${skillMemory.reinforcementFocus.length ? skillMemory.reinforcementFocus.join("; ") : "(none)"}
 
 ## Session plan
+- Drill category: ${session.plan.scenario.category}
 - Scenario title: ${session.plan.scenario.title || "(none)"}
 - Situation context: ${session.plan.scenario.situationContext || "(none)"}
 - Given content: ${session.plan.scenario.givenContent || "(none)"}

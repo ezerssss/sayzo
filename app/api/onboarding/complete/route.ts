@@ -162,6 +162,8 @@ export async function POST(request: NextRequest) {
                 profileFields.workplaceCommunicationContext,
             motivation: profileFields.motivation,
             companyResearch: companyResearch ?? undefined,
+            internalLearnerContext: "",
+            lastInternalLearnerContextSessionId: "",
             createdAt: profileNowIso,
             updatedAt: profileNowIso,
         };
@@ -193,6 +195,7 @@ export async function POST(request: NextRequest) {
                         situationContext: "",
                         givenContent: "",
                         framework: "",
+                        category: "self_introduction",
                     },
                     skillTarget: "Confident self-introduction",
                     maxDurationSeconds: 120,
@@ -244,6 +247,7 @@ export async function POST(request: NextRequest) {
                 goals: profile.goals,
                 additionalContext: profile.additionalContext,
                 companyResearch: profile.companyResearch,
+                internalLearnerContext: profile.internalLearnerContext,
             },
             skillMemory: {
                 strengths: skillMemory.strengths,
@@ -251,6 +255,7 @@ export async function POST(request: NextRequest) {
                 masteredFocus: skillMemory.masteredFocus,
                 reinforcementFocus: skillMemory.reinforcementFocus,
             },
+            recentDrills: [],
         });
         const initialSession = buildSessionFromPlan(uid, initialPlan);
 

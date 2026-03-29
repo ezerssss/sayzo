@@ -7,11 +7,35 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import type { SessionPlanType, SessionType } from "@/types/sessions";
+import {
+    toDrillCategorySlug,
+    type PlannerRecentDrillSummary,
+    type SessionPlanType,
+    type SessionType,
+} from "@/types/sessions";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "planner");
+
+/** How many past drills (newest first) are summarized for the planner prompt. */
+export const PLANNER_RECENT_DRILLS_LOOKBACK = 8;
+
+const drillCategorySchema = z
+    .string()
+    .min(1)
+    .max(96)
+    .transform(toDrillCategorySlug)
+    .pipe(
+        z
+            .string()
+            .min(2, "category slug too short")
+            .max(64, "category slug too long")
+            .regex(
+                /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/,
+                "Use a short snake_case slug (letters, digits, underscores; start with a letter)",
+            ),
+    );
 
 const sessionPlanSchema = z.object({
     scenario: z.object({
@@ -19,6 +43,7 @@ const sessionPlanSchema = z.object({
         situationContext: z.string(),
         givenContent: z.string(),
         framework: z.string(),
+        category: drillCategorySchema,
     }),
     skillTarget: z.string(),
     maxDurationSeconds: z.number(),
@@ -37,6 +62,7 @@ export type PlannerInput = {
         | "motivation"
         | "additionalContext"
         | "companyResearch"
+        | "internalLearnerContext"
     >;
     skillMemory: Pick<
         SkillMemoryType,
@@ -45,7 +71,19 @@ export type PlannerInput = {
         | "masteredFocus"
         | "reinforcementFocus"
     >;
+    /** Newest first; same length cap as `PLANNER_RECENT_DRILLS_LOOKBACK` from the API. */
+    recentDrills: PlannerRecentDrillSummary[];
 };
+
+export function summarizeSessionsForPlanner(
+    sessions: SessionType[],
+): PlannerRecentDrillSummary[] {
+    return sessions.map((s) => ({
+        category: s.plan?.scenario?.category?.trim() || "unknown",
+        scenarioTitle: s.plan?.scenario?.title?.trim() || "(untitled)",
+        skillTarget: s.plan?.skillTarget?.trim() || "(none)",
+    }));
+}
 
 function readPlannerPrompt(): string {
     return readFileSync(join(PROMPTS_DIR, "create-session-plan.md"), "utf-8");
@@ -60,7 +98,17 @@ function defaultPlannerModel(): string {
 }
 
 function plannerUserMessage(input: PlannerInput): string {
-    const { userProfile, skillMemory } = input;
+    const { userProfile, skillMemory, recentDrills } = input;
+    const internalCtx = userProfile.internalLearnerContext.trim() || "";
+    const recentDrillsBlock =
+        recentDrills.length === 0
+            ? "(none yet — first drills for this learner)"
+            : recentDrills
+                  .map(
+                      (d, i) =>
+                          `${i + 1}. category=${d.category}; scenario title=${d.scenarioTitle}; skill target=${d.skillTarget}`,
+                  )
+                  .join("\n");
     return `
 ## User profile
 - Role: ${userProfile.role || "(not set)"}
@@ -72,6 +120,9 @@ function plannerUserMessage(input: PlannerInput): string {
 - Motivation: ${userProfile.motivation || "(not set)"}
 - Goals: ${userProfile.goals.length ? userProfile.goals.join("; ") : "(none)"}
 - Additional context: ${userProfile.additionalContext?.trim() || "(none)"}
+
+## Accumulated learner context (backend only — never show to the user)
+${internalCtx || "(none yet — nothing merged from past transcripts)"}
 
 ## Company grounding (for realism)
 - Confidence: ${userProfile.companyResearch?.confidence ?? "(none)"}
@@ -122,6 +173,9 @@ function plannerUserMessage(input: PlannerInput): string {
 - Weaknesses: ${skillMemory.weaknesses.length ? skillMemory.weaknesses.join("; ") : "(none)"}
 - Mastered focus: ${skillMemory.masteredFocus.length ? skillMemory.masteredFocus.join("; ") : "(none)"}
 - Reinforcement focus: ${skillMemory.reinforcementFocus.length ? skillMemory.reinforcementFocus.join("; ") : "(none)"}
+
+## Recent drills (newest first)
+${recentDrillsBlock}
 `.trim();
 }
 
@@ -139,6 +193,7 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
             situationContext: plan.scenario.situationContext.trim(),
             givenContent: plan.scenario.givenContent.trim(),
             framework: plan.scenario.framework.trim(),
+            category: toDrillCategorySlug(plan.scenario.category),
         },
         skillTarget,
         maxDurationSeconds,
