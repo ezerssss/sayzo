@@ -27,7 +27,7 @@ export type SkillMemoryUpdaterInput = {
         | "reinforcementFocus"
     >;
     latestSession: {
-        completionStatus?: "pending" | "passed" | "needs_retry";
+        completionStatus?: "pending" | "passed" | "needs_retry" | "skipped";
         completionReason?: string | null;
         analysis: SessionAnalysisType;
         feedback: SessionFeedbackType;

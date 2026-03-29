@@ -47,6 +47,14 @@ export type UserProfileType = {
     /** Idempotency: last session id merged into `internalLearnerContext`; empty string if never updated. */
     lastInternalLearnerContextSessionId: string;
 
+    /**
+     * Server-only bullet notes from optional skip / post-drill reflection signals (voice or text).
+     * Separate from `internalLearnerContext` (which is transcript-derived professional grounding).
+     */
+    internalDrillSignalNotes: string;
+    /** Idempotency: last session id merged into `internalDrillSignalNotes`; empty string if never updated. */
+    lastDrillSignalNotesSessionId: string;
+
     createdAt: string;
     updatedAt: string;
 };

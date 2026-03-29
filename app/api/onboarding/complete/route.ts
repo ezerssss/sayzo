@@ -164,6 +164,8 @@ export async function POST(request: NextRequest) {
             companyResearch: companyResearch ?? undefined,
             internalLearnerContext: "",
             lastInternalLearnerContextSessionId: "",
+            internalDrillSignalNotes: "",
+            lastDrillSignalNotesSessionId: "",
             createdAt: profileNowIso,
             updatedAt: profileNowIso,
         };
@@ -248,6 +250,7 @@ export async function POST(request: NextRequest) {
                 additionalContext: profile.additionalContext,
                 companyResearch: profile.companyResearch,
                 internalLearnerContext: profile.internalLearnerContext,
+                internalDrillSignalNotes: profile.internalDrillSignalNotes,
             },
             skillMemory: {
                 strengths: skillMemory.strengths,

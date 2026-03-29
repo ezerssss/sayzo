@@ -3,10 +3,12 @@
 interface PropsInterface {
     transcript: string;
     onSeekToSecond?: (seconds: number) => void;
+    /** Defaults to "Transcript" (drill response). Use for skip reasons etc. */
+    heading?: string;
 }
 
 export function TranscriptPanel(props: Readonly<PropsInterface>) {
-    const { transcript, onSeekToSecond } = props;
+    const { transcript, onSeekToSecond, heading = "Transcript" } = props;
 
     const lines = transcript.split("\n");
 
@@ -26,7 +28,7 @@ export function TranscriptPanel(props: Readonly<PropsInterface>) {
 
     return (
         <div className="rounded-xl border border-border/70 p-4">
-            <p className="text-sm font-medium">Transcript</p>
+            <p className="text-sm font-medium">{heading}</p>
             <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                 {lines.map((line, idx) => {
                     const match = line.match(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/);

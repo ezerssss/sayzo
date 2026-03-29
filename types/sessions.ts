@@ -82,10 +82,20 @@ export type SessionFeedbackType = {
     whatWorkedWell: string | null;
 };
 
+export function hasSessionFeedbackContent(
+    feedback: SessionFeedbackType | null | undefined,
+): boolean {
+    if (!feedback) return false;
+    return Object.values(feedback).some(
+        (value) => typeof value === "string" && value.trim().length > 0,
+    );
+}
+
 export type SessionCompletionStatus =
     | "pending"
     | "passed"
-    | "needs_retry";
+    | "needs_retry"
+    | "skipped";
 
 export type SessionType = {
     id: string;
@@ -101,6 +111,7 @@ export type SessionType = {
     feedback: SessionFeedbackType | null;
     completionStatus: SessionCompletionStatus;
     completionReason: string | null;
+
     processingStatus?: "idle" | "processing" | "failed";
     processingStage?:
         | "starting"

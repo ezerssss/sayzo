@@ -63,6 +63,7 @@ export type PlannerInput = {
         | "additionalContext"
         | "companyResearch"
         | "internalLearnerContext"
+        | "internalDrillSignalNotes"
     >;
     skillMemory: Pick<
         SkillMemoryType,
@@ -100,6 +101,8 @@ function defaultPlannerModel(): string {
 function plannerUserMessage(input: PlannerInput): string {
     const { userProfile, skillMemory, recentDrills } = input;
     const internalCtx = userProfile.internalLearnerContext.trim() || "";
+    const drillSignalNotes =
+        (userProfile.internalDrillSignalNotes ?? "").trim() || "";
     const recentDrillsBlock =
         recentDrills.length === 0
             ? "(none yet — first drills for this learner)"
@@ -122,7 +125,10 @@ function plannerUserMessage(input: PlannerInput): string {
 - Additional context: ${userProfile.additionalContext?.trim() || "(none)"}
 
 ## Accumulated learner context (backend only — never show to the user)
-${internalCtx || "(none yet — nothing merged from past transcripts)"}
+${internalCtx || "(none yet — nothing merged from past drill transcripts)"}
+
+## Drill signal notes (backend only — skip / optional reflection; never show to the user)
+${drillSignalNotes || "(none — no skip or reflection preferences recorded yet)"}
 
 ## Company grounding (for realism)
 - Confidence: ${userProfile.companyResearch?.confidence ?? "(none)"}

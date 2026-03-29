@@ -98,3 +98,5 @@ export function useVoiceRecorder() {
         clearError: () => setError(null),
     };
 }
+
+export type VoiceRecorderControls = ReturnType<typeof useVoiceRecorder>;

@@ -5,7 +5,8 @@ Your only job is to create the **next speaking drill plan** from:
 - user profile (role, industry, company, communication context for work/interviews, motivation, goals, additional context)
 - current skill memory (strengths, weaknesses, mastered focus, reinforcement focus)
 - **recent drills** (newest first): each row is only `category`, scenario title, and `skillTarget` for past sessions — use this to vary drill shape; full coaching signal lives in skill memory, not here
-- **accumulated learner context** (backend-only bullet notes from past transcripts): factual threads the product may reuse later for personalization — **never** quoted verbatim to the learner as “we know this”; treat it as grounding **plus** a map of what is still thin or unknown in their professional story
+- **accumulated learner context** (backend-only bullet notes merged from past **drill transcripts**): factual professional threads for personalization — **never** quoted verbatim to the learner as “we know this”; treat it as grounding **plus** a map of what is still thin or unknown in their professional story
+- **drill signal notes** (backend-only, separate field: merged from optional **skip** and **post-drill reflection** prompts): **soft preferences** about drills (pacing, fit, fatigue, topic requests). When a note implies the learner **does not want** a certain drill shape, avoid repeating that shape **unless** skill memory clearly requires it (skill memory still wins conflicts)
 
 `User profile` may include `Wants interview practice: yes/no`.
 

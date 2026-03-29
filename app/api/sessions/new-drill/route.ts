@@ -12,7 +12,10 @@ import {
 } from "@/services/planner";
 import { updateSkillMemoryFromLatestSession } from "@/services/skill-memory-updater";
 import type { SkillMemoryType } from "@/types/skill-memory";
-import type { SessionType } from "@/types/sessions";
+import {
+    hasSessionFeedbackContent,
+    type SessionType,
+} from "@/types/sessions";
 import type { UserProfileType } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -42,13 +45,6 @@ function hydrateSkillMemory(
         createdAt: typeof data.createdAt === "string" ? data.createdAt : nowIso,
         updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : nowIso,
     };
-}
-
-function hasSessionFeedbackContent(feedback: SessionType["feedback"]): boolean {
-    if (!feedback) return false;
-    return Object.values(feedback).some(
-        (value) => typeof value === "string" && value.trim().length > 0,
-    );
 }
 
 async function refreshSkillMemoryFromLatestSession(
@@ -220,6 +216,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        if (latestSession?.processingStatus === "processing") {
+            return NextResponse.json(
+                {
+                    error:
+                        "Your last drill is still processing. Wait for it to finish.",
+                    code: "DRILL_STILL_PROCESSING",
+                },
+                { status: 409 },
+            );
+        }
+
         const hydratedSkillMemory = hydrateSkillMemory(uid, skillDoc.data());
         const skillMemory = await refreshSkillMemoryFromLatestSession(
             db,
@@ -245,6 +252,8 @@ export async function POST(request: NextRequest) {
                 additionalContext: enrichedUserProfile.additionalContext,
                 companyResearch: enrichedUserProfile.companyResearch,
                 internalLearnerContext: enrichedUserProfile.internalLearnerContext,
+                internalDrillSignalNotes:
+                    enrichedUserProfile.internalDrillSignalNotes?.trim() ?? "",
             },
             skillMemory: {
                 strengths: skillMemory.strengths,
@@ -256,6 +265,7 @@ export async function POST(request: NextRequest) {
         });
 
         const session = buildSessionFromPlan(uid, plan);
+
         await db
             .collection(FirestoreCollections.sessions.path)
             .doc(session.id)
