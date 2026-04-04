@@ -1,11 +1,9 @@
-import { useMemo } from "react";
-
+import { CoachingPanel } from "@/components/session/coaching-panel";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
+import { NativeSpeakerPanel } from "@/components/session/native-speaker-panel";
 import { TranscriptPanel } from "@/components/session/transcript-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionFeedbackType } from "@/types/sessions";
-
-import { FEEDBACK_SECTION_LABELS } from "./constants";
 
 type Props = {
     shouldShowResults: boolean;
@@ -14,11 +12,11 @@ type Props = {
     currentFeedback: SessionFeedbackType | null;
     hasMainOverview: boolean;
     coachingSectionKeys: Array<keyof SessionFeedbackType>;
-    practiceSectionKeys: Array<keyof SessionFeedbackType>;
-    hasSinglePracticeSection: boolean;
     requiresRetry: boolean;
     completionReason: string | null;
     onSeekToSecond: (seconds: number) => void;
+    sessionId?: string;
+    uid?: string;
 };
 
 export function SessionFeedbackSection(props: Readonly<Props>) {
@@ -29,75 +27,12 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
         currentFeedback,
         hasMainOverview,
         coachingSectionKeys,
-        practiceSectionKeys,
-        hasSinglePracticeSection,
         requiresRetry,
         completionReason,
         onSeekToSecond,
+        sessionId,
+        uid,
     } = props;
-
-    const practiceTabContent = useMemo(() => {
-        if (!currentFeedback || practiceSectionKeys.length === 0) {
-            return (
-                <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm font-medium">Practice</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Waiting for practice guidance…
-                    </p>
-                </div>
-            );
-        }
-        if (hasSinglePracticeSection) {
-            return (
-                <FeedbackPanel
-                    feedback={currentFeedback}
-                    onSeekToSecond={onSeekToSecond}
-                    needsRetry={requiresRetry}
-                    completionReason={completionReason}
-                    sectionKey={practiceSectionKeys[0]}
-                />
-            );
-        }
-        return (
-            <Tabs
-                defaultValue={`practice-${practiceSectionKeys[0]}`}
-                className="space-y-3"
-            >
-                <TabsList className="w-full justify-start gap-1 overflow-x-auto">
-                    {practiceSectionKeys.map((key) => (
-                        <TabsTrigger
-                            key={`practice-trigger-${key}`}
-                            value={`practice-${key}`}
-                            className="shrink-0"
-                        >
-                            {FEEDBACK_SECTION_LABELS[key]}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-                {practiceSectionKeys.map((key) => (
-                    <TabsContent
-                        key={`practice-content-${key}`}
-                        value={`practice-${key}`}
-                    >
-                        <FeedbackPanel
-                            feedback={currentFeedback}
-                            onSeekToSecond={onSeekToSecond}
-                            needsRetry={requiresRetry}
-                            completionReason={completionReason}
-                            sectionKey={key}
-                        />
-                    </TabsContent>
-                ))}
-            </Tabs>
-        );
-    }, [
-        completionReason,
-        currentFeedback,
-        hasSinglePracticeSection,
-        onSeekToSecond,
-        practiceSectionKeys,
-        requiresRetry,
-    ]);
 
     if (!shouldShowResults) return null;
 
@@ -122,6 +57,10 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
         );
     }
 
+    const hasNativeSpeakerVersion = Boolean(
+        currentFeedback?.nativeSpeakerVersion?.trim(),
+    );
+
     return (
         <Tabs defaultValue="main" className="mt-6">
             <TabsList className="w-full justify-start gap-1 overflow-x-auto">
@@ -131,8 +70,8 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                 <TabsTrigger value="coaching" className="shrink-0">
                     Coaching
                 </TabsTrigger>
-                <TabsTrigger value="practice" className="shrink-0">
-                    Practice
+                <TabsTrigger value="native-speaker" className="shrink-0">
+                    Improved Version
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="main" className="mt-3 space-y-4">
@@ -143,6 +82,8 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                         needsRetry={requiresRetry}
                         completionReason={completionReason}
                         sectionKey="overview"
+                        sessionId={sessionId}
+                        uid={uid}
                     />
                 ) : (
                     <div className="rounded-xl border border-border/70 p-4">
@@ -168,36 +109,12 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
             </TabsContent>
             <TabsContent value="coaching" className="mt-3">
                 {currentFeedback && coachingSectionKeys.length > 0 ? (
-                    <Tabs
-                        defaultValue={`coaching-${coachingSectionKeys[0]}`}
-                        className="space-y-3"
-                    >
-                        <TabsList className="w-full justify-start gap-1 overflow-x-auto">
-                            {coachingSectionKeys.map((key) => (
-                                <TabsTrigger
-                                    key={`coaching-trigger-${key}`}
-                                    value={`coaching-${key}`}
-                                    className="shrink-0"
-                                >
-                                    {FEEDBACK_SECTION_LABELS[key]}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-                        {coachingSectionKeys.map((key) => (
-                            <TabsContent
-                                key={`coaching-content-${key}`}
-                                value={`coaching-${key}`}
-                            >
-                                <FeedbackPanel
-                                    feedback={currentFeedback}
-                                    onSeekToSecond={onSeekToSecond}
-                                    needsRetry={requiresRetry}
-                                    completionReason={completionReason}
-                                    sectionKey={key}
-                                />
-                            </TabsContent>
-                        ))}
-                    </Tabs>
+                    <CoachingPanel
+                        feedback={currentFeedback}
+                        onSeekToSecond={onSeekToSecond}
+                        sessionId={sessionId}
+                        uid={uid}
+                    />
                 ) : (
                     <div className="rounded-xl border border-border/70 p-4">
                         <p className="text-sm font-medium">Coaching</p>
@@ -207,8 +124,22 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                     </div>
                 )}
             </TabsContent>
-            <TabsContent value="practice" className="mt-3">
-                {practiceTabContent}
+            <TabsContent value="native-speaker" className="mt-3">
+                {hasNativeSpeakerVersion && currentFeedback ? (
+                    <NativeSpeakerPanel
+                        content={currentFeedback.nativeSpeakerVersion!}
+                    />
+                ) : (
+                    <div className="rounded-xl border border-border/70 p-4">
+                        <p className="text-sm font-medium">
+                            Improved Version
+                        </p>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            Start a new drill to get an improved version of your
+                            performance with audio playback.
+                        </p>
+                    </div>
+                )}
             </TabsContent>
         </Tabs>
     );

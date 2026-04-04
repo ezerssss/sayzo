@@ -29,6 +29,8 @@ export function DrillBriefCard(props: Readonly<Props>) {
         onStartAnotherDrill,
     } = props;
 
+    const question = plan.scenario.question?.trim();
+
     return (
         <div className="mt-6 rounded-xl border border-border/70 bg-muted/30 p-4">
             <div className="flex items-center justify-between gap-3">
@@ -59,13 +61,35 @@ export function DrillBriefCard(props: Readonly<Props>) {
                     </Button>
                 ) : null}
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">
-                {plan.scenario.situationContext}
-            </p>
-            <MarkdownBlock
-                className="mt-3"
-                markdown={plan.scenario.givenContent}
-            />
+
+            {/* Context section */}
+            <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Context
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    {plan.scenario.situationContext}
+                </p>
+                {plan.scenario.givenContent ? (
+                    <MarkdownBlock
+                        className="mt-2"
+                        markdown={plan.scenario.givenContent}
+                    />
+                ) : null}
+            </div>
+
+            {/* Question / Prompt — the main thing the learner responds to */}
+            {question ? (
+                <div className="mt-3 rounded-lg border-2 border-foreground/20 bg-background p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Your prompt
+                    </p>
+                    <p className="mt-2 text-base font-medium leading-relaxed">
+                        {question}
+                    </p>
+                </div>
+            ) : null}
+
             <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3">
                 <p className="text-xs font-medium text-muted-foreground">
                     Framework

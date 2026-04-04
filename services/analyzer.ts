@@ -74,9 +74,7 @@ const sessionFeedbackSchema = z.object({
     engagement: z.string(),
     professionalism: z.string(),
     deliveryAndProsody: z.string(),
-    betterOptions: z.string().nullable(),
-    nextRepetition: z.string(),
-    whatWorkedWell: z.string().nullable(),
+    nativeSpeakerVersion: z.string().nullable(),
 });
 
 function readAnalyzerPrompt(filename: string): string {
@@ -204,16 +202,7 @@ function sanitizeFeedbackObjectTimestamps(
             feedback.deliveryAndProsody,
             validSeconds,
         ),
-        betterOptions: feedback.betterOptions
-            ? sanitizeFeedbackTimestampLinks(feedback.betterOptions, validSeconds)
-            : null,
-        nextRepetition: sanitizeFeedbackTimestampLinks(
-            feedback.nextRepetition,
-            validSeconds,
-        ),
-        whatWorkedWell: feedback.whatWorkedWell
-            ? sanitizeFeedbackTimestampLinks(feedback.whatWorkedWell, validSeconds)
-            : null,
+        nativeSpeakerVersion: feedback.nativeSpeakerVersion,
     };
 }
 

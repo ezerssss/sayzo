@@ -1,5 +1,6 @@
 "use client";
 
+import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useRef, useState } from "react";
 
 function pickRecorderMimeType(): string | undefined {
@@ -25,6 +26,7 @@ export function useVoiceRecorder() {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+    const startTimeRef = useRef<number>(0);
 
     const stopTracks = useCallback(() => {
         streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -36,6 +38,7 @@ export function useVoiceRecorder() {
         setIsRecording(false);
         const mr = mediaRecorderRef.current;
         mediaRecorderRef.current = null;
+        const durationMs = Date.now() - startTimeRef.current;
 
         if (!mr || mr.state === "inactive") {
             stopTracks();
@@ -43,11 +46,23 @@ export function useVoiceRecorder() {
         }
 
         return new Promise((resolve) => {
-            mr.onstop = () => {
+            mr.onstop = async () => {
                 const mimeType = mr.mimeType || "audio/webm";
-                const blob = new Blob(chunksRef.current, { type: mimeType });
+                let blob = new Blob(chunksRef.current, { type: mimeType });
                 chunksRef.current = [];
                 stopTracks();
+
+                // Fix WebM duration metadata so the browser player works correctly
+                if (mimeType.includes("webm") && durationMs > 0) {
+                    try {
+                        blob = await fixWebmDuration(blob, durationMs, {
+                            logger: false,
+                        });
+                    } catch {
+                        // If fixing fails, use the original blob
+                    }
+                }
+
                 resolve({ blob, mimeType });
             };
             mr.stop();
@@ -78,6 +93,7 @@ export function useVoiceRecorder() {
             };
             mr.start(250);
             mediaRecorderRef.current = mr;
+            startTimeRef.current = Date.now();
             setIsRecording(true);
         } catch (e) {
             stopTracks();

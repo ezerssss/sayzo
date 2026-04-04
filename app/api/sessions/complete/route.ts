@@ -460,10 +460,7 @@ ${transcript}`,
                     "Cannot evaluate professional communication quality from this attempt yet.",
                 deliveryAndProsody:
                     "Prosody interpretation is limited when the response is off-task or too limited.",
-                betterOptions: null,
-                nextRepetition:
-                    "Redo this drill for 45-90 seconds, follow the framework, and include at least two concrete facts from the prompt.",
-                whatWorkedWell: null,
+                nativeSpeakerVersion: null,
             };
             completionStatus = "needs_retry";
             completionReason = skipReason;

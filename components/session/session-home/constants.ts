@@ -22,17 +22,16 @@ export const FALLBACK_PLAN: SessionPlanType = {
     maxDurationSeconds: DEFAULT_MAX_SECONDS,
 };
 
-export const FEEDBACK_SECTION_LABELS: Record<keyof SessionFeedbackType, string> =
-    {
-        overview: "Overview",
-        momentsToTighten: "Moments",
-        structureAndFlow: "Structure",
-        clarityAndConciseness: "Clarity",
-        relevanceAndFocus: "Relevance",
-        engagement: "Engagement",
-        professionalism: "Professionalism",
-        deliveryAndProsody: "Voice & tone",
-        betterOptions: "Better options",
-        nextRepetition: "Next repetition",
-        whatWorkedWell: "What worked well",
-    };
+export const FEEDBACK_SECTION_LABELS: Partial<
+    Record<keyof SessionFeedbackType, string>
+> = {
+    overview: "Overview",
+    momentsToTighten: "Moments",
+    structureAndFlow: "Structure",
+    clarityAndConciseness: "Clarity",
+    relevanceAndFocus: "Relevance",
+    engagement: "Engagement",
+    professionalism: "Professionalism",
+    deliveryAndProsody: "Voice & tone",
+    nativeSpeakerVersion: "Improved Version",
+};

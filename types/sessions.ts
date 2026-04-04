@@ -30,6 +30,8 @@ export type ScenarioType = {
     title: string;
     situationContext: string;
     givenContent: string; // Specific details of the situation that are relevant to the session.
+    /** The actual question or prompt the learner must respond to, written in second person as if the interviewer/audience is asking them directly. */
+    question?: string;
     framework: string; // Recommended speaking framework/structure for this context.
     /** Speaking-situation slug: prefer built-ins in `RECOMMENDED_SPEAKING_DRILL_CATEGORIES`, or a new concise snake_case slug. */
     category: string;
@@ -77,9 +79,13 @@ export type SessionFeedbackType = {
     engagement: string;
     professionalism: string;
     deliveryAndProsody: string;
-    betterOptions: string | null;
-    nextRepetition: string;
-    whatWorkedWell: string | null;
+    nativeSpeakerVersion: string | null;
+    /** @deprecated Folded into overview. Kept for backward compat with old sessions. */
+    betterOptions?: string | null;
+    /** @deprecated Removed. Kept for backward compat with old sessions. */
+    nextRepetition?: string;
+    /** @deprecated Folded into overview. Kept for backward compat with old sessions. */
+    whatWorkedWell?: string | null;
 };
 
 export function hasSessionFeedbackContent(

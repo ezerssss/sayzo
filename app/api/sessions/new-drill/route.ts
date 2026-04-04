@@ -19,7 +19,7 @@ import {
 import type { UserProfileType } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";
 
-type NewDrillPayload = { uid: string };
+type NewDrillPayload = { uid: string; category?: string };
 
 export const runtime = "nodejs";
 
@@ -165,6 +165,7 @@ export async function POST(request: NextRequest) {
     if (!uid) {
         return NextResponse.json({ error: "Missing uid." }, { status: 400 });
     }
+    const requestedCategory = payload.category?.trim() || undefined;
 
     try {
         const db = getAdminFirestore();
@@ -262,6 +263,7 @@ export async function POST(request: NextRequest) {
                 reinforcementFocus: skillMemory.reinforcementFocus,
             },
             recentDrills,
+            requestedCategory,
         });
 
         const session = buildSessionFromPlan(uid, plan);

@@ -30,6 +30,11 @@ const markdownComponents: MarkdownComponents = {
         </ol>
     ),
     li: ({ children }) => <li>{children}</li>,
+    blockquote: ({ children }) => (
+        <blockquote className="border-l-2 border-border pl-3 text-xs text-muted-foreground italic">
+            {children}
+        </blockquote>
+    ),
     strong: ({ children }) => (
         <strong className="font-medium text-foreground">{children}</strong>
     ),

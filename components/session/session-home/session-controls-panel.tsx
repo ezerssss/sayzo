@@ -1,10 +1,9 @@
 import { Loader2, Mic, Play, RotateCcw, SkipForward, Square } from "lucide-react";
 import type { RefObject } from "react";
 
+import { AudioPlayer } from "@/components/session/audio-player";
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
-
-import { EMPTY_CAPTIONS_VTT } from "./constants";
 import type { DrillState } from "./types";
 
 type Props = {
@@ -135,21 +134,11 @@ export function SessionControlsPanel(props: Readonly<Props>) {
                 ) : null}
             </div>
             {shouldShowResults && playbackSrc ? (
-                <audio
-                    id="session-audio-playback"
-                    ref={audioRef}
-                    className="mt-4 w-full"
-                    controls
+                <AudioPlayer
                     src={playbackSrc}
-                >
-                    <track
-                        kind="captions"
-                        label="English captions"
-                        srcLang="en"
-                        src={EMPTY_CAPTIONS_VTT}
-                        default
-                    />
-                </audio>
+                    audioRef={audioRef}
+                    className="mt-4"
+                />
             ) : null}
             {shouldShowAnalyzingState ||
             isCreatingDrill ||

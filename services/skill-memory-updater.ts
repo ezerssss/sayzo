@@ -74,14 +74,8 @@ function buildUserMessage(input: SkillMemoryUpdaterInput): string {
         "## Delivery and prosody",
         input.latestSession.feedback.deliveryAndProsody,
         "",
-        "## Better options",
-        input.latestSession.feedback.betterOptions ?? "(none)",
-        "",
-        "## Next repetition",
-        input.latestSession.feedback.nextRepetition,
-        "",
-        "## What worked well",
-        input.latestSession.feedback.whatWorkedWell ?? "(none)",
+        "## Native speaker version",
+        input.latestSession.feedback.nativeSpeakerVersion ?? "(none)",
     ]
         .join("\n")
         .trim();

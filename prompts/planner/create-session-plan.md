@@ -106,13 +106,32 @@ If the user's inputs already include specifics, reuse them.
 - If `Company grounding` confidence is `low` or unknown, keep the scenario realistic but do not claim unverified company-internal facts.
 - It is acceptable to use role-level realism (meeting types, stakeholders, constraints) when company details are uncertain.
 
+## Voice and framing rules (critical — applies to ALL categories)
+
+The learner sees `situationContext`, `givenContent`, and `question` directly. These must be written so the learner feels **they are in the situation**, not reading instructions about what to do.
+
+**Forbidden phrasing (never use in any scenario field)**
+
+- Third-person directives: "You should highlight…", "You need to address…", "You will present…", "Make sure to mention…", "Your goal is to…"
+- Coaching instructions disguised as context: "Focus on clarity…", "Demonstrate your ability to…", "Be sure to include…"
+- Meta-narration: "This drill is about…", "The purpose of this scenario…"
+
+**Required tone**
+
+- `situationContext`: Set the scene as if describing the moment right before the learner speaks. Write it like stage directions — who is in the room, what just happened, what's at stake. Example: *"It's the weekly product sync. Your engineering manager just asked the team for updates on current blockers. Five engineers and the VP of Engineering are on the call."* — NOT *"You are presenting to your team about blockers. You should cover technical challenges."*
+- `givenContent`: Concrete facts the learner already "knows" — written as bullet points of information, not instructions. Example: *"The migration to PostgreSQL 16 is 70% complete but blocked by a schema conflict in the billing module."* — NOT *"You need to address the migration progress and explain the blocking issue."*
+- `question`: The actual prompt someone in the room is asking. Written in the voice of the person asking. Example: *"So what's the latest on the migration? Where are we stuck?"* — NOT *"Describe the current status of the migration and any blockers."*
+
+This applies equally to presentations, status updates, difficult conversations, interviews, and every other category. The learner should read the card and feel like they are **there**, not like they are reading a homework assignment.
+
 ## Output schema
 
 Return one JSON object with:
 
 - `scenario.title`
-- `scenario.situationContext`
-- `scenario.givenContent`
+- `scenario.situationContext` — brief scene-setting: who is in the room, what just happened, what's at stake. Sets the stage. Does **not** contain the question or coaching instructions.
+- `scenario.givenContent` — concrete facts, constraints, and details the learner already "knows" and can reference (bullet points of information, not directives).
+- `scenario.question` — the actual question or prompt, written in the voice of whoever is asking (interviewer, manager, teammate, audience member). Must feel like a real thing someone would say. Examples: *"Walk us through a time you had to push back on a stakeholder's request. What was the situation, and how did you handle it?"* / *"Can you give us a quick update on where Project Atlas stands and what's blocking the next milestone?"* / *"Before we wrap up — what's your recommendation? Should we go with the vendor solution or build in-house?"*
 - `scenario.framework`
 - `scenario.category` (string; short `snake_case` slug — prefer the recommended catalog when it fits, or invent a valid new slug per the format rules)
 - `skillTarget` (string; the primary user skill this drill trains)
@@ -161,8 +180,10 @@ Return one JSON object with:
 
 ## Required quality checklist
 
-- `scenario.givenContent` must include **at least 4 bullet points** of concrete facts (not generic).
+- `scenario.givenContent` must include **at least 4 bullet points** of concrete facts (not generic). Written as information, not instructions.
+- `scenario.question` must be present and non-empty. Written in the voice of the person asking — never as a coaching directive.
 - `scenario.framework` must be a **clear speaking structure** (2–5 short steps), referencing those facts.
-- `scenario.situationContext` should specify **who** they’re speaking to, **where**, and the **stakes** (why it matters).
+- `scenario.situationContext` should specify **who** is in the room, **what just happened**, and the **stakes** — as stage directions, not coaching instructions.
+- Re-read all scenario fields before returning. If any field contains "You should…", "You need to…", "Make sure to…", "Focus on…", or similar directive language, **rewrite it**.
 
 Return only schema-conformant output.

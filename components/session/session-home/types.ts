@@ -5,6 +5,7 @@ export type SessionHomeProps = {
     userLabel: string;
     onSignOut: () => void;
     authError?: string | null;
+    onBackToDashboard?: () => void;
 };
 
 export type PreNewDrillReflectionState = {

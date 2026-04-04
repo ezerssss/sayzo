@@ -5,6 +5,8 @@ import { type ReactElement, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import type { SessionFeedbackType } from "@/types/sessions";
 
+import { FeedbackChat } from "./feedback-chat";
+
 type MarkdownComponents = Record<
     string,
     (props: { children?: ReactNode }) => ReactElement
@@ -19,9 +21,7 @@ type FeedbackSectionKey =
     | "engagement"
     | "professionalism"
     | "deliveryAndProsody"
-    | "betterOptions"
-    | "nextRepetition"
-    | "whatWorkedWell";
+    | "nativeSpeakerVersion";
 
 interface PropsInterface {
     feedback: SessionFeedbackType;
@@ -29,9 +29,11 @@ interface PropsInterface {
     needsRetry?: boolean;
     completionReason?: string | null;
     variant?: "all" | "overview-only" | "without-overview";
-    sectionKey?: FeedbackSectionKey;
-    sectionKeys?: FeedbackSectionKey[];
+    sectionKey?: keyof SessionFeedbackType;
+    sectionKeys?: Array<keyof SessionFeedbackType>;
     showHeader?: boolean;
+    sessionId?: string;
+    uid?: string;
 }
 
 function parseTimestampHref(href: string): number | null {
@@ -148,6 +150,8 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
         sectionKey,
         sectionKeys,
         showHeader = true,
+        sessionId,
+        uid,
     } = props;
     const sections: Array<{ key: string; title: string; content: string | null }> =
         [
@@ -192,19 +196,9 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                 content: feedback.deliveryAndProsody,
             },
             {
-                key: "betterOptions",
-                title: "Better options",
-                content: feedback.betterOptions,
-            },
-            {
-                key: "nextRepetition",
-                title: "Next repetition",
-                content: feedback.nextRepetition,
-            },
-            {
-                key: "whatWorkedWell",
-                title: "What worked well",
-                content: feedback.whatWorkedWell,
+                key: "nativeSpeakerVersion",
+                title: "Native speaker version",
+                content: feedback.nativeSpeakerVersion,
             },
         ];
     const availableSections = sections.filter(
@@ -272,6 +266,16 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                                 {section.content ?? ""}
                             </ReactMarkdown>
                         </div>
+                        {sessionId && uid && section.content ? (
+                            <FeedbackChat
+                                sessionId={sessionId}
+                                uid={uid}
+                                sectionKey={section.key}
+                                sectionTitle={section.title}
+                                feedbackContent={section.content}
+                                onSeekToSecond={onSeekToSecond}
+                            />
+                        ) : null}
                     </div>
                 ))}
             </div>

@@ -42,6 +42,7 @@ const sessionPlanSchema = z.object({
         title: z.string(),
         situationContext: z.string(),
         givenContent: z.string(),
+        question: z.string(),
         framework: z.string(),
         category: drillCategorySchema,
     }),
@@ -74,6 +75,8 @@ export type PlannerInput = {
     >;
     /** Newest first; same length cap as `PLANNER_RECENT_DRILLS_LOOKBACK` from the API. */
     recentDrills: PlannerRecentDrillSummary[];
+    /** Optional: user-requested drill category slug. The planner MUST use this category. */
+    requestedCategory?: string;
 };
 
 export function summarizeSessionsForPlanner(
@@ -112,7 +115,11 @@ function plannerUserMessage(input: PlannerInput): string {
                           `${i + 1}. category=${d.category}; scenario title=${d.scenarioTitle}; skill target=${d.skillTarget}`,
                   )
                   .join("\n");
-    return `
+    const requestedCategoryBlock = input.requestedCategory
+        ? `\n## Requested category (MUST use)\nThe user has specifically requested a drill of type: \`${input.requestedCategory}\`. You MUST set \`scenario.category\` to this value. Design the drill around this category while still respecting skill memory and user profile.\n`
+        : "";
+
+    return `${requestedCategoryBlock}
 ## User profile
 - Role: ${userProfile.role || "(not set)"}
 - Industry: ${userProfile.industry || "(not set)"}
@@ -198,6 +205,7 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
             title: plan.scenario.title.trim(),
             situationContext: plan.scenario.situationContext.trim(),
             givenContent: plan.scenario.givenContent.trim(),
+            question: plan.scenario.question?.trim() ?? "",
             framework: plan.scenario.framework.trim(),
             category: toDrillCategorySlug(plan.scenario.category),
         },

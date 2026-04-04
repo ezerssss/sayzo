@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import ky from "ky";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -9,10 +10,15 @@ import {
     getKyErrorMessage,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
+import { Button } from "@/components/ui/button";
 import {
     hasSessionFeedbackContent,
     type SessionFeedbackType,
 } from "@/types/sessions";
+
+type SessionView = "drill" | "review";
+
+import { AudioPlayer } from "@/components/session/audio-player";
 
 import {
     DEFAULT_MAX_SECONDS,
@@ -35,7 +41,7 @@ import type {
 export type { SessionHomeProps } from "./types";
 
 export function SessionHome(props: Readonly<SessionHomeProps>) {
-    const { uid, userLabel, onSignOut, authError } = props;
+    const { uid, userLabel, onSignOut, authError, onBackToDashboard } = props;
     const [drillState, setDrillState] = useState<DrillState>("idle");
     const [seconds, setSeconds] = useState(DEFAULT_MAX_SECONDS);
     const [drillError, setDrillError] = useState<string | null>(null);
@@ -62,6 +68,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     >(null);
     const [preNewDrillReflection, setPreNewDrillReflection] =
         useState<PreNewDrillReflectionState | null>(null);
+    const [view, setView] = useState<SessionView>("drill");
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const { isRecording, stream, start, stop } = useVoiceRecorder();
     const modalRecorder = useVoiceRecorder();
@@ -110,20 +117,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             return typeof value === "string" && value.trim().length > 0;
         });
     }, [currentFeedback]);
-    const practiceSectionKeys = useMemo<Array<keyof SessionFeedbackType>>(() => {
-        if (!currentFeedback) return [];
-        const keys: Array<keyof SessionFeedbackType> = [
-            "betterOptions",
-            "nextRepetition",
-            "whatWorkedWell",
-        ];
-        return keys.filter((key) => {
-            const value = currentFeedback[key];
-            return typeof value === "string" && value.trim().length > 0;
-        });
-    }, [currentFeedback]);
-    const hasSinglePracticeSection = practiceSectionKeys.length === 1;
-
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
     const isRecordingNow = isRecording || drillState === "recording";
     const isServerProcessing = session?.processingStatus === "processing";
@@ -204,6 +197,13 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             setHasPendingAnalysisRequest(false);
         }
     }, [hasServerResults, isServerProcessing]);
+
+    // Auto-switch to review when results arrive
+    useEffect(() => {
+        if (shouldShowResults && !isRecordingNow && drillState === "complete") {
+            setView("review");
+        }
+    }, [shouldShowResults, isRecordingNow, drillState]);
 
     useEffect(() => {
         if (drillState !== "recording") {
@@ -475,6 +475,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             });
             setSeconds(maxSeconds);
             setDrillState("idle");
+            setView("drill");
             if (recordedAudioUrl) {
                 URL.revokeObjectURL(recordedAudioUrl);
                 setRecordedAudioUrl(null);
@@ -627,75 +628,144 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         void el.play();
     };
 
+    const isDrillView = view === "drill";
+    const isReviewView = view === "review";
+
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-            <SessionHomeHeader userLabel={userLabel} onSignOut={onSignOut} />
+            <SessionHomeHeader userLabel={userLabel} onSignOut={onSignOut} onBackToDashboard={onBackToDashboard} />
 
-            <DrillBriefCard
-                plan={currentPlan}
-                shouldShowResults={shouldShowResults}
-                loadingSession={loadingSession}
-                isCreatingDrill={isCreatingDrill}
-                requiresRetry={requiresRetry}
-                reflectionModalOpen={reflectionModalOpen}
-                reflectionSubmitting={reflectionSubmitting}
-                skipSubmitting={skipSubmitting}
-                onStartAnotherDrill={startAnotherDrill}
-            />
+            {isDrillView ? (
+                <>
+                    <DrillBriefCard
+                        plan={currentPlan}
+                        shouldShowResults={shouldShowResults}
+                        loadingSession={loadingSession}
+                        isCreatingDrill={isCreatingDrill}
+                        requiresRetry={requiresRetry}
+                        reflectionModalOpen={reflectionModalOpen}
+                        reflectionSubmitting={reflectionSubmitting}
+                        skipSubmitting={skipSubmitting}
+                        onStartAnotherDrill={startAnotherDrill}
+                    />
 
-            {loadingSession ? (
-                <p className="mt-3 text-sm text-muted-foreground">
-                    Syncing your latest drill...
-                </p>
+                    {loadingSession ? (
+                        <p className="mt-3 text-sm text-muted-foreground">
+                            Syncing your latest drill...
+                        </p>
+                    ) : null}
+                    {drillError ? (
+                        <p className="mt-3 text-sm text-destructive" role="alert">
+                            {drillError}
+                        </p>
+                    ) : null}
+
+                    <SessionControlsPanel
+                        mm={mm}
+                        ss={ss}
+                        stateLabel={stateLabel}
+                        requiresRetry={requiresRetry}
+                        isRecording={isRecording}
+                        stream={stream}
+                        showRecordAction={showRecordAction}
+                        showCompletionActions={showCompletionActions}
+                        showSkipDrill={showSkipDrill}
+                        skipSubmitting={skipSubmitting}
+                        isCreatingDrill={isCreatingDrill}
+                        drillState={drillState}
+                        hasPendingAnalysisRequest={hasPendingAnalysisRequest}
+                        shouldShowResults={shouldShowResults}
+                        shouldShowAnalyzingState={shouldShowAnalyzingState}
+                        playbackSrc={playbackSrc}
+                        audioRef={audioRef}
+                        onStartRecording={() => void startRecording()}
+                        onStopRecording={() => void stopRecording()}
+                        onOpenSkipModal={() => {
+                            modalRecorder.clearError();
+                            setSkipTranscribeError(null);
+                            setSkipFeedbackText("");
+                            setSkipModalOpen(true);
+                        }}
+                        onRedoDrill={() => void startRecording()}
+                    />
+
+                    {shouldShowResults && !isSkipped ? (
+                        <div className="mt-4 flex justify-center">
+                            <Button
+                                variant="default"
+                                onClick={() => setView("review")}
+                            >
+                                View feedback
+                                <ArrowRight />
+                            </Button>
+                        </div>
+                    ) : null}
+                </>
             ) : null}
-            {drillError ? (
-                <p className="mt-3 text-sm text-destructive" role="alert">
-                    {drillError}
-                </p>
+
+            {isReviewView ? (
+                <>
+                    <div className="mt-6 rounded-xl border border-border/70 bg-muted/30 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                                    Feedback for
+                                </p>
+                                <h2 className="mt-1 text-lg font-semibold">
+                                    {currentPlan.scenario.title}
+                                </h2>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setView("drill")}
+                                >
+                                    <ArrowLeft />
+                                    Back to drill
+                                </Button>
+                                <Button
+                                    onClick={() => void startAnotherDrill()}
+                                    disabled={
+                                        loadingSession ||
+                                        isCreatingDrill ||
+                                        requiresRetry ||
+                                        reflectionModalOpen ||
+                                        reflectionSubmitting ||
+                                        skipSubmitting
+                                    }
+                                >
+                                    <ArrowRight />
+                                    {isCreatingDrill
+                                        ? "Building next drill..."
+                                        : "Start another drill"}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {playbackSrc ? (
+                        <AudioPlayer
+                            src={playbackSrc}
+                            audioRef={audioRef}
+                            className="mt-4"
+                        />
+                    ) : null}
+
+                    <SessionFeedbackSection
+                        shouldShowResults={shouldShowResults}
+                        isSkipped={isSkipped}
+                        currentTranscript={currentTranscript}
+                        currentFeedback={currentFeedback}
+                        hasMainOverview={hasMainOverview}
+                        coachingSectionKeys={coachingSectionKeys}
+                        requiresRetry={requiresRetry}
+                        completionReason={session?.completionReason ?? null}
+                        onSeekToSecond={seekToSecond}
+                        sessionId={session?.id}
+                        uid={uid}
+                    />
+                </>
             ) : null}
-
-            <SessionControlsPanel
-                mm={mm}
-                ss={ss}
-                stateLabel={stateLabel}
-                requiresRetry={requiresRetry}
-                isRecording={isRecording}
-                stream={stream}
-                showRecordAction={showRecordAction}
-                showCompletionActions={showCompletionActions}
-                showSkipDrill={showSkipDrill}
-                skipSubmitting={skipSubmitting}
-                isCreatingDrill={isCreatingDrill}
-                drillState={drillState}
-                hasPendingAnalysisRequest={hasPendingAnalysisRequest}
-                shouldShowResults={shouldShowResults}
-                shouldShowAnalyzingState={shouldShowAnalyzingState}
-                playbackSrc={playbackSrc}
-                audioRef={audioRef}
-                onStartRecording={() => void startRecording()}
-                onStopRecording={() => void stopRecording()}
-                onOpenSkipModal={() => {
-                    modalRecorder.clearError();
-                    setSkipTranscribeError(null);
-                    setSkipFeedbackText("");
-                    setSkipModalOpen(true);
-                }}
-                onRedoDrill={() => void startRecording()}
-            />
-
-            <SessionFeedbackSection
-                shouldShowResults={shouldShowResults}
-                isSkipped={isSkipped}
-                currentTranscript={currentTranscript}
-                currentFeedback={currentFeedback}
-                hasMainOverview={hasMainOverview}
-                coachingSectionKeys={coachingSectionKeys}
-                practiceSectionKeys={practiceSectionKeys}
-                hasSinglePracticeSection={hasSinglePracticeSection}
-                requiresRetry={requiresRetry}
-                completionReason={session?.completionReason ?? null}
-                onSeekToSecond={seekToSecond}
-            />
 
             <SkipDrillModal
                 open={skipModalOpen}
