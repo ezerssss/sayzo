@@ -62,21 +62,10 @@ export function DrillBriefCard(props: Readonly<Props>) {
                 ) : null}
             </div>
 
-            {/* Context section */}
-            <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Context
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    {plan.scenario.situationContext}
-                </p>
-                {plan.scenario.givenContent ? (
-                    <MarkdownBlock
-                        className="mt-2"
-                        markdown={plan.scenario.givenContent}
-                    />
-                ) : null}
-            </div>
+            {/* Situation — brief scene-setting */}
+            <p className="mt-3 text-sm text-muted-foreground">
+                {plan.scenario.situationContext}
+            </p>
 
             {/* Question / Prompt — the main thing the learner responds to */}
             {question ? (
@@ -84,21 +73,32 @@ export function DrillBriefCard(props: Readonly<Props>) {
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Your prompt
                     </p>
-                    <p className="mt-2 text-base font-medium leading-relaxed">
+                    <p className="mt-2 text-lg font-semibold leading-relaxed">
                         {question}
                     </p>
                 </div>
             ) : null}
 
-            <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3">
-                <p className="text-xs font-medium text-muted-foreground">
+            {/* Reference details — collapsible so they don't block the prompt */}
+            {plan.scenario.givenContent ? (
+                <details className="mt-3 rounded-lg border border-border/60 bg-background/50">
+                    <summary className="cursor-pointer px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground">
+                        Reference details
+                    </summary>
+                    <div className="px-3 pb-3">
+                        <MarkdownBlock markdown={plan.scenario.givenContent} />
+                    </div>
+                </details>
+            ) : null}
+
+            <details className="mt-3 rounded-lg border border-border/60 bg-background/50">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground">
                     Framework
-                </p>
-                <MarkdownBlock
-                    className="mt-2"
-                    markdown={plan.scenario.framework}
-                />
-            </div>
+                </summary>
+                <div className="px-3 pb-3">
+                    <MarkdownBlock markdown={plan.scenario.framework} />
+                </div>
+            </details>
             <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-3">
                 <p className="text-xs font-medium text-muted-foreground">
                     Skill target

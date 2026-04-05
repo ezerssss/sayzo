@@ -88,7 +88,23 @@ Examples of **new** slugs when useful: `sales_discovery_call`, `incident_postmor
 The learner should **not** need to think about what topic to speak about.
 They should only need to focus on **how** they speak.
 
-## Make it concrete (critical)
+## Experience-based vs. scenario-based drills (critical)
+
+Some drill categories ask learners to **draw from their own experience**. For these, fabricating content for them defeats the purpose — the skill is recalling, selecting, and articulating *their own* story.
+
+**Experience-based categories** (includes but not limited to): `interview_behavioral`, `personal_reflection`, `self_introduction`
+
+For experience-based drills:
+- `givenContent` must be **empty string** (`””`). Do not invent facts about what the learner did.
+- `situationContext` should briefly set the scene (who's asking, the setting, the stakes) — keep it to 1–2 sentences.
+- `question` does all the heavy lifting. It should be specific enough to guide the learner toward a concrete story without prescribing one.
+- The learner brings their own content. The drill tests their ability to **structure and articulate** a real experience on the spot.
+
+**Scenario-based categories** (everything else): `presentation`, `status_update`, `demo_walkthrough`, `meeting_contribution`, `impromptu`, `interview_situational`, `difficult_conversation`, `stakeholder_alignment`, and any new slugs that place the learner in a hypothetical work situation.
+
+For scenario-based drills, follow the “Make it concrete” rules below — the learner needs content to work with because the situation is invented.
+
+## Make it concrete (applies to scenario-based drills only)
 
 The drill must be **content-complete**. Avoid vague placeholders like “a new product feature”, “your project”, “the client”, “the team”.
 Instead, invent **plausible** specifics that fit the user's role/industry:
@@ -180,10 +196,11 @@ Return one JSON object with:
 
 ## Required quality checklist
 
-- `scenario.givenContent` must include **at least 4 bullet points** of concrete facts (not generic). Written as information, not instructions.
+- **Scenario-based drills**: `scenario.givenContent` must include **at least 4 bullet points** of concrete facts (not generic). Written as information, not instructions.
+- **Experience-based drills**: `scenario.givenContent` must be an **empty string**. The learner supplies their own content.
 - `scenario.question` must be present and non-empty. Written in the voice of the person asking — never as a coaching directive.
-- `scenario.framework` must be a **clear speaking structure** (2–5 short steps), referencing those facts.
-- `scenario.situationContext` should specify **who** is in the room, **what just happened**, and the **stakes** — as stage directions, not coaching instructions.
+- `scenario.framework` must be a **clear speaking structure** (2–5 short steps). For scenario-based drills, reference the given facts. For experience-based drills, reference the structural pattern (e.g. STAR steps) without prescribing content.
+- `scenario.situationContext` should specify **who** is in the room, **what just happened**, and the **stakes** — as stage directions, not coaching instructions. For experience-based drills, keep this to 1–2 sentences.
 - Re-read all scenario fields before returning. If any field contains "You should…", "You need to…", "Make sure to…", "Focus on…", or similar directive language, **rewrite it**.
 
 Return only schema-conformant output.
