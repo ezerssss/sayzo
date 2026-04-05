@@ -3,7 +3,10 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { analyzeSession } from "@/services/analyzer";
 import { enrichCompanyContext } from "@/services/company-context-enricher";
 import { buildSessionFromPlan, planNextSession } from "@/services/planner";
-import { buildUserProfileFieldsFromOnboarding } from "@/services/profile-context-builder";
+import {
+    type OnboardingDrillTranscript,
+    type UserProfileFieldsFromAI,
+} from "@/services/profile-context-builder";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { type SkillMemoryType } from "@/types/skill-memory";
 import { type UserProfileType } from "@/types/user";
@@ -11,19 +14,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type CompleteOnboardingPayload = {
     uid: string;
-    roleContext: string;
-    employmentStatus: "employed" | "unemployed";
-    wantsInterviewPractice: boolean;
-    companyName: string;
-    companyUrl: string;
-    companyContext: string;
-    workRoleContext: string;
-    goals: string[];
-    goalsFreeText: string;
-    motivation: string;
-    painPoints: string[];
-    painFreeText: string;
-    introTranscript: string;
+    drills: OnboardingDrillTranscript[];
+    /** User-reviewed and possibly edited profile fields from the review step. */
+    profileOverrides?: UserProfileFieldsFromAI;
 };
 
 export const runtime = "nodejs";
@@ -31,17 +24,10 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const rawPayload = formData.get("payload");
-    const audio = formData.get("audio");
 
     if (typeof rawPayload !== "string") {
         return NextResponse.json(
             { error: "Missing payload." },
-            { status: 400 },
-        );
-    }
-    if (!(audio instanceof File) || audio.size === 0) {
-        return NextResponse.json(
-            { error: "Missing or empty intro audio file." },
             { status: 400 },
         );
     }
@@ -57,32 +43,33 @@ export async function POST(request: NextRequest) {
     }
 
     const uid = payload.uid?.trim();
-    const introTranscript = payload.introTranscript?.trim();
-    const employmentStatus = payload.employmentStatus;
-    const wantsInterviewPractice = payload.wantsInterviewPractice;
-    const effectiveInterviewPractice =
-        employmentStatus === "unemployed" || wantsInterviewPractice;
     if (!uid) {
         return NextResponse.json({ error: "Missing uid." }, { status: 400 });
     }
-    if (employmentStatus !== "employed" && employmentStatus !== "unemployed") {
+
+    const drills = payload.drills;
+    if (!Array.isArray(drills) || drills.length === 0) {
         return NextResponse.json(
-            { error: "Invalid employment status." },
+            { error: "Missing drill transcripts." },
             { status: 400 },
         );
     }
-    if (typeof wantsInterviewPractice !== "boolean") {
+
+    // Combine all transcripts for baseline analysis
+    const combinedTranscript = drills
+        .map((d) => d.transcript.trim())
+        .filter((t) => t.length > 0)
+        .join("\n\n");
+
+    if (!combinedTranscript) {
         return NextResponse.json(
-            { error: "Invalid interview practice flag." },
+            { error: "All drill transcripts are empty." },
             { status: 400 },
         );
     }
-    if (!introTranscript) {
-        return NextResponse.json(
-            { error: "Missing intro transcript." },
-            { status: 400 },
-        );
-    }
+
+    // Get the self-introduction audio for Hume expression analysis
+    const introAudio = formData.get("audio_self_introduction");
 
     try {
         const db = getAdminFirestore();
@@ -102,44 +89,48 @@ export async function POST(request: NextRequest) {
                 { merge: true },
             );
 
-        const audioBytes = new Uint8Array(await audio.arrayBuffer());
+        // Hume expression analysis on the intro audio
         let humeTrimmed = null;
-        try {
-            humeTrimmed = await measureSessionExpression({
-                audio: audioBytes,
-                transcript: introTranscript,
-                filename: audio.name || "intro.webm",
-                contentType: audio.type || "application/octet-stream",
-            });
-        } catch (error) {
-            console.warn("Hume expression measurement failed, continuing.", error);
+        if (introAudio instanceof File && introAudio.size > 0) {
+            const introTranscript =
+                drills.find((d) => d.drillType === "self_introduction")
+                    ?.transcript ?? "";
+            try {
+                const audioBytes = new Uint8Array(
+                    await introAudio.arrayBuffer(),
+                );
+                humeTrimmed = await measureSessionExpression({
+                    audio: audioBytes,
+                    transcript: introTranscript,
+                    filename: introAudio.name || "intro.webm",
+                    contentType:
+                        introAudio.type || "application/octet-stream",
+                });
+            } catch (error) {
+                console.warn(
+                    "Hume expression measurement failed, continuing.",
+                    error,
+                );
+            }
         }
 
-        const profileFields = await buildUserProfileFieldsFromOnboarding({
-            role: payload.roleContext,
-            employmentStatus,
-            companyName: payload.companyName,
-            companyContext: `${payload.companyContext}\n${
-                employmentStatus === "unemployed"
-                    ? "Target interview role:"
-                    : "Role at company:"
-            }\n${payload.workRoleContext}`,
-            goals: payload.goals ?? [],
-            goalsFreeText: payload.goalsFreeText,
-            motivation: payload.motivation,
-            painPoints: payload.painPoints ?? [],
-            painFreeText: payload.painFreeText,
-            additionalContext: `Intro transcript:\n${introTranscript}\n\nVoice expression summary:\n${JSON.stringify(humeTrimmed)}`,
-        });
+        // Use user-reviewed profile overrides (already extracted in the review step)
+        const profileFields = payload.profileOverrides;
+        if (!profileFields) {
+            throw new Error("Missing profile fields from review step.");
+        }
 
         const profileNowIso = new Date().toISOString();
-        const companyResearch = await enrichCompanyContext({
-            companyName: profileFields.companyName,
-            companyUrl: payload.companyUrl,
-            companyContext: profileFields.workplaceCommunicationContext,
-            role: profileFields.role,
-            industry: profileFields.industry,
-        });
+        const companyResearch = profileFields.companyName
+            ? await enrichCompanyContext({
+                  companyName: profileFields.companyName,
+                  companyUrl: "",
+                  companyContext:
+                      profileFields.workplaceCommunicationContext,
+                  role: profileFields.role,
+                  industry: profileFields.industry,
+              })
+            : null;
 
         const profile: UserProfileType = {
             uid,
@@ -147,17 +138,21 @@ export async function POST(request: NextRequest) {
             onboardingStatus: "completed",
             onboardingError: null,
             onboardingJobUpdatedAt: profileNowIso,
-            employmentStatus,
-            wantsInterviewPractice: effectiveInterviewPractice,
+            employmentStatus: profileFields.employmentStatus,
+            wantsInterviewPractice: profileFields.wantsInterviewPractice,
             role: profileFields.role,
             industry:
-                profileFields.industry || companyResearch?.guessedIndustry || "",
+                profileFields.industry ||
+                companyResearch?.guessedIndustry ||
+                "",
             goals: profileFields.goals,
             additionalContext: profileFields.additionalContext,
             companyName: profileFields.companyName,
-            companyUrl: payload.companyUrl?.trim() || "",
+            companyUrl: "",
             companyDescription:
-                profileFields.companyDescription || companyResearch?.summary || "",
+                profileFields.companyDescription ||
+                companyResearch?.summary ||
+                "",
             workplaceCommunicationContext:
                 profileFields.workplaceCommunicationContext,
             motivation: profileFields.motivation,
@@ -170,6 +165,7 @@ export async function POST(request: NextRequest) {
             updatedAt: profileNowIso,
         };
 
+        // Analyze the combined transcript as a baseline
         const introAnalysis = await analyzeSession({
             userProfile: {
                 role: profile.role,
@@ -193,16 +189,17 @@ export async function POST(request: NextRequest) {
             session: {
                 plan: {
                     scenario: {
-                        title: "Onboarding self-introduction",
-                        situationContext: "",
+                        title: "Onboarding speaking drills",
+                        situationContext:
+                            "Three onboarding drills: self-introduction, workplace scenario, and challenge moment.",
                         givenContent: "",
                         framework: "",
                         category: "self_introduction",
                     },
-                    skillTarget: "Confident self-introduction",
-                    maxDurationSeconds: 120,
+                    skillTarget: "Baseline communication assessment",
+                    maxDurationSeconds: 240,
                 },
-                transcript: introTranscript,
+                transcript: combinedTranscript,
                 humeContext: JSON.stringify(humeTrimmed),
             },
         });
@@ -324,7 +321,10 @@ export async function POST(request: NextRequest) {
                     { merge: true },
                 );
         } catch (persistError) {
-            console.error("Failed to persist onboarding processing error", persistError);
+            console.error(
+                "Failed to persist onboarding processing error",
+                persistError,
+            );
         }
         return NextResponse.json(
             {

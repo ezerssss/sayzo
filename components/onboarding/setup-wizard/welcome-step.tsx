@@ -16,10 +16,11 @@ export function WelcomeStep(props: Readonly<PropsInterface>) {
         <div className="space-y-5">
             <div className="space-y-2">
                 <h2 className="text-xl font-semibold tracking-tight">
-                    Let&apos;s set this up in under two minutes
+                    3 quick drills. Real feedback. Let&apos;s go.
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                    A few questions and a short sample—that&apos;s it.
+                    No forms to fill out — just speak, and we&apos;ll build your
+                    personalized practice plan from there.
                 </p>
             </div>
             <MockWaveform active className="opacity-90" />

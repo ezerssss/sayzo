@@ -18,12 +18,20 @@ export type CompanyResearchType = {
     updatedAt: string;
 };
 
+export type OnboardingDrillProgress = {
+    drillType: "self_introduction" | "workplace_scenario" | "challenge_moment";
+    transcript: string;
+    completedAt: string;
+};
+
 export type UserProfileType = {
     uid: string;
     onboardingComplete: boolean;
     onboardingStatus?: "idle" | "processing" | "failed" | "completed";
     onboardingError?: string | null;
     onboardingJobUpdatedAt?: string;
+    /** Drill transcripts saved progressively during onboarding. */
+    onboardingDrills?: OnboardingDrillProgress[];
     employmentStatus: "employed" | "unemployed";
     wantsInterviewPractice: boolean;
 

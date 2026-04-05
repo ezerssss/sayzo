@@ -41,10 +41,10 @@ Write as if the learner never sees internal telemetry: only qualitative observat
 - **`structureAndFlow`** — Use a **three-part** layout:
     1. **Macro-structure assessment (first)** — Evaluate the **overall arc** of the talk in a short paragraph. Was the structure coherent and well-organized? Did the speaker follow the suggested framework? Was the chosen structure effective for the message and audience? Did the speaker ramble, go in circles, or lose direction? Was there a clear opening, body, and close? Was there logical progression or did ideas feel scattered? This is the most important part of this section — the learner needs to know how their overall approach landed.
     2. **Structural map** — Briefly outline what the speaker *actually* did vs. what would have been more effective. For example: "You opened with X, then jumped to Y, circled back to X, then introduced Z" vs. "A clearer path: X → Y → Z with a bridging sentence between each."
-    3. **Specific transition moments (below)** — After a blank line, include teachable bullets (each moment with anchor → why issue → better option → why better) for individual transition points, sequencing issues, or structural breakdowns. Aim for **2–5 moments**.
+    3. **Specific transition moments (below)** — After a blank line, include teachable bullets (each moment with anchor → why issue → better option → key takeaway) for individual transition points, sequencing issues, or structural breakdowns. Aim for **2–5 moments**.
 - **`clarityAndConciseness`**, **`relevanceAndFocus`**, **`engagement`**, **`professionalism`**, **`deliveryAndProsody`** — Use a **two-part** layout:
     1. **Gist (first)** — 1–3 short sentences (or one tight paragraph) that state the **main pattern or headline** for *that* dimension: what tended to go wrong or what to focus on, in plain language. It should be **substantive** (not fluff), but it is **not** a second full `overview`—it previews *this* section only. If evidence is thin, the gist can say so and stay brief.
-    2. **Specific moments (below)** — After a blank line, include **all relevant** teachable bullets (each moment with anchor → why issue → better option → why better) so the learner can connect: *this is why the gist said that—here are the exact places.* Aim for **2–5 moments per section** (or more for longer transcripts). Do not stop at one example when more exist in the transcript.
+    2. **Specific moments (below)** — After a blank line, include **all relevant** teachable bullets (each moment with anchor → why issue → better option → key takeaway) so the learner can connect: *this is why the gist said that—here are the exact places.* Aim for **2–5 moments per section** (or more for longer transcripts). Do not stop at one example when more exist in the transcript.
 - **`nativeSpeakerVersion`** — Write the full rewrite as natural spoken prose. Maintain the learner's intent and key facts but deliver them the way an articulate native speaker would in that professional setting. Use smooth transitions, confident phrasing, and appropriate register. Do not include stage directions or timestamps. **After each paragraph of the rewrite**, add a blockquote annotation (`> **Note:** ...`) that explains what was changed from the learner's original and why it's better — be specific (e.g. "Removed the filler opener and led with your credential — this earns attention immediately instead of burying the key fact", "Condensed three sentences into one — the original repeated the same idea, which dilutes impact"). These notes are the main learning tool — they let the learner compare their version with the improved one and understand the reasoning, not just see a "better" text.
 
 ### Evidence rule across sections (critical)
@@ -63,34 +63,32 @@ Write as if the learner never sees internal telemetry: only qualitative observat
 
 ### Teachable moment format — all diagnostic sections (critical)
 
-Use the **same** five-part teachable shape for every substantive **moment** bullet in **`momentsToTighten`** and in the **moments portion** (below the gist/structural assessment) of **`structureAndFlow`**, **`clarityAndConciseness`**, **`relevanceAndFocus`**, **`engagement`**, **`professionalism`**, and **`deliveryAndProsody`**. Voice, tone, confidence, and pace belong in `professionalism` and/or `deliveryAndProsody` and must follow this shape when you critique them. The **gist** at the top of those dimensional fields (or the macro-structure assessment + structural map in `structureAndFlow`) is **not** a moment bullet—do not force the five-part shape onto it; use it only on the transition/moment bullets that follow.
+Use the **same** four-part teachable shape for every substantive **moment** bullet in **`momentsToTighten`** and in the **moments portion** (below the gist/structural assessment) of **`structureAndFlow`**, **`clarityAndConciseness`**, **`relevanceAndFocus`**, **`engagement`**, **`professionalism`**, and **`deliveryAndProsody`**. Voice, tone, confidence, and pace belong in `professionalism` and/or `deliveryAndProsody` and must follow this shape when you critique them. The **gist** at the top of those dimensional fields (or the macro-structure assessment + structural map in `structureAndFlow`) is **not** a moment bullet—do not force the four-part shape onto it; use it only on the transition/moment bullets that follow.
 
 For each bullet:
 
 1. **Anchor** — The actual thing: quote or tight paraphrase; timestamp link when the transcript has timestamps (see Timestamping section). If no timestamps, use order (“early…”, “when you pivoted to…”).
 2. **Why this is an issue (or not optimal)** — What goes wrong for the listener, the goal, or professional impact—**not** a generic label alone (“unclear”) without tying it to that moment.
 3. **Better option** — A concrete alternative: exact wording, a clearer order/transition, or a specific delivery adjustment (e.g. pace, emphasis, tone). Use `**Better structure:** ...` when the fix is sequencing or framing rather than a single line.
-4. **Why this is better** — The principle or effect (clarity, trust, persuasion, brevity, appropriateness, etc.) so the learner understands **why** the alternative works, not only that it is preferred.
-5. **Takeaway** — A short, reusable rule or framework the learner can memorize and apply in future situations — not specific to this moment but generalizable. Write it as a crisp maxim, mental shortcut, or mini-framework. Examples: *”Lead with your strongest credential — audiences decide in the first 10 seconds whether to keep listening.”* / *”The 'one breath' test: if you can't say it in one breath, split it into two sentences.”* / *”Cut the warm-up — go straight to the verb. 'I led…' beats 'So basically what happened was I kind of led…'”* / *”When listing items, pick 3 max and name them upfront: 'Three things — X, Y, Z.' Then expand. This gives your listener a map.”*. The takeaway should be something the learner can carry out of this session and use next time, even if they forget everything else.
+4. **Key takeaway** — Combine why the better option works **and** a reusable principle in one statement. Explain the effect (clarity, trust, persuasion, brevity, appropriateness, etc.) and distill it into a crisp rule or mental shortcut the learner can apply in future situations. Examples: *”Concise = confident. 'I want to improve my communication' lands harder than three hedging clauses — audiences trust speakers who get to the point.”* / *”The 'one breath' test: if you can't say it in one breath, split it into two sentences. Shorter sentences signal clarity and control.”* / *”Lead with your strongest credential — audiences decide in the first 10 seconds whether to keep listening. 'I led…' beats 'So basically what happened was I kind of led…'”* / *”When listing items, pick 3 max and name them upfront: 'Three things — X, Y, Z.' Then expand. This gives your listener a map and makes you sound organized.”*
 
 **Markdown shape** (line breaks required; do not collapse into one paragraph):
 
 - `- [timestamp or anchor sentence] ...` (the moment / what they did)
 - `  - **Why this is an issue:** ...`
 - `  - **Better option:** “...”` (or `**Better structure:** ...` / delivery instruction as needed)
-- `  - **Why this is better:** ...`
-- `  - **Takeaway:** ...`
+- `  - **Key takeaway:** ...`
 
-- Keep alternatives **specific** to that moment. Keep takeaways **general** — the learner should be able to apply them to any future drill or real conversation.
+- Keep alternatives **specific** to that moment. Keep takeaways **generalizable** but grounded — explain why the alternative works AND give a reusable principle the learner can apply to any future drill or conversation.
 - Do **not** only rewrite or only praise/criticize in the abstract—**both** the problem and the improvement need **reasoning**.
-- If a section would repeat the **exact** same five-part block already given under another field for the same moment, you may cross-reference once (“Same moment as in `momentsToTighten` at [mm:ss](time:SECONDS)—here focusing on structure: …”) and then apply the five parts **only for the new angle** (issue / better / why better / takeaway) so the UI does not balloon.
+- If a section would repeat the **exact** same four-part block already given under another field for the same moment, you may cross-reference once (“Same moment as in `momentsToTighten` at [mm:ss](time:SECONDS)—here focusing on structure: …”) and then apply the four parts **only for the new angle** (issue / better option / key takeaway) so the UI does not balloon.
 
 ### `momentsToTighten` (critical)
 
 - **No gist or intro paragraph**—start directly with moment bullets (see Section layout).
-- This field holds the **highest-impact** moments first; each primary bullet must use the **same** teachable shape as above (anchor → why issue → better option → why better → takeaway). Include **every** significant coachable moment — don't limit yourself to 1–2 when the transcript has more to work with.
+- This field holds the **highest-impact** moments first; each primary bullet must use the **same** teachable shape as above (anchor → why issue → better option → key takeaway). Include **every** significant coachable moment — don't limit yourself to 1–2 when the transcript has more to work with.
 - In `momentsToTighten`, you may keep the label **`Why to tighten:`** instead of **`Why this is an issue:`** if it reads naturally for that bullet; the **content** must still explain the real downside and impact, not a vague “tighten.”
-- **Takeaway** is required on every moment in this section — it's the most important part for the learner's long-term growth.
+- **Key takeaway** is required on every moment in this section — it's the most important part for the learner's long-term growth.
 
 ### Timestamping and click support (critical)
 

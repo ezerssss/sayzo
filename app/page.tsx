@@ -28,6 +28,7 @@ export default function Home() {
         exists: profileExists,
         onboardingComplete,
         onboardingStatus,
+        onboardingDrills,
     } = useUserProfileExists(user?.uid);
 
     const [appView, setAppView] = useState<AppView>({ mode: "dashboard" });
@@ -69,7 +70,12 @@ export default function Home() {
         onboardingComplete === false ||
         onboardingStatus === "processing"
     ) {
-        content = <SetupWizard uid={user.uid} />;
+        content = (
+            <SetupWizard
+                uid={user.uid}
+                savedDrills={onboardingDrills}
+            />
+        );
     } else if (appView.mode === "drill") {
         content = (
             <SessionHome

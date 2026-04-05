@@ -3,59 +3,88 @@
 import ky from "ky";
 import { doc, onSnapshot } from "firebase/firestore";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { GoalsStep } from "@/components/onboarding/setup-wizard/goals-step";
-import { EmploymentStep } from "@/components/onboarding/setup-wizard/employment-step";
-import { MotivationStep } from "@/components/onboarding/setup-wizard/motivation-step";
-import { PainStep } from "@/components/onboarding/setup-wizard/pain-step";
-import { RoleStep } from "@/components/onboarding/setup-wizard/role-step";
 import {
+    OnboardingDrillStep,
+    type OnboardingDrillResult,
+} from "@/components/onboarding/setup-wizard/onboarding-drill-step";
+import { ReviewStep } from "@/components/onboarding/setup-wizard/review-step";
+import {
+    ONBOARDING_DRILLS,
     SETUP_WIZARD_STEP_ORDER,
     type SetupWizardStep,
 } from "@/components/onboarding/setup-wizard/steps";
-import {
-    type IntroSamplePayload,
-    SampleStep,
-} from "@/components/onboarding/setup-wizard/sample-step";
 import { WelcomeStep } from "@/components/onboarding/setup-wizard/welcome-step";
-import { WorkplaceStep } from "@/components/onboarding/setup-wizard/workplace-step";
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { db } from "@/lib/firebase/client";
-import { getKyErrorMessage, isKyTimeoutLikeError } from "@/lib/ky-error-message";
-import type { UserProfileType } from "@/types/user";
+import {
+    getKyErrorMessage,
+    isKyTimeoutLikeError,
+} from "@/lib/ky-error-message";
+import type { UserProfileFieldsFromAI } from "@/services/profile-context-builder";
+import type {
+    OnboardingDrillProgress,
+    UserProfileType,
+} from "@/types/user";
 
 interface PropsInterface {
     uid: string;
     onBack?: () => void;
+    /** Previously saved drill transcripts from Firestore, used to resume. */
+    savedDrills?: OnboardingDrillProgress[];
+}
+
+/**
+ * Compute the initial wizard step based on which drills are already saved.
+ * If all 3 drills are done → review. If some → the next incomplete drill.
+ * If none → welcome (or drill-intro if they've at least started).
+ */
+function computeResumeStep(
+    saved: OnboardingDrillProgress[] | undefined,
+): SetupWizardStep {
+    if (!saved || saved.length === 0) return "welcome";
+
+    const completedTypes = new Set(saved.map((d) => d.drillType));
+    for (const drill of ONBOARDING_DRILLS) {
+        if (!completedTypes.has(drill.drillType)) {
+            return drill.step;
+        }
+    }
+    // All drills completed → go to review
+    return "review";
 }
 
 export function SetupWizard(props: Readonly<PropsInterface>) {
-    const { uid, onBack } = props;
-    const [step, setStep] = useState<SetupWizardStep>("welcome");
-    const [roleContext, setRoleContext] = useState("");
-    const [employmentStatus, setEmploymentStatus] = useState<
-        "employed" | "unemployed"
-    >("employed");
-    const [wantsInterviewPractice, setWantsInterviewPractice] = useState(false);
-    const [companyName, setCompanyName] = useState("");
-    const [companyUrl, setCompanyUrl] = useState("");
-    const [companyContext, setCompanyContext] = useState("");
-    const [workRoleContext, setWorkRoleContext] = useState("");
-    const [goals, setGoals] = useState<string[]>([]);
-    const [goalsFreeText, setGoalsFreeText] = useState("");
-    const [motivation, setMotivation] = useState("");
-    const [painPoints, setPainPoints] = useState<string[]>([]);
-    const [painFreeText, setPainFreeText] = useState("");
-    const [introSample, setIntroSample] = useState<IntroSamplePayload | null>(
-        null,
+    const { uid, onBack, savedDrills } = props;
+    const [step, setStep] = useState<SetupWizardStep>(() =>
+        computeResumeStep(savedDrills),
     );
+    const drillResults = useRef<Map<string, OnboardingDrillResult>>(new Map());
+    const savedTranscripts = useRef<Map<string, string>>(new Map());
+
+    // Populate saved transcripts on mount for use in profile extraction
+    useEffect(() => {
+        if (savedDrills) {
+            for (const d of savedDrills) {
+                savedTranscripts.current.set(d.drillType, d.transcript);
+            }
+        }
+    }, [savedDrills]);
+
+    // Review step state
+    const [extractedProfile, setExtractedProfile] =
+        useState<UserProfileFieldsFromAI | null>(null);
+    const [extractLoading, setExtractLoading] = useState(false);
+    const [extractError, setExtractError] = useState<string | null>(null);
+
+    // Submission state
     const [isCreatingProfile, setIsCreatingProfile] = useState(false);
     const [createProfileError, setCreateProfileError] = useState<string | null>(
         null,
     );
     const loadingStages = [
-        "Processing your intro sample",
+        "Processing your speaking samples",
         "Building your professional profile",
         "Analyzing communication baseline",
         "Generating your first personalized drill",
@@ -75,9 +104,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         const i = SETUP_WIZARD_STEP_ORDER.indexOf(step);
         if (i >= 0 && i < SETUP_WIZARD_STEP_ORDER.length - 1) {
             const next = SETUP_WIZARD_STEP_ORDER[i + 1];
-            if (next) {
-                setStep(next);
-            }
+            if (next) setStep(next);
         }
     }, [step]);
 
@@ -85,102 +112,165 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         const i = SETUP_WIZARD_STEP_ORDER.indexOf(step);
         if (i > 0) {
             const prev = SETUP_WIZARD_STEP_ORDER[i - 1];
-            if (prev) {
-                setStep(prev);
-            }
+            if (prev) setStep(prev);
         } else if (i === 0 && onBack) {
             onBack();
         }
     }, [step, onBack]);
 
-    const finish = useCallback(async () => {
-        if (!introSample) {
-            return;
-        }
-        setCreateProfileError(null);
-        setLoadingStageIndex(0);
-        setIsCreatingProfile(true);
+    /** Get the transcript for a drill — from current session results or saved progress. */
+    const getTranscript = useCallback(
+        (drillType: string): string => {
+            const result = drillResults.current.get(drillType);
+            if (result) return result.transcript.trim();
+            return savedTranscripts.current.get(drillType)?.trim() ?? "";
+        },
+        [],
+    );
 
-        const payload = {
-            uid,
-            roleContext: roleContext.trim(),
-            employmentStatus,
-            wantsInterviewPractice:
-                employmentStatus === "unemployed" ? true : wantsInterviewPractice,
-            companyName: companyName.trim(),
-            companyUrl: companyUrl.trim(),
-            companyContext: companyContext.trim(),
-            workRoleContext: workRoleContext.trim(),
-            goals,
-            goalsFreeText: goalsFreeText.trim(),
-            motivation: motivation.trim(),
-            painPoints,
-            painFreeText: painFreeText.trim(),
-            introTranscript: introSample.transcript.trim(),
-        };
+    const extractProfile = useCallback(async () => {
+        setExtractLoading(true);
+        setExtractError(null);
+        setExtractedProfile(null);
+
+        const drills = ONBOARDING_DRILLS.map((drill) => ({
+            drillType: drill.drillType,
+            transcript: getTranscript(drill.drillType),
+        }));
 
         try {
-            const fd = new FormData();
-            fd.append("payload", JSON.stringify(payload));
-            fd.append(
-                "audio",
-                new File([introSample.audio.slice()], introSample.filename, {
-                    type: introSample.mimeType,
-                }),
-            );
-            await ky.post("/api/onboarding/complete", {
-                body: fd,
-                timeout: 330_000,
-            });
-        } catch (error) {
-            if (isKyTimeoutLikeError(error)) {
-                setCreateProfileError(
-                    "Still processing in the background. Keep this page open.",
-                );
-                return;
-            }
-            setCreateProfileError(
+            const fields = await ky
+                .post("/api/onboarding/extract-profile", {
+                    json: { drills },
+                    timeout: 60_000,
+                })
+                .json<UserProfileFieldsFromAI>();
+            setExtractedProfile(fields);
+        } catch (e) {
+            setExtractError(
                 await getKyErrorMessage(
-                    error,
-                    "Could not create your profile right now.",
+                    e,
+                    "Could not extract your profile. You can try again or go back.",
                 ),
             );
-            setIsCreatingProfile(false);
+        } finally {
+            setExtractLoading(false);
         }
-    }, [
-        goals,
-        goalsFreeText,
-        introSample,
-        companyContext,
-        companyName,
-        companyUrl,
-        motivation,
-        painFreeText,
-        painPoints,
-        roleContext,
-        employmentStatus,
-        wantsInterviewPractice,
-        workRoleContext,
-        uid,
-    ]);
+    }, [getTranscript]);
 
-    const canContinueRole = roleContext.trim().length > 0;
-    const canContinueWorkplace =
-        (employmentStatus === "employed"
-            ? companyName.trim().length > 0 &&
-              companyContext.trim().length > 0 &&
-              workRoleContext.trim().length > 0
-            : workRoleContext.trim().length > 0);
-    const canContinueGoals =
-        goals.length > 0 || goalsFreeText.trim().length > 0;
-    const canContinueMotivation = motivation.trim().length > 0;
-    const canContinuePain =
-        painPoints.length > 0 || painFreeText.trim().length > 0;
-    const canFinishSample =
-        introSample !== null && introSample.transcript.trim().length > 0;
+    const saveDrillToServer = useCallback(
+        async (drillType: string, transcript: string) => {
+            try {
+                await ky.post("/api/onboarding/save-drill", {
+                    json: { uid, drillType, transcript },
+                    timeout: 15_000,
+                });
+            } catch {
+                // Non-critical — drill is still in memory for this session
+                console.warn(`Failed to persist drill ${drillType}`);
+            }
+        },
+        [uid],
+    );
+
+    const finish = useCallback(
+        async (profileOverrides: UserProfileFieldsFromAI) => {
+            // Need transcripts for all drills (from results or saved)
+            const hasAll = ONBOARDING_DRILLS.every(
+                (d) => getTranscript(d.drillType).length > 0,
+            );
+            if (!hasAll) return;
+
+            setCreateProfileError(null);
+            setLoadingStageIndex(0);
+            setIsCreatingProfile(true);
+
+            try {
+                const fd = new FormData();
+
+                const drills = ONBOARDING_DRILLS.map((drill) => ({
+                    drillType: drill.drillType,
+                    transcript: getTranscript(drill.drillType),
+                }));
+
+                fd.append(
+                    "payload",
+                    JSON.stringify({
+                        uid,
+                        drills,
+                        profileOverrides,
+                    }),
+                );
+
+                // Attach audio files for drills completed in this session
+                for (const drill of ONBOARDING_DRILLS) {
+                    const result = drillResults.current.get(drill.drillType);
+                    if (!result) continue;
+                    fd.append(
+                        `audio_${drill.drillType}`,
+                        new File([result.audio.slice()], result.filename, {
+                            type: result.mimeType,
+                        }),
+                    );
+                }
+
+                await ky.post("/api/onboarding/complete", {
+                    body: fd,
+                    timeout: 330_000,
+                });
+            } catch (error) {
+                if (isKyTimeoutLikeError(error)) {
+                    setCreateProfileError(
+                        "Still processing in the background. Keep this page open.",
+                    );
+                    return;
+                }
+                setCreateProfileError(
+                    await getKyErrorMessage(
+                        error,
+                        "Could not create your profile right now.",
+                    ),
+                );
+                setIsCreatingProfile(false);
+            }
+        },
+        [uid, getTranscript],
+    );
+
+    const handleDrillComplete = useCallback(
+        (
+            drillType: string,
+            result: OnboardingDrillResult,
+            isLastDrill: boolean,
+        ) => {
+            drillResults.current.set(drillType, result);
+            savedTranscripts.current.set(drillType, result.transcript);
+
+            // Persist to Firestore so user can resume later
+            void saveDrillToServer(drillType, result.transcript);
+
+            if (isLastDrill) {
+                goNext();
+                void extractProfile();
+            } else {
+                goNext();
+            }
+        },
+        [goNext, extractProfile, saveDrillToServer],
+    );
+
     const totalSteps = SETUP_WIZARD_STEP_ORDER.length;
     const shouldShowProcessing =
         isCreatingProfile || onboardingStatus === "processing";
+
+    // If we resumed directly to review, kick off extraction
+    useEffect(() => {
+        if (step === "review" && !extractedProfile && !extractLoading) {
+            void extractProfile();
+        }
+        // Only run on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (!isCreatingProfile) return;
@@ -226,13 +316,13 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                 <div className="space-y-6 py-6">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Sparkles className="size-4 shrink-0 text-foreground/70" />
-                        <span>Step {totalSteps} of {totalSteps}</span>
+                        <span>Finalizing</span>
                     </div>
                     <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-5">
                         <div className="mb-4 flex items-center gap-2">
                             <Loader2 className="size-5 animate-spin text-primary" />
                             <h2 className="text-base font-semibold tracking-tight">
-                                Finalizing your setup
+                                Building your personalized plan
                             </h2>
                         </div>
                         <div className="space-y-2">
@@ -299,95 +389,42 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
 
             {step === "welcome" ? <WelcomeStep onNext={goNext} /> : null}
 
-            {step === "role" ? (
-                <RoleStep
-                    roleContext={roleContext}
-                    onRoleContextChange={setRoleContext}
-                    canContinue={canContinueRole}
-                    onBack={goPrev}
-                    onNext={goNext}
-                />
-            ) : null}
-
-            {step === "goals" ? (
-                <GoalsStep
-                    goals={goals}
-                    onGoalsChange={setGoals}
-                    goalsFreeText={goalsFreeText}
-                    onGoalsFreeTextChange={setGoalsFreeText}
-                    canContinue={canContinueGoals}
-                    onBack={goPrev}
-                    onNext={goNext}
-                />
-            ) : null}
-
-            {step === "workplace" ? (
-                <WorkplaceStep
-                    employmentStatus={employmentStatus}
-                    wantsInterviewPractice={wantsInterviewPractice}
-                    onWantsInterviewPracticeChange={setWantsInterviewPractice}
-                    companyName={companyName}
-                    onCompanyNameChange={setCompanyName}
-                    companyUrl={companyUrl}
-                    onCompanyUrlChange={setCompanyUrl}
-                    companyContext={companyContext}
-                    onCompanyContextChange={setCompanyContext}
-                    workRoleContext={workRoleContext}
-                    onWorkRoleContextChange={setWorkRoleContext}
-                    canContinue={canContinueWorkplace}
-                    onBack={goPrev}
-                    onNext={goNext}
-                />
-            ) : null}
-
-            {step === "employment" ? (
-                <EmploymentStep
-                    employmentStatus={employmentStatus}
-                    onEmploymentStatusChange={(value) => {
-                        setEmploymentStatus(value);
-                        if (value === "unemployed") {
-                            setWantsInterviewPractice(true);
+            {ONBOARDING_DRILLS.map((drill, i) =>
+                step === drill.step ? (
+                    <OnboardingDrillStep
+                        key={drill.step}
+                        drill={drill}
+                        drillIndex={i}
+                        totalDrills={ONBOARDING_DRILLS.length}
+                        onBack={goPrev}
+                        isLast={i === ONBOARDING_DRILLS.length - 1}
+                        onNext={(result) =>
+                            handleDrillComplete(
+                                drill.drillType,
+                                result,
+                                i === ONBOARDING_DRILLS.length - 1,
+                            )
                         }
-                    }}
+                    />
+                ) : null,
+            )}
+
+            {step === "review" ? (
+                <ReviewStep
+                    profile={extractedProfile}
+                    loading={extractLoading}
+                    error={extractError}
                     onBack={goPrev}
-                    onNext={goNext}
+                    onFinish={(edited) => void finish(edited)}
+                    onRetry={() => void extractProfile()}
                 />
             ) : null}
 
-            {step === "motivation" ? (
-                <MotivationStep
-                    motivation={motivation}
-                    onMotivationChange={setMotivation}
-                    canContinue={canContinueMotivation}
-                    onBack={goPrev}
-                    onNext={goNext}
-                />
-            ) : null}
-
-            {step === "pain" ? (
-                <PainStep
-                    painPoints={painPoints}
-                    onPainPointsChange={setPainPoints}
-                    painFreeText={painFreeText}
-                    onPainFreeTextChange={setPainFreeText}
-                    canContinue={canContinuePain}
-                    onBack={goPrev}
-                    onNext={goNext}
-                />
-            ) : null}
-
-            {step === "sample" ? (
-                <SampleStep
-                    canFinish={canFinishSample}
-                    onBack={goPrev}
-                    onFinish={finish}
-                    onIntroReady={setIntroSample}
-                    onIntroClear={() => setIntroSample(null)}
-                />
-            ) : null}
-
-            {createProfileError ? (
-                <p className="mt-3 text-center text-sm text-destructive" role="alert">
+            {createProfileError && step !== "review" ? (
+                <p
+                    className="mt-3 text-center text-sm text-destructive"
+                    role="alert"
+                >
                     {createProfileError}
                 </p>
             ) : null}

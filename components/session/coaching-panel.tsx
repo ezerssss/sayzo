@@ -132,6 +132,8 @@ interface CoachingPanelProps {
     onSeekToSecond?: (seconds: number) => void;
     sessionId?: string;
     uid?: string;
+    /** When set, only show these coaching section keys (in order). */
+    visibleKeys?: Array<keyof SessionFeedbackType>;
 }
 
 export function CoachingPanel({
@@ -139,11 +141,15 @@ export function CoachingPanel({
     onSeekToSecond,
     sessionId,
     uid,
+    visibleKeys,
 }: CoachingPanelProps) {
-    const sections = SECTION_META.filter((s) => {
+    const allSections = SECTION_META.filter((s) => {
         const value = feedback[s.key];
         return typeof value === "string" && value.trim().length > 0;
     });
+    const sections = visibleKeys
+        ? allSections.filter((s) => visibleKeys.includes(s.key))
+        : allSections;
 
     const [openKeys, setOpenKeys] = useState<Set<string>>(() => {
         // Auto-expand the first section

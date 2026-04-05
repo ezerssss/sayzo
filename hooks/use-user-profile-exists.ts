@@ -5,7 +5,10 @@ import { useEffect, useState } from "react";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { db } from "@/lib/firebase/client";
-import type { UserProfileType } from "@/types/user";
+import type {
+    OnboardingDrillProgress,
+    UserProfileType,
+} from "@/types/user";
 
 export function useUserProfileExists(uid: string | undefined) {
     const [loading, setLoading] = useState(Boolean(uid));
@@ -16,6 +19,9 @@ export function useUserProfileExists(uid: string | undefined) {
     const [onboardingStatus, setOnboardingStatus] = useState<
         UserProfileType["onboardingStatus"] | null
     >(null);
+    const [onboardingDrills, setOnboardingDrills] = useState<
+        OnboardingDrillProgress[]
+    >([]);
 
     useEffect(() => {
         if (!uid) {
@@ -31,9 +37,15 @@ export function useUserProfileExists(uid: string | undefined) {
                     const data = snapshot.data() as Partial<UserProfileType>;
                     setOnboardingComplete(Boolean(data.onboardingComplete));
                     setOnboardingStatus(data.onboardingStatus ?? null);
+                    setOnboardingDrills(
+                        Array.isArray(data.onboardingDrills)
+                            ? data.onboardingDrills
+                            : [],
+                    );
                 } else {
                     setOnboardingComplete(false);
                     setOnboardingStatus(null);
+                    setOnboardingDrills([]);
                 }
                 setLoading(false);
             },
@@ -42,6 +54,7 @@ export function useUserProfileExists(uid: string | undefined) {
                 setExists(false);
                 setOnboardingComplete(false);
                 setOnboardingStatus(null);
+                setOnboardingDrills([]);
                 setLoading(false);
             },
         );
@@ -49,5 +62,11 @@ export function useUserProfileExists(uid: string | undefined) {
         return unsubscribe;
     }, [uid]);
 
-    return { loading, exists, onboardingComplete, onboardingStatus };
+    return {
+        loading,
+        exists,
+        onboardingComplete,
+        onboardingStatus,
+        onboardingDrills,
+    };
 }

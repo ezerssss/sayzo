@@ -344,13 +344,19 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                         isDeleting ? "opacity-50" : ""
                                     }`}
                                 >
-                                    <button
-                                        type="button"
-                                        className="w-full p-3 text-left"
-                                        disabled={isDeleting}
+                                    <div
+                                        role="button"
+                                        tabIndex={0}
+                                        className={`w-full cursor-pointer p-3 text-left ${isDeleting ? "pointer-events-none" : ""}`}
                                         onClick={() =>
                                             onSelectSession(session)
                                         }
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" || e.key === " ") {
+                                                e.preventDefault();
+                                                onSelectSession(session);
+                                            }
+                                        }}
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
@@ -404,7 +410,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                 </button>
                                             </div>
                                         </div>
-                                    </button>
+                                    </div>
                                 </div>
                             );
                         })}
