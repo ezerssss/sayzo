@@ -10,4 +10,13 @@ export const FirestoreCollections = {
     sessions: {
         path: FirestoreCollectionName.SESSIONS,
     },
+    authSessions: {
+        path: FirestoreCollectionName.AUTH_SESSIONS,
+    },
+    authCodes: {
+        path: FirestoreCollectionName.AUTH_CODES,
+    },
+    refreshTokens: {
+        path: FirestoreCollectionName.REFRESH_TOKENS,
+    },
 } as const;
