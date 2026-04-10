@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
             workplaceCommunicationContext:
                 profileFields.workplaceCommunicationContext,
             motivation: profileFields.motivation,
-            companyResearch: companyResearch ?? undefined,
+            companyResearch: companyResearch ?? null,
             internalLearnerContext: "",
             lastInternalLearnerContextSessionId: "",
             internalDrillSignalNotes: "",

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         motivation: "",
         goals: [],
         additionalContext: "",
-        companyResearch: undefined,
+        companyResearch: null,
     };
 
     const emptySkillMemory = {
