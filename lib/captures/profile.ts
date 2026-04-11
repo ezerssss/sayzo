@@ -50,6 +50,25 @@ function formatTranscript(transcript: CaptureTranscriptLine[]): string {
         .join("\n");
 }
 
+function formatDimension(dim: {
+    assessment: string;
+    findings: { anchor: string; whyIssue: string; betterOption: string }[];
+}): string {
+    const assessment = dim.assessment.trim();
+    // Compact each finding into "anchor — whyIssue (Better: betterOption)" so the
+    // profiler model has the gist without the full keyTakeaway prose.
+    const findingsText = dim.findings
+        .map(
+            (f) =>
+                `${f.anchor.trim()} — ${f.whyIssue.trim()} (Better: ${f.betterOption.trim()})`,
+        )
+        .join("; ");
+    if (!assessment && !findingsText) return "(none)";
+    if (assessment && findingsText)
+        return `${assessment} | findings: ${findingsText}`;
+    return assessment || findingsText;
+}
+
 function deduplicateAndCap(items: string[], limit: number): string[] {
     const normalized = items
         .map((s) => s.trim())
@@ -149,12 +168,12 @@ Summary: ${summary}
 - Notes: ${analysis.notes || "(none)"}
 
 ## Dimensional findings
-- Structure & flow: ${analysis.structureAndFlow.join("; ") || "(none)"}
-- Clarity & conciseness: ${analysis.clarityAndConciseness.join("; ") || "(none)"}
-- Relevance & focus: ${analysis.relevanceAndFocus.join("; ") || "(none)"}
-- Engagement: ${analysis.engagement.join("; ") || "(none)"}
-- Professionalism: ${analysis.professionalism.join("; ") || "(none)"}
-- Voice/tone/expression: ${analysis.voiceToneExpression.join("; ") || "(none)"}
+- Structure & flow: ${formatDimension(analysis.structureAndFlow)}
+- Clarity & conciseness: ${formatDimension(analysis.clarityAndConciseness)}
+- Relevance & focus: ${formatDimension(analysis.relevanceAndFocus)}
+- Engagement: ${formatDimension(analysis.engagement)}
+- Professionalism: ${formatDimension(analysis.professionalism)}
+- Voice/tone/expression: ${formatDimension(analysis.voiceToneExpression)}
 
 ## Quantitative summary
 - Teachable moments: ${analysis.teachableMoments.length} (${analysis.teachableMoments.filter((m) => m.severity === "major").length} major)

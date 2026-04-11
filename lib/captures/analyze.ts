@@ -16,7 +16,17 @@ import type { UserProfileType } from "@/types/user";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
-const teachableMomentSchema = z.object({
+// The unified four-part teachable shape used for every coaching moment
+// (`teachableMoments` and dimensional `findings`). See `CoachingMoment` in
+// `types/captures.ts` for the rationale.
+const coachingMomentSchema = z.object({
+    anchor: z.string(),
+    whyIssue: z.string(),
+    betterOption: z.string(),
+    keyTakeaway: z.string(),
+});
+
+const teachableMomentSchema = coachingMomentSchema.extend({
     type: z.enum([
         "grammar",
         "filler",
@@ -27,9 +37,18 @@ const teachableMomentSchema = z.object({
     severity: z.enum(["minor", "moderate", "major"]),
     timestamp: z.number(),
     transcriptIdx: z.number(),
-    userSaid: z.string(),
-    suggestion: z.string(),
-    explanation: z.string(),
+});
+
+const nativeSpeakerRewriteSchema = z.object({
+    transcriptIdx: z.number(),
+    original: z.string(),
+    rewrite: z.string(),
+    note: z.string(),
+});
+
+const dimensionalAnalysisSchema = z.object({
+    assessment: z.string(),
+    findings: z.array(coachingMomentSchema),
 });
 
 const captureAnalysisSchema = z.object({
@@ -41,12 +60,12 @@ const captureAnalysisSchema = z.object({
     secondaryIssues: z.array(z.string()),
     notes: z.string(),
 
-    structureAndFlow: z.array(z.string()),
-    clarityAndConciseness: z.array(z.string()),
-    relevanceAndFocus: z.array(z.string()),
-    engagement: z.array(z.string()),
-    professionalism: z.array(z.string()),
-    voiceToneExpression: z.array(z.string()),
+    structureAndFlow: dimensionalAnalysisSchema,
+    clarityAndConciseness: dimensionalAnalysisSchema,
+    relevanceAndFocus: dimensionalAnalysisSchema,
+    engagement: dimensionalAnalysisSchema,
+    professionalism: dimensionalAnalysisSchema,
+    voiceToneExpression: dimensionalAnalysisSchema,
 
     improvements: z.array(z.string()),
     regressions: z.array(z.string()),
@@ -91,6 +110,8 @@ const captureAnalysisSchema = z.object({
         confidence: z.number(),
         turnTaking: z.enum(["balanced", "passive", "dominant"]),
     }),
+
+    nativeSpeakerRewrites: z.array(nativeSpeakerRewriteSchema),
 });
 
 type AnalysisResult = {
@@ -235,6 +256,7 @@ ${humePayload}`;
             fillerWords: result.output.fillerWords,
             fluency: result.output.fluency,
             communicationStyle: result.output.communicationStyle,
+            nativeSpeakerRewrites: result.output.nativeSpeakerRewrites,
         },
     };
 }

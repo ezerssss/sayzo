@@ -33,14 +33,38 @@ export type TeachableMomentType =
 
 export type TeachableMomentSeverity = "minor" | "moderate" | "major";
 
-export type TeachableMoment = {
+/**
+ * The unified four-part teachable shape used across all coaching content
+ * (`teachableMoments` and dimensional `findings`). Mirrors the drill side's
+ * `session-feedback` "teachable moment format" requirement.
+ *
+ * Every part is required because each does distinct work:
+ * - `anchor` grounds the feedback in evidence (without it, feedback is generic)
+ * - `whyIssue` explains the cost (without it, the learner doesn't understand what was wrong)
+ * - `betterOption` gives a target to aim for (without it, the learner has nothing concrete to copy)
+ * - `keyTakeaway` makes the lesson transferable (without it, the learner needs the same correction next time)
+ */
+export type CoachingMoment = {
+    /** What the user actually did. Quote when possible, otherwise tight paraphrase. Include conversational context (e.g. "When the PM asked about the timeline, you said..."). */
+    anchor: string;
+    /** Why this is an issue **for the listener, the goal, or professional impact**. Not a generic label — tie it to the actual moment and the actual cost. */
+    whyIssue: string;
+    /** Concrete better alternative — exact wording when possible, or a specific structural / delivery change. */
+    betterOption: string;
+    /** **Why** the better option works AND a **reusable principle** the learner can apply to future situations. This is what turns a single correction into a transferable skill. */
+    keyTakeaway: string;
+};
+
+/**
+ * Specific coachable moment with type/severity classification on top of the
+ * standard four-part `CoachingMoment` shape. Used for the `teachableMoments`
+ * array on `CaptureAnalysis`.
+ */
+export type TeachableMoment = CoachingMoment & {
     type: TeachableMomentType;
     severity: TeachableMomentSeverity;
     timestamp: number;
     transcriptIdx: number;
-    userSaid: string;
-    suggestion: string;
-    explanation: string;
 };
 
 export type GrammarPattern = {
@@ -82,6 +106,44 @@ export type CommunicationStyle = {
 };
 
 /**
+ * Each dimensional finding (structure, clarity, relevance, engagement,
+ * professionalism, voice/tone) gets a paragraph-level macro `assessment`
+ * plus an array of specific `findings`. Each finding follows the four-part
+ * `CoachingMoment` shape so the learner gets full coaching depth on every
+ * specific moment, not just labels.
+ *
+ * This mirrors the drill `session-feedback` prompt — the drill side splits
+ * "analyzer" (structured) from "feedback" (rich narrative) into two prompts;
+ * captures fold both responsibilities into one analysis pass, so assessment +
+ * structured findings gives the LLM space for both at once.
+ */
+export type DimensionalAnalysis = {
+    /** 2-4 sentence paragraph evaluating this dimension at a macro level. May include "what the user did vs what would have been better" framing where useful. */
+    assessment: string;
+    /** Specific coachable moments — each follows the four-part `CoachingMoment` shape (anchor, whyIssue, betterOption, keyTakeaway). Empty array when nothing specific to flag beyond the assessment. */
+    findings: CoachingMoment[];
+};
+
+/**
+ * Per-turn rewrite of one of the user's most coachable contributions to the
+ * conversation. Mirrors the spirit of the drill `nativeSpeakerVersion` field
+ * but adapted for multi-turn captures: rather than rewriting one continuous
+ * response, we pick the user's most-coachable turns and show side-by-side
+ * how a fluent native speaker would have phrased the same message in the
+ * same context.
+ */
+export type NativeSpeakerRewrite = {
+    /** Index in `serverTranscript` (or `agentTranscript` fallback) — must point at a user-tagged line. */
+    transcriptIdx: number;
+    /** The user's exact words, quoted from the transcript. */
+    original: string;
+    /** How a fluent native English speaker would phrase the same message in the same conversational context. */
+    rewrite: string;
+    /** 1-2 sentences explaining what changed and why it works better. */
+    note: string;
+};
+
+/**
  * Deep analysis of a captured conversation. Combines:
  *
  * - **Dimensional findings** (overview, mainIssue, structureAndFlow, …)
@@ -103,14 +165,15 @@ export type CaptureAnalysis = {
     secondaryIssues: string[];
     notes: string;
 
-    // Dimensional findings
-    structureAndFlow: string[];
-    clarityAndConciseness: string[];
-    relevanceAndFocus: string[];
-    engagement: string[];
-    professionalism: string[];
+    // Dimensional findings — each has a paragraph-level macro assessment
+    // plus a bullet array of specific findings. See `DimensionalAnalysis`.
+    structureAndFlow: DimensionalAnalysis;
+    clarityAndConciseness: DimensionalAnalysis;
+    relevanceAndFocus: DimensionalAnalysis;
+    engagement: DimensionalAnalysis;
+    professionalism: DimensionalAnalysis;
     /** Hume-grounded delivery findings: pace, rhythm, intonation, vocal bursts, emotional tone. */
-    voiceToneExpression: string[];
+    voiceToneExpression: DimensionalAnalysis;
 
     // Progress tracking (vs prior strengths/weaknesses on the user)
     improvements: string[];
@@ -127,6 +190,13 @@ export type CaptureAnalysis = {
     fillerWords: FillerWordAnalysis;
     fluency: FluencyMetrics;
     communicationStyle: CommunicationStyle;
+
+    /**
+     * Side-by-side rewrites of the user's most coachable turns. Mirrors the
+     * drill `SessionFeedbackType.nativeSpeakerVersion` but adapted for
+     * multi-turn captures. Empty array when no turns warrant a rewrite.
+     */
+    nativeSpeakerRewrites: NativeSpeakerRewrite[];
 };
 
 export type CaptureType = {
