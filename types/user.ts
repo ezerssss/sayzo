@@ -45,7 +45,7 @@ export type UserProfileType = {
 
     goals: string[];
     additionalContext: string;
-    companyResearch?: CompanyResearchType;
+    companyResearch?: CompanyResearchType | null;
 
     /**
      * Server-only bullet notes merged from drill transcripts over time.

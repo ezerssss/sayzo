@@ -107,7 +107,7 @@ async function fetchWikipedia(companyName: string): Promise<SourceSnippet | null
 }
 
 export function isCompanyResearchStale(
-    research: CompanyResearchType | undefined,
+    research: CompanyResearchType | null | undefined,
 ): boolean {
     if (!research?.updatedAt) return true;
     const updatedAt = Date.parse(research.updatedAt);

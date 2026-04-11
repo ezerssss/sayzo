@@ -10,6 +10,9 @@ export const FirestoreCollections = {
     sessions: {
         path: FirestoreCollectionName.SESSIONS,
     },
+    captures: {
+        path: FirestoreCollectionName.CAPTURES,
+    },
     authSessions: {
         path: FirestoreCollectionName.AUTH_SESSIONS,
     },
