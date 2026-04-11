@@ -255,6 +255,11 @@ export async function POST(request: NextRequest) {
                 internalLearnerContext: enrichedUserProfile.internalLearnerContext,
                 internalDrillSignalNotes:
                     enrichedUserProfile.internalDrillSignalNotes?.trim() ?? "",
+                internalCaptureContext:
+                    enrichedUserProfile.internalCaptureContext?.trim() ?? "",
+                internalCaptureDeliveryNotes:
+                    enrichedUserProfile.internalCaptureDeliveryNotes?.trim() ??
+                    "",
             },
             skillMemory: {
                 strengths: skillMemory.strengths,

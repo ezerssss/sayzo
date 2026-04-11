@@ -16,10 +16,14 @@ import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
-const MAX_LEARNER_CONTEXT_CHARS = 5_500;
+const MAX_CAPTURE_CONTEXT_CHARS = 5_500;
+const MAX_CAPTURE_DELIVERY_CHARS = 3_500;
 
 const profileUpdateSchema = z.object({
-    learnerContextAdditions: z.string(),
+    /** New bullet notes about who/what/how the user converses (context, not delivery). */
+    contextAdditions: z.string(),
+    /** New bullet notes about HOW the user speaks: prosody, pace, tone, vocal patterns. */
+    deliveryAdditions: z.string(),
     newStrengths: z.array(z.string()),
     newWeaknesses: z.array(z.string()),
     reinforcementItems: z.array(z.string()),
@@ -53,6 +57,23 @@ function deduplicateAndCap(items: string[], limit: number): string[] {
     return Array.from(new Set(normalized)).slice(0, limit);
 }
 
+function appendBullets(
+    existing: string,
+    additions: string,
+    captureId: string,
+    maxChars: number,
+): string {
+    const trimmed = additions.trim();
+    if (!trimmed) return existing;
+
+    const existingTrimmed = existing.trim();
+    const merged = existingTrimmed
+        ? `${existingTrimmed}\n\n--- From capture ${captureId} ---\n${trimmed}`
+        : trimmed;
+
+    return merged.length > maxChars ? merged.slice(-maxChars) : merged;
+}
+
 export async function updateUserProfileFromCapture(
     uid: string,
     captureId: string,
@@ -70,6 +91,12 @@ export async function updateUserProfileFromCapture(
 
     const userProfile = userSnap.data() as UserProfileType | undefined;
     if (!userProfile) return;
+
+    // Idempotency: skip if this capture has already been merged into the
+    // user's capture context fields.
+    if (userProfile.lastInternalCaptureContextCaptureId === captureId) {
+        return;
+    }
 
     const skillData = skillSnap.data() as Partial<SkillMemoryType> | undefined;
     const currentStrengths = Array.isArray(skillData?.strengths)
@@ -91,14 +118,19 @@ export async function updateUserProfileFromCapture(
             schema: zodSchema(profileUpdateSchema),
             name: "CaptureProfileUpdate",
             description:
-                "Profile updates derived from a real conversation capture.",
+                "Profile updates derived from a real conversation capture (context + delivery, separately).",
         }),
         system: readPrompt(),
         prompt: `## Current user profile
 - Role: ${userProfile.role || "(not set)"}
 - Industry: ${userProfile.industry || "(not set)"}
 - Company: ${userProfile.companyName || "(not set)"}
-- Existing learner context: ${userProfile.internalLearnerContext?.trim() || "(empty)"}
+
+## Existing internal capture context (what/who/how the user converses)
+${userProfile.internalCaptureContext?.trim() || "(empty — no captures merged yet)"}
+
+## Existing internal capture delivery notes (HOW the user speaks)
+${userProfile.internalCaptureDeliveryNotes?.trim() || "(empty — no captures merged yet)"}
 
 ## Current skill memory
 - Strengths: ${currentStrengths.join("; ") || "(none)"}
@@ -110,12 +142,26 @@ export async function updateUserProfileFromCapture(
 Title: ${title}
 Summary: ${summary}
 
-## Analysis summary
-Teachable moments: ${analysis.teachableMoments.length} (${analysis.teachableMoments.filter((m) => m.severity === "major").length} major)
-Grammar patterns: ${analysis.grammarPatterns.map((p) => p.pattern).join("; ") || "(none)"}
-Filler words: ${analysis.fillerWords.perMinute.toFixed(1)}/min
-Fluency: ${analysis.fluency.wordsPerMinute} WPM
-Communication style: directness=${analysis.communicationStyle.directness.toFixed(2)}, confidence=${analysis.communicationStyle.confidence.toFixed(2)}
+## Analysis high-level
+- Overview: ${analysis.overview}
+- Main issue: ${analysis.mainIssue}
+- Secondary issues: ${analysis.secondaryIssues.join("; ") || "(none)"}
+- Notes: ${analysis.notes || "(none)"}
+
+## Dimensional findings
+- Structure & flow: ${analysis.structureAndFlow.join("; ") || "(none)"}
+- Clarity & conciseness: ${analysis.clarityAndConciseness.join("; ") || "(none)"}
+- Relevance & focus: ${analysis.relevanceAndFocus.join("; ") || "(none)"}
+- Engagement: ${analysis.engagement.join("; ") || "(none)"}
+- Professionalism: ${analysis.professionalism.join("; ") || "(none)"}
+- Voice/tone/expression: ${analysis.voiceToneExpression.join("; ") || "(none)"}
+
+## Quantitative summary
+- Teachable moments: ${analysis.teachableMoments.length} (${analysis.teachableMoments.filter((m) => m.severity === "major").length} major)
+- Grammar patterns: ${analysis.grammarPatterns.map((p) => `${p.pattern} (${p.frequency}x)`).join("; ") || "(none)"}
+- Filler words: ${analysis.fillerWords.perMinute.toFixed(1)}/min
+- Fluency: ${analysis.fluency.wordsPerMinute} WPM, ${analysis.fluency.selfCorrections} self-corrections, ${analysis.fluency.avgResponseLatencyMs}ms avg response latency
+- Communication style: directness=${analysis.communicationStyle.directness.toFixed(2)}, formality=${analysis.communicationStyle.formality.toFixed(2)}, confidence=${analysis.communicationStyle.confidence.toFixed(2)}, turnTaking=${analysis.communicationStyle.turnTaking}
 
 ## Transcript
 ${formatTranscript(transcript)}`,
@@ -123,35 +169,40 @@ ${formatTranscript(transcript)}`,
     });
 
     const {
-        learnerContextAdditions,
+        contextAdditions,
+        deliveryAdditions,
         newStrengths,
         newWeaknesses,
         reinforcementItems,
     } = result.output;
 
-    // Merge learner context additions into the user profile
-    if (learnerContextAdditions.trim()) {
-        const existing = userProfile.internalLearnerContext?.trim() || "";
-        const merged = existing
-            ? `${existing}\n\n--- From capture ${captureId} ---\n${learnerContextAdditions.trim()}`
-            : learnerContextAdditions.trim();
+    // Merge into user profile capture context fields
+    const userUpdate: Record<string, unknown> = {
+        lastInternalCaptureContextCaptureId: captureId,
+        updatedAt: new Date().toISOString(),
+    };
 
-        const capped =
-            merged.length > MAX_LEARNER_CONTEXT_CHARS
-                ? merged.slice(-MAX_LEARNER_CONTEXT_CHARS)
-                : merged;
-
-        await db
-            .collection(FirestoreCollections.users.path)
-            .doc(uid)
-            .set(
-                {
-                    internalLearnerContext: capped,
-                    updatedAt: new Date().toISOString(),
-                },
-                { merge: true },
-            );
+    if (contextAdditions.trim()) {
+        userUpdate.internalCaptureContext = appendBullets(
+            userProfile.internalCaptureContext ?? "",
+            contextAdditions,
+            captureId,
+            MAX_CAPTURE_CONTEXT_CHARS,
+        );
     }
+    if (deliveryAdditions.trim()) {
+        userUpdate.internalCaptureDeliveryNotes = appendBullets(
+            userProfile.internalCaptureDeliveryNotes ?? "",
+            deliveryAdditions,
+            captureId,
+            MAX_CAPTURE_DELIVERY_CHARS,
+        );
+    }
+
+    await db
+        .collection(FirestoreCollections.users.path)
+        .doc(uid)
+        .set(userUpdate, { merge: true });
 
     // Merge skill memory updates
     const mergedStrengths = deduplicateAndCap(

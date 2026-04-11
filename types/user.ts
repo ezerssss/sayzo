@@ -63,6 +63,25 @@ export type UserProfileType = {
     /** Idempotency: last session id merged into `internalDrillSignalNotes`; empty string if never updated. */
     lastDrillSignalNotesSessionId: string;
 
+    /**
+     * Server-only bullet notes derived from real conversation captures (mic + system audio).
+     * Distinct from `internalLearnerContext` (drill-derived) because real conversations show
+     * how the user actually communicates in their work — who they talk to, what topics, what
+     * formality level, what context they bring up unprompted. Drives drill personalization.
+     * Empty string when no captures have been processed yet.
+     */
+    internalCaptureContext?: string;
+    /**
+     * Server-only bullet notes about HOW the user speaks in real conversations (prosody, pace,
+     * tone, vocal patterns, delivery habits). Sourced from Hume signals + transcript analysis
+     * during capture processing. Drills can't reliably surface these because they're short and
+     * rehearsed; real captures show the user's actual delivery baseline.
+     * Empty string when no captures have been processed yet.
+     */
+    internalCaptureDeliveryNotes?: string;
+    /** Idempotency: last capture id merged into the capture context fields; empty string if never updated. */
+    lastInternalCaptureContextCaptureId?: string;
+
     createdAt: string;
     updatedAt: string;
 };

@@ -10,6 +10,9 @@ import type {
     CaptureAnalysis,
     CaptureTranscriptLine,
 } from "@/types/captures";
+import type { HumeExpressionSummary } from "@/types/hume-expression";
+import type { SkillMemoryType } from "@/types/skill-memory";
+import type { UserProfileType } from "@/types/user";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
@@ -32,6 +35,22 @@ const teachableMomentSchema = z.object({
 const captureAnalysisSchema = z.object({
     serverTitle: z.string(),
     serverSummary: z.string(),
+
+    overview: z.string(),
+    mainIssue: z.string(),
+    secondaryIssues: z.array(z.string()),
+    notes: z.string(),
+
+    structureAndFlow: z.array(z.string()),
+    clarityAndConciseness: z.array(z.string()),
+    relevanceAndFocus: z.array(z.string()),
+    engagement: z.array(z.string()),
+    professionalism: z.array(z.string()),
+    voiceToneExpression: z.array(z.string()),
+
+    improvements: z.array(z.string()),
+    regressions: z.array(z.string()),
+
     teachableMoments: z.array(teachableMomentSchema),
     grammarPatterns: z.array(
         z.object({
@@ -80,6 +99,32 @@ type AnalysisResult = {
     analysis: CaptureAnalysis;
 };
 
+export type CaptureAnalyzerInput = {
+    transcript: CaptureTranscriptLine[];
+    agentTitle: string;
+    agentSummary: string;
+    durationSecs: number;
+    /** Trimmed Hume payload — passed verbatim to the LLM as delivery evidence. */
+    humeExpression: HumeExpressionSummary | null;
+    /** User profile context so analysis is calibrated to role/industry/communication context. */
+    userProfile: Pick<
+        UserProfileType,
+        | "role"
+        | "industry"
+        | "companyName"
+        | "companyDescription"
+        | "workplaceCommunicationContext"
+        | "motivation"
+        | "goals"
+        | "additionalContext"
+    >;
+    /** Existing skill memory so the LLM can flag improvements/regressions. */
+    skillMemory: Pick<
+        SkillMemoryType,
+        "strengths" | "weaknesses" | "masteredFocus" | "reinforcementFocus"
+    >;
+};
+
 function readPrompt(): string {
     return readFileSync(join(PROMPTS_DIR, "deep-analysis.md"), "utf-8");
 }
@@ -102,11 +147,18 @@ function formatTranscript(transcript: CaptureTranscriptLine[]): string {
 }
 
 export async function analyzeCaptureDeep(
-    transcript: CaptureTranscriptLine[],
-    agentTitle: string,
-    agentSummary: string,
-    durationSecs: number,
+    input: CaptureAnalyzerInput,
 ): Promise<AnalysisResult> {
+    const {
+        transcript,
+        agentTitle,
+        agentSummary,
+        durationSecs,
+        humeExpression,
+        userProfile,
+        skillMemory,
+    } = input;
+
     const userLines = transcript.filter((l) => l.speaker === "user");
     const totalUserWords = userLines.reduce(
         (sum, l) => sum + l.text.split(/\s+/).length,
@@ -114,6 +166,39 @@ export async function analyzeCaptureDeep(
     );
     const userSpeakingMins =
         userLines.reduce((sum, l) => sum + (l.end - l.start), 0) / 60;
+
+    const humePayload = humeExpression
+        ? JSON.stringify(humeExpression)
+        : "(Hume measurement unavailable for this capture — base voiceToneExpression on transcript pacing/disfluency cues only and say so in `notes`.)";
+
+    const prompt = `## User profile (for calibration)
+- Role: ${userProfile.role || "(not set)"}
+- Industry: ${userProfile.industry || "(not set)"}
+- Company: ${userProfile.companyName || "(not set)"}
+- Company description: ${userProfile.companyDescription || "(not set)"}
+- Workplace communication context: ${userProfile.workplaceCommunicationContext || "(not set)"}
+- Motivation: ${userProfile.motivation || "(not set)"}
+- Goals: ${userProfile.goals.length ? userProfile.goals.join("; ") : "(none)"}
+- Additional context: ${userProfile.additionalContext?.trim() || "(none)"}
+
+## Existing skill memory (use to flag improvements / regressions)
+- Strengths: ${skillMemory.strengths.length ? skillMemory.strengths.join("; ") : "(none)"}
+- Weaknesses: ${skillMemory.weaknesses.length ? skillMemory.weaknesses.join("; ") : "(none)"}
+- Mastered focus: ${skillMemory.masteredFocus.length ? skillMemory.masteredFocus.join("; ") : "(none)"}
+- Reinforcement focus: ${skillMemory.reinforcementFocus.length ? skillMemory.reinforcementFocus.join("; ") : "(none)"}
+
+## Capture context
+Title: ${agentTitle}
+Summary: ${agentSummary}
+Duration: ${Math.round(durationSecs)} seconds
+User word count: ~${totalUserWords}
+User speaking minutes: ~${userSpeakingMins.toFixed(1)}
+
+## Full transcript (indexed, speaker-tagged)
+${formatTranscript(transcript)}
+
+## Hume AI signals (USER-ONLY across all three models: prosody + bursts from the user's mic channel only, language from user-only text)
+${humePayload}`;
 
     const result = await generateText({
         model: openai(defaultModel()),
@@ -124,15 +209,7 @@ export async function analyzeCaptureDeep(
                 "Deep analysis of a captured English conversation for coaching purposes.",
         }),
         system: readPrompt(),
-        prompt: `## Agent-generated context
-Title: ${agentTitle}
-Summary: ${agentSummary}
-Duration: ${Math.round(durationSecs)} seconds
-User word count: ~${totalUserWords}
-User speaking minutes: ~${userSpeakingMins.toFixed(1)}
-
-## Full transcript (indexed)
-${formatTranscript(transcript)}`,
+        prompt,
         temperature: 0.15,
     });
 
@@ -140,6 +217,18 @@ ${formatTranscript(transcript)}`,
         serverTitle: result.output.serverTitle,
         serverSummary: result.output.serverSummary,
         analysis: {
+            overview: result.output.overview,
+            mainIssue: result.output.mainIssue,
+            secondaryIssues: result.output.secondaryIssues,
+            notes: result.output.notes,
+            structureAndFlow: result.output.structureAndFlow,
+            clarityAndConciseness: result.output.clarityAndConciseness,
+            relevanceAndFocus: result.output.relevanceAndFocus,
+            engagement: result.output.engagement,
+            professionalism: result.output.professionalism,
+            voiceToneExpression: result.output.voiceToneExpression,
+            improvements: result.output.improvements,
+            regressions: result.output.regressions,
             teachableMoments: result.output.teachableMoments,
             grammarPatterns: result.output.grammarPatterns,
             vocabulary: result.output.vocabulary,

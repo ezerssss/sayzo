@@ -1,3 +1,5 @@
+import type { HumeExpressionSummary } from "@/types/hume-expression";
+
 export type CaptureTranscriptLine = {
     speaker: string; // "user", "other_1", "other_2", "other_unmic", etc.
     start: number; // seconds into conversation
@@ -79,8 +81,47 @@ export type CommunicationStyle = {
     turnTaking: "balanced" | "passive" | "dominant";
 };
 
+/**
+ * Deep analysis of a captured conversation. Combines:
+ *
+ * - **Dimensional findings** (overview, mainIssue, structureAndFlow, …)
+ *   borrowed from the drill `SessionAnalysisType` so the same coaching
+ *   surface area is available for captures.
+ * - **Quantitative metrics** (vocabulary, fillerWords, fluency, etc.)
+ *   that are unique to captures because real conversations are long
+ *   enough to show meaningful patterns.
+ * - **Teachable moments** — concrete, citation-anchored coaching points
+ *   the learner can act on.
+ *
+ * `voiceToneExpression` is grounded in Hume prosody/burst/language signals
+ * (see `humeExpression` on `CaptureType`).
+ */
 export type CaptureAnalysis = {
+    // High-level synthesis (dimensional, mirrors SessionAnalysisType)
+    overview: string;
+    mainIssue: string;
+    secondaryIssues: string[];
+    notes: string;
+
+    // Dimensional findings
+    structureAndFlow: string[];
+    clarityAndConciseness: string[];
+    relevanceAndFocus: string[];
+    engagement: string[];
+    professionalism: string[];
+    /** Hume-grounded delivery findings: pace, rhythm, intonation, vocal bursts, emotional tone. */
+    voiceToneExpression: string[];
+
+    // Progress tracking (vs prior strengths/weaknesses on the user)
+    improvements: string[];
+    regressions: string[];
+
+    // Specific moments — capture-unique because organic conversations
+    // produce many small coachable instances over their length
     teachableMoments: TeachableMoment[];
+
+    // Pattern detection unique to captures (drills are too short for these
+    // metrics to be meaningful)
     grammarPatterns: GrammarPattern[];
     vocabulary: VocabularyAssessment;
     fillerWords: FillerWordAnalysis;
@@ -111,6 +152,13 @@ export type CaptureType = {
     serverTitle?: string;
     serverSummary?: string;
     durationSecs?: number;
+
+    /**
+     * Trimmed Hume expression measurement (prosody + bursts + language).
+     * Stored on the capture so the analyzer can be re-run later without
+     * paying for another Hume batch job.
+     */
+    humeExpression?: HumeExpressionSummary;
 
     analysis?: CaptureAnalysis;
 };

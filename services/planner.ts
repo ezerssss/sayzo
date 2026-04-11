@@ -65,6 +65,8 @@ export type PlannerInput = {
         | "companyResearch"
         | "internalLearnerContext"
         | "internalDrillSignalNotes"
+        | "internalCaptureContext"
+        | "internalCaptureDeliveryNotes"
     >;
     skillMemory: Pick<
         SkillMemoryType,
@@ -106,6 +108,10 @@ function plannerUserMessage(input: PlannerInput): string {
     const internalCtx = userProfile.internalLearnerContext.trim() || "";
     const drillSignalNotes =
         (userProfile.internalDrillSignalNotes ?? "").trim() || "";
+    const captureContext =
+        (userProfile.internalCaptureContext ?? "").trim() || "";
+    const captureDeliveryNotes =
+        (userProfile.internalCaptureDeliveryNotes ?? "").trim() || "";
     const recentDrillsBlock =
         recentDrills.length === 0
             ? "(none yet — first drills for this learner)"
@@ -136,6 +142,12 @@ ${internalCtx || "(none yet — nothing merged from past drill transcripts)"}
 
 ## Drill signal notes (backend only — skip / optional reflection; never show to the user)
 ${drillSignalNotes || "(none — no skip or reflection preferences recorded yet)"}
+
+## Real-conversation capture context (backend only — extracted from real meetings/calls; never show to the user)
+${captureContext || "(none — no real-conversation captures processed yet)"}
+
+## Real-conversation delivery notes (backend only — HOW the user actually speaks in real life; never show to the user)
+${captureDeliveryNotes || "(none — no real-conversation captures processed yet)"}
 
 ## Company grounding (for realism)
 - Confidence: ${userProfile.companyResearch?.confidence ?? "(none)"}
