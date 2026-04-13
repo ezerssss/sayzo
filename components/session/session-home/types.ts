@@ -6,6 +6,8 @@ export type SessionHomeProps = {
     onSignOut: () => void;
     authError?: string | null;
     onBackToDashboard?: () => void;
+    /** When set, loads this specific session instead of the latest. Used for conversation practice. */
+    sessionId?: string;
 };
 
 export type PreNewDrillReflectionState = {

@@ -28,17 +28,17 @@ export function useLatestSession(uid?: string) {
             collection(db, FirestoreCollections.sessions.path),
             where("uid", "==", uid),
             orderBy("createdAt", "desc"),
-            limit(1),
+            limit(10),
         );
 
         const unsub = onSnapshot(
             q,
             (snap) => {
-                if (snap.empty) {
-                    setSession(null);
-                } else {
-                    setSession(snap.docs[0]?.data() as SessionType);
-                }
+                // Find the first regular drill (skip conversation practice sessions)
+                const latest = snap.docs
+                    .map((d) => d.data() as SessionType)
+                    .find((s) => s.type !== "scenario_replay");
+                setSession(latest ?? null);
                 setLoading(false);
             },
             () => {

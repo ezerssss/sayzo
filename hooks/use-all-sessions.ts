@@ -15,6 +15,7 @@ import type { SessionType } from "@/types/sessions";
 
 export function useAllSessions(uid?: string) {
     const [sessions, setSessions] = useState<SessionType[]>([]);
+    const [practiceSessions, setPracticeSessions] = useState<SessionType[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -32,10 +33,13 @@ export function useAllSessions(uid?: string) {
         const unsub = onSnapshot(
             q,
             (snap) => {
-                const docs = snap.docs.map(
+                const all = snap.docs.map(
                     (doc) => doc.data() as SessionType,
                 );
-                setSessions(docs);
+                setSessions(all.filter((s) => s.type !== "scenario_replay"));
+                setPracticeSessions(
+                    all.filter((s) => s.type === "scenario_replay"),
+                );
                 setLoading(false);
             },
             () => {
@@ -47,5 +51,5 @@ export function useAllSessions(uid?: string) {
         return unsub;
     }, [uid]);
 
-    return { sessions, loading, error };
+    return { sessions, practiceSessions, loading, error };
 }

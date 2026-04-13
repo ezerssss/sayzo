@@ -1,7 +1,7 @@
 "use client";
 
 import ky from "ky";
-import { ArrowLeft, Loader2, Play, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Play, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnalysisView } from "@/components/conversations/analysis-view";
@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCapture } from "@/hooks/use-capture";
 import type { CaptureStatus, CaptureType } from "@/types/captures";
+import type { SessionType } from "@/types/sessions";
 
 type Props = {
     capture: CaptureType;
@@ -27,6 +28,10 @@ type Props = {
     onBack: () => void;
     onPracticeThisConversation: (captureId: string) => Promise<void>;
     onDelete: (captureId: string) => Promise<void>;
+    /** Existing practice session for this capture, if any. */
+    practiceSession?: SessionType;
+    /** Navigate to the practice session's drill view. */
+    onGoToPracticeSession?: (sessionId: string) => void;
 };
 
 function formatDate(dateStr: string): string {
@@ -94,8 +99,15 @@ function friendlyStatus(status: CaptureStatus): string {
 }
 
 export function ConversationDetailView(props: Readonly<Props>) {
-    const { capture: initialCapture, uid, onBack, onPracticeThisConversation, onDelete } =
-        props;
+    const {
+        capture: initialCapture,
+        uid,
+        onBack,
+        onPracticeThisConversation,
+        onDelete,
+        practiceSession,
+        onGoToPracticeSession,
+    } = props;
 
     // Real-time listener — starts from the list data, then stays in sync
     const capture = useCapture(initialCapture.id, initialCapture);
@@ -207,20 +219,35 @@ export function ConversationDetailView(props: Readonly<Props>) {
                     Real Conversations
                 </Button>
                 <div className="flex items-center gap-2">
-                    {capture.status === "analyzed" && (
-                        <Button
-                            size="sm"
-                            onClick={() => void handlePractice()}
-                            disabled={practicing}
-                        >
-                            {practicing ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Play className="h-4 w-4" />
-                            )}
-                            Practice this conversation
-                        </Button>
-                    )}
+                    {capture.status === "analyzed" &&
+                        (practiceSession ? (
+                            <Button
+                                size="sm"
+                                onClick={() =>
+                                    onGoToPracticeSession?.(
+                                        practiceSession.id,
+                                    )
+                                }
+                            >
+                                <ArrowRight className="h-4 w-4" />
+                                {practiceSession.completionStatus === "pending"
+                                    ? "Continue practicing"
+                                    : "View practice results"}
+                            </Button>
+                        ) : (
+                            <Button
+                                size="sm"
+                                onClick={() => void handlePractice()}
+                                disabled={practicing}
+                            >
+                                {practicing ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Play className="h-4 w-4" />
+                                )}
+                                Practice this conversation
+                            </Button>
+                        ))}
                     {/* DEV ONLY — remove before production */}
                     <Button
                         variant="outline"

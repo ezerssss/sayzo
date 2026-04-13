@@ -202,14 +202,19 @@ export async function POST(request: NextRequest) {
             (docSnap) => docSnap.data() as SessionType,
         );
         const latestSession = recentSessions[0];
+        // Skip conversation practice sessions for guard checks — they
+        // shouldn't block creating regular drills.
+        const latestRegularSession = recentSessions.find(
+            (s) => s.type !== "scenario_replay",
+        );
         if (
-            latestSession?.completionStatus === "needs_retry" &&
-            latestSession?.processingStatus !== "processing"
+            latestRegularSession?.completionStatus === "needs_retry" &&
+            latestRegularSession?.processingStatus !== "processing"
         ) {
             return NextResponse.json(
                 {
                     error:
-                        latestSession.completionReason?.trim() ||
+                        latestRegularSession.completionReason?.trim() ||
                         "Please redo your current drill before creating a new one.",
                     code: "DRILL_RETRY_REQUIRED",
                 },
@@ -217,7 +222,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (latestSession?.processingStatus === "processing") {
+        if (latestRegularSession?.processingStatus === "processing") {
             return NextResponse.json(
                 {
                     error:

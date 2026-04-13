@@ -7,6 +7,7 @@ import {
 import { planScenarioReplayFromCapture } from "@/services/capture-replay-planner";
 import { buildSessionFromPlan } from "@/services/planner";
 import type { CaptureType } from "@/types/captures";
+import type { SessionType } from "@/types/sessions";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
 
@@ -72,7 +73,25 @@ export async function POST(
             );
         }
 
-        // 2. Load user profile + skill memory in parallel
+        // 2. Check for existing practice session (dedup — don't create duplicates)
+        const existingSnap = await db
+            .collection(FirestoreCollections.sessions.path)
+            .where("uid", "==", uid)
+            .where("sourceCaptureId", "==", captureId)
+            .where("type", "==", "scenario_replay")
+            .orderBy("createdAt", "desc")
+            .limit(1)
+            .get();
+
+        if (!existingSnap.empty) {
+            const existingId = (existingSnap.docs[0].data() as SessionType).id;
+            return NextResponse.json(
+                { sessionId: existingId },
+                { status: 200 },
+            );
+        }
+
+        // 3. Load user profile + skill memory in parallel
         const [userSnap, skillSnap] = await Promise.all([
             db.collection(FirestoreCollections.users.path).doc(uid).get(),
             db
@@ -91,7 +110,7 @@ export async function POST(
 
         const skillData = (skillSnap.data() ?? {}) as Partial<SkillMemoryType>;
 
-        // 3. Plan the replay drill
+        // 4. Plan the replay drill
         const plan = await planScenarioReplayFromCapture({
             capture,
             userProfile: {
@@ -123,13 +142,13 @@ export async function POST(
             },
         });
 
-        // 4. Build the session with sourceCaptureId link
+        // 5. Build the session with sourceCaptureId link
         const session = buildSessionFromPlan(uid, plan, {
             sourceCaptureId: captureId,
             type: "scenario_replay",
         });
 
-        // 5. Insert into Firestore
+        // 6. Insert into Firestore
         await db
             .collection(FirestoreCollections.sessions.path)
             .doc(session.id)

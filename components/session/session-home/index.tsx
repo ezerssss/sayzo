@@ -5,6 +5,7 @@ import ky from "ky";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useLatestSession } from "@/hooks/use-latest-session";
+import { useSession } from "@/hooks/use-session";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import {
     getKyErrorMessage,
@@ -41,7 +42,7 @@ import type {
 export type { SessionHomeProps } from "./types";
 
 export function SessionHome(props: Readonly<SessionHomeProps>) {
-    const { uid, userLabel, onSignOut, authError, onBackToDashboard } = props;
+    const { uid, userLabel, onSignOut, authError, onBackToDashboard, sessionId } = props;
     const [drillState, setDrillState] = useState<DrillState>("idle");
     const [seconds, setSeconds] = useState(DEFAULT_MAX_SECONDS);
     const [drillError, setDrillError] = useState<string | null>(null);
@@ -72,11 +73,16 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const { isRecording, stream, start, stop } = useVoiceRecorder();
     const modalRecorder = useVoiceRecorder();
+    // Both hooks called unconditionally (rules of hooks).
+    // When sessionId is set, useLatestSession gets undefined uid and no-ops.
+    // When sessionId is absent, useSession(undefined) no-ops.
+    const latestHook = useLatestSession(sessionId ? undefined : uid);
+    const specificHook = useSession(sessionId);
     const {
         session,
         loading: loadingSession,
         error: latestSessionError,
-    } = useLatestSession(uid);
+    } = sessionId ? specificHook : latestHook;
 
     const currentPlan = session?.plan ?? FALLBACK_PLAN;
     const maxSeconds = Math.max(

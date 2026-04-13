@@ -21,7 +21,7 @@ import type { SessionType } from "@/types/sessions";
 
 type AppView =
     | { mode: "dashboard" }
-    | { mode: "drill" }
+    | { mode: "drill"; sessionId?: string }
     | { mode: "past-session"; session: SessionType }
     | { mode: "conversations" }
     | { mode: "conversation-detail"; capture: CaptureType };
@@ -41,6 +41,7 @@ export default function Home() {
 
     const {
         sessions,
+        practiceSessions,
         loading: sessionsLoading,
         error: sessionsError,
     } = useAllSessions(user?.uid);
@@ -123,11 +124,13 @@ export default function Home() {
     } else if (appView.mode === "conversation-detail") {
         const handlePracticeConversation = async (captureId: string) => {
             try {
-                await ky.post(`/api/captures/${captureId}/practice`, {
-                    json: { uid: user.uid },
-                    timeout: 60_000,
-                });
-                setAppView({ mode: "drill" });
+                const res = await ky
+                    .post(`/api/captures/${captureId}/practice`, {
+                        json: { uid: user.uid },
+                        timeout: 60_000,
+                    })
+                    .json<{ sessionId: string }>();
+                setAppView({ mode: "drill", sessionId: res.sessionId });
             } catch (err) {
                 throw new Error(
                     await getKyErrorMessage(
@@ -156,6 +159,10 @@ export default function Home() {
             }
         };
 
+        const practiceSessionForCapture = practiceSessions.find(
+            (s) => s.sourceCaptureId === appView.capture.id,
+        );
+
         content = (
             <ConversationDetailView
                 capture={appView.capture}
@@ -163,6 +170,10 @@ export default function Home() {
                 onBack={() => setAppView({ mode: "conversations" })}
                 onPracticeThisConversation={handlePracticeConversation}
                 onDelete={handleDeleteCapture}
+                practiceSession={practiceSessionForCapture}
+                onGoToPracticeSession={(sessionId) =>
+                    setAppView({ mode: "drill", sessionId })
+                }
             />
         );
     } else if (appView.mode === "drill") {
@@ -173,6 +184,7 @@ export default function Home() {
                 onSignOut={signOut}
                 authError={authError}
                 onBackToDashboard={() => setAppView({ mode: "dashboard" })}
+                sessionId={appView.sessionId}
             />
         );
     } else if (appView.mode === "past-session") {
@@ -222,6 +234,7 @@ export default function Home() {
         content = (
             <SessionsDashboard
                 sessions={sessions}
+                practiceSessions={practiceSessions}
                 loading={sessionsLoading}
                 error={sessionsError}
                 userLabel={user.displayName ?? user.email ?? "Unknown user"}
@@ -234,6 +247,9 @@ export default function Home() {
                 onDeleteSession={handleDeleteSession}
                 onGoToConversations={() =>
                     setAppView({ mode: "conversations" })
+                }
+                onGoToPracticeSession={(sessionId) =>
+                    setAppView({ mode: "drill", sessionId })
                 }
             />
         );

@@ -27,6 +27,7 @@ import type { SessionType } from "@/types/sessions";
 
 type Props = {
     sessions: SessionType[];
+    practiceSessions: SessionType[];
     loading: boolean;
     error: string | null;
     userLabel: string;
@@ -36,6 +37,7 @@ type Props = {
     onStartNewDrill: (category?: string) => Promise<void>;
     onDeleteSession: (sessionId: string) => Promise<void>;
     onGoToConversations?: () => void;
+    onGoToPracticeSession?: (sessionId: string) => void;
 };
 
 function formatCategory(slug: string): string {
@@ -109,6 +111,7 @@ function StatusBadge({ status }: { status: SessionType["completionStatus"] }) {
 export function SessionsDashboard(props: Readonly<Props>) {
     const {
         sessions,
+        practiceSessions,
         loading,
         error,
         userLabel,
@@ -118,6 +121,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
         onStartNewDrill,
         onDeleteSession,
         onGoToConversations,
+        onGoToPracticeSession,
     } = props;
 
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -367,6 +371,104 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                             if (e.key === "Enter" || e.key === " ") {
                                                 e.preventDefault();
                                                 onSelectSession(session);
+                                            }
+                                        }}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-medium">
+                                                    {
+                                                        session.plan.scenario
+                                                            .title
+                                                    }
+                                                </p>
+                                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {formatCategory(
+                                                            session.plan
+                                                                .scenario
+                                                                .category,
+                                                        )}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground/50">
+                                                        ·
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {formatDate(
+                                                            session.createdAt,
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex shrink-0 items-center gap-2">
+                                                <StatusBadge
+                                                    status={
+                                                        session.completionStatus
+                                                    }
+                                                />
+                                                <button
+                                                    type="button"
+                                                    disabled={isDeleting}
+                                                    className="rounded-md p-1 text-muted-foreground/0 transition-colors hover:bg-destructive/10 hover:text-destructive group-hover:text-muted-foreground/60"
+                                                    title="Delete session"
+                                                    onClick={(e) =>
+                                                        handleDeleteClick(
+                                                            e,
+                                                            session,
+                                                        )
+                                                    }
+                                                >
+                                                    {isDeleting ? (
+                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Conversation Practice section */}
+            {practiceSessions.length > 0 && (
+                <div className="mt-6 space-y-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                        Conversation Practice ({practiceSessions.length})
+                    </h3>
+                    <div className="space-y-1">
+                        {practiceSessions.map((session) => {
+                            const isDeleting =
+                                deletingSessionId === session.id;
+                            return (
+                                <div
+                                    key={session.id}
+                                    className={`group rounded-lg border border-border/50 bg-background transition-colors hover:border-border hover:bg-muted/50 ${
+                                        isDeleting ? "opacity-50" : ""
+                                    }`}
+                                >
+                                    <div
+                                        role="button"
+                                        tabIndex={0}
+                                        className={`w-full cursor-pointer p-3 text-left ${isDeleting ? "pointer-events-none" : ""}`}
+                                        onClick={() =>
+                                            onGoToPracticeSession?.(
+                                                session.id,
+                                            )
+                                        }
+                                        onKeyDown={(e) => {
+                                            if (
+                                                e.key === "Enter" ||
+                                                e.key === " "
+                                            ) {
+                                                e.preventDefault();
+                                                onGoToPracticeSession?.(
+                                                    session.id,
+                                                );
                                             }
                                         }}
                                     >
