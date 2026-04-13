@@ -1,6 +1,6 @@
 # Captures → Drills: Drill Generation Spec
 
-**Status:** Design pending. Current implementation in `lib/captures/drills.ts` is a no-op stub. The captures pipeline runs all the way through `analyzed` status but Stage 5 does nothing yet.
+**Status:** User-triggered scenario replay shipped. The "Practice this conversation" button on the conversation detail view creates a `scenario_replay` session with `sourceCaptureId` via `POST /api/captures/[id]/practice`, using a dedicated planner (`services/capture-replay-planner.ts` + `prompts/planner/replay-from-capture.md`). Comparison-aware analysis is wired into the existing `/api/sessions/complete` pipeline. Auto-suggest and targeted drill generation from captures remain pending. `lib/captures/drills.ts` is still a no-op stub.
 
 ## Background
 

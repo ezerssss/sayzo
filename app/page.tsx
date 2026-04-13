@@ -5,20 +5,26 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 
 import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
+import { ConversationDetailView } from "@/components/conversations/conversation-detail-view";
+import { ConversationsDashboard } from "@/components/conversations/conversations-dashboard";
 import { SetupWizard } from "@/components/onboarding/setup-wizard";
 import { PastSessionView } from "@/components/session/past-session-view";
 import { SessionHome } from "@/components/session/session-home";
 import { SessionsDashboard } from "@/components/session/sessions-dashboard";
+import { useAllCaptures } from "@/hooks/use-all-captures";
 import { useAllSessions } from "@/hooks/use-all-sessions";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useUserProfileExists } from "@/hooks/use-user-profile-exists";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
+import type { CaptureType } from "@/types/captures";
 import type { SessionType } from "@/types/sessions";
 
 type AppView =
     | { mode: "dashboard" }
     | { mode: "drill" }
-    | { mode: "past-session"; session: SessionType };
+    | { mode: "past-session"; session: SessionType }
+    | { mode: "conversations" }
+    | { mode: "conversation-detail"; capture: CaptureType };
 
 export default function Home() {
     const { user, loading, authError, signInWithGoogle, signOut } =
@@ -38,6 +44,12 @@ export default function Home() {
         loading: sessionsLoading,
         error: sessionsError,
     } = useAllSessions(user?.uid);
+
+    const {
+        captures,
+        loading: capturesLoading,
+        error: capturesError,
+    } = useAllCaptures(user?.uid);
 
     let content: ReactNode;
 
@@ -74,6 +86,83 @@ export default function Home() {
             <SetupWizard
                 uid={user.uid}
                 savedDrills={onboardingDrills}
+            />
+        );
+    } else if (appView.mode === "conversations") {
+        const handleDeleteCapture = async (captureId: string) => {
+            try {
+                await ky
+                    .delete(`/api/captures/${captureId}`, {
+                        json: { uid: user.uid },
+                        timeout: 30_000,
+                    });
+            } catch (err) {
+                throw new Error(
+                    await getKyErrorMessage(
+                        err,
+                        "Could not delete real conversation.",
+                    ),
+                );
+            }
+        };
+
+        content = (
+            <ConversationsDashboard
+                captures={captures}
+                loading={capturesLoading}
+                error={capturesError}
+                userLabel={user.displayName ?? user.email ?? "Unknown user"}
+                onSignOut={signOut}
+                onBackToDrills={() => setAppView({ mode: "dashboard" })}
+                onSelectCapture={(capture) =>
+                    setAppView({ mode: "conversation-detail", capture })
+                }
+                onDeleteCapture={handleDeleteCapture}
+            />
+        );
+    } else if (appView.mode === "conversation-detail") {
+        const handlePracticeConversation = async (captureId: string) => {
+            try {
+                await ky.post(`/api/captures/${captureId}/practice`, {
+                    json: { uid: user.uid },
+                    timeout: 60_000,
+                });
+                setAppView({ mode: "drill" });
+            } catch (err) {
+                throw new Error(
+                    await getKyErrorMessage(
+                        err,
+                        "Could not create practice session.",
+                    ),
+                );
+            }
+        };
+
+        const handleDeleteCapture = async (captureId: string) => {
+            try {
+                await ky
+                    .delete(`/api/captures/${captureId}`, {
+                        json: { uid: user.uid },
+                        timeout: 30_000,
+                    });
+                setAppView({ mode: "conversations" });
+            } catch (err) {
+                throw new Error(
+                    await getKyErrorMessage(
+                        err,
+                        "Could not delete real conversation.",
+                    ),
+                );
+            }
+        };
+
+        content = (
+            <ConversationDetailView
+                capture={appView.capture}
+                uid={user.uid}
+                onBack={() => setAppView({ mode: "conversations" })}
+                onPracticeThisConversation={handlePracticeConversation}
+                onDelete={handleDeleteCapture}
             />
         );
     } else if (appView.mode === "drill") {
@@ -143,6 +232,9 @@ export default function Home() {
                 onGoToCurrentDrill={() => setAppView({ mode: "drill" })}
                 onStartNewDrill={handleStartNewDrill}
                 onDeleteSession={handleDeleteSession}
+                onGoToConversations={() =>
+                    setAppView({ mode: "conversations" })
+                }
             />
         );
     }

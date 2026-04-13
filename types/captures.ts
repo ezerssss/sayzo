@@ -84,10 +84,15 @@ export type VocabularyAssessment = {
     domainVocabulary: string[];
 };
 
+export type FillerWordBreakdownEntry = {
+    word: string;
+    count: number;
+};
+
 export type FillerWordAnalysis = {
     totalCount: number;
     perMinute: number;
-    breakdown: Record<string, number>;
+    breakdown: FillerWordBreakdownEntry[];
     timestamps: number[];
 };
 
@@ -197,9 +202,23 @@ export type CaptureAnalysis = {
      * multi-turn captures. Empty array when no turns warrant a rewrite.
      */
     nativeSpeakerRewrites: NativeSpeakerRewrite[];
+
+    /**
+     * A complete rewrite of everything the user said across the conversation,
+     * written as one cohesive piece — how a fluent native speaker would have
+     * delivered the same content with better structure, word choice,
+     * transitions, and flow. Mirrors the drill `nativeSpeakerVersion` but
+     * adapted for multi-turn captures. Includes inline notes explaining what
+     * changed and why. Null when user speech is too thin for a meaningful
+     * rewrite.
+     */
+    nativeSpeakerVersion: string | null;
 };
 
 export type CaptureType = {
+    /** Firestore document ID. Not stored as a field in the document — mapped
+     *  from `doc.id` when reading from Firestore snapshots. */
+    id?: string;
     uid: string;
 
     status: CaptureStatus;

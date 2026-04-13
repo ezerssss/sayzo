@@ -1,7 +1,12 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
 import { openai } from "@ai-sdk/openai";
-import { analyzeSession, generateSessionFeedback } from "@/services/analyzer";
+import {
+    analyzeSession,
+    generateSessionFeedback,
+    type ReplayContext,
+} from "@/services/analyzer";
+import type { CaptureType } from "@/types/captures";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
@@ -465,6 +470,43 @@ ${transcript}`,
             completionStatus = "needs_retry";
             completionReason = skipReason;
         } else {
+            // Load source capture for comparison feedback if this is a replay
+            let replayContext: ReplayContext | undefined;
+            if (
+                session.type === "scenario_replay" &&
+                session.sourceCaptureId
+            ) {
+                try {
+                    const captureSnap = await db
+                        .collection(FirestoreCollections.captures.path)
+                        .doc(session.sourceCaptureId)
+                        .get();
+                    const capture = captureSnap.data() as
+                        | CaptureType
+                        | undefined;
+                    if (capture?.analysis) {
+                        replayContext = {
+                            sourceCapture: {
+                                title:
+                                    capture.serverTitle ?? capture.title,
+                                summary:
+                                    capture.serverSummary ?? capture.summary,
+                                transcript:
+                                    capture.serverTranscript ??
+                                    capture.agentTranscript,
+                                analysis: capture.analysis,
+                            },
+                        };
+                    }
+                } catch (err) {
+                    console.warn(
+                        `[sessions/complete] Could not load source capture ${session.sourceCaptureId} for replay context:`,
+                        err,
+                    );
+                    // Fall back to non-comparison analysis silently
+                }
+            }
+
             analysis = await analyzeSession({
                 userProfile: {
                     role: userProfile.role,
@@ -490,7 +532,7 @@ ${transcript}`,
                     transcript,
                     humeContext: JSON.stringify(humeTrimmed),
                 },
-            });
+            }, replayContext);
 
             feedback = await generateSessionFeedback(
                 {
@@ -521,6 +563,7 @@ ${transcript}`,
                     },
                 },
                 { sessionAnalysis: analysis },
+                replayContext,
             );
             completionStatus = shouldRequireRetry ? "needs_retry" : "passed";
             completionReason = shouldRequireRetry ? skipReason : null;

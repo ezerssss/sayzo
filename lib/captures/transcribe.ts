@@ -16,8 +16,12 @@ type TranscriptionResult = {
 };
 
 /**
- * Re-transcribe capture audio with a paid STT model, mapping speaker labels
- * back from the agent's local transcript via timestamp overlap.
+ * Re-transcribe capture audio with Whisper for higher quality, then map
+ * speaker labels from the desktop agent's transcript using timestamp overlap.
+ *
+ * Speaker identification is handled by the desktop agent (which has access
+ * to the separate audio streams in real-time). We trust those labels and
+ * just inherit them onto the higher-quality Whisper segments.
  */
 export async function retranscribeCapture(
     audioBuffer: Buffer,
@@ -36,7 +40,7 @@ export async function retranscribeCapture(
     });
     const fd = new FormData();
     fd.append("model", model);
-    fd.append("file", audioBlob, "audio.opus");
+    fd.append("file", audioBlob, "audio.ogg");
     fd.append("response_format", "verbose_json");
     fd.append("timestamp_granularities[]", "segment");
     fd.append("prompt", VERBATIM_PROMPT);

@@ -242,8 +242,20 @@ export async function planNextSession(input: PlannerInput): Promise<SessionPlanT
     return normalizePlan(result.output);
 }
 
-export function buildSessionFromPlan(uid: string, plan: SessionPlanType): SessionType {
-    return {
+export type BuildSessionOptions = {
+    /** When set, the new session is linked back to the source capture for
+     * the "Practice this conversation" replay flow. */
+    sourceCaptureId?: string;
+    /** Defaults to `"drill"`. Set to `"scenario_replay"` for capture replays. */
+    type?: "drill" | "scenario_replay";
+};
+
+export function buildSessionFromPlan(
+    uid: string,
+    plan: SessionPlanType,
+    options?: BuildSessionOptions,
+): SessionType {
+    const session: SessionType = {
         id: randomUUID(),
         uid,
         plan,
@@ -261,5 +273,14 @@ export function buildSessionFromPlan(uid: string, plan: SessionPlanType): Sessio
         processingUpdatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
     };
+
+    if (options?.sourceCaptureId) {
+        session.sourceCaptureId = options.sourceCaptureId;
+    }
+    if (options?.type) {
+        session.type = options.type;
+    }
+
+    return session;
 }
 

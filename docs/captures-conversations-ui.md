@@ -1,6 +1,6 @@
 # Conversations UI Spec
 
-**Status:** Design pending. The captures pipeline (backend) is built and processes data end-to-end, but there is **no user-facing UI** to view captured conversations yet. Users currently can't see or interact with what the agent captures and the server analyzes.
+**Status:** Shipped (v1). Implemented as SPA state modes (`conversations` / `conversation-detail`) in `app/page.tsx`, not file-based routes. See `components/conversations/` for the UI components. Dashboard has a "Conversations" button linking to the list view. Detail view shows transcript with inline teachable-moment and native-speaker-rewrite highlights, full analysis with collapsible dimensional cards (four-part CoachingMoment shape), audio playback, and a "Practice this conversation" button that creates a scenario-replay drill with comparison-aware analysis.
 
 ---
 

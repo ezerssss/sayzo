@@ -95,7 +95,9 @@ const captureAnalysisSchema = z.object({
     fillerWords: z.object({
         totalCount: z.number(),
         perMinute: z.number(),
-        breakdown: z.record(z.string(), z.number()),
+        breakdown: z.array(
+            z.object({ word: z.string(), count: z.number() }),
+        ),
         timestamps: z.array(z.number()),
     }),
     fluency: z.object({
@@ -112,6 +114,8 @@ const captureAnalysisSchema = z.object({
     }),
 
     nativeSpeakerRewrites: z.array(nativeSpeakerRewriteSchema),
+
+    nativeSpeakerVersion: z.string().nullable(),
 });
 
 type AnalysisResult = {
@@ -208,14 +212,15 @@ export async function analyzeCaptureDeep(
 - Mastered focus: ${skillMemory.masteredFocus.length ? skillMemory.masteredFocus.join("; ") : "(none)"}
 - Reinforcement focus: ${skillMemory.reinforcementFocus.length ? skillMemory.reinforcementFocus.join("; ") : "(none)"}
 
-## Capture context
-Title: ${agentTitle}
-Summary: ${agentSummary}
+## Capture context (from the desktop agent's small local LLM — may contain errors)
+Agent-generated title (UNRELIABLE — may misidentify speakers or use wrong names): ${agentTitle}
+Agent-generated summary (UNRELIABLE — may attribute the user's actions to other speakers): ${agentSummary}
 Duration: ${Math.round(durationSecs)} seconds
 User word count: ~${totalUserWords}
 User speaking minutes: ~${userSpeakingMins.toFixed(1)}
 
-## Full transcript (indexed, speaker-tagged)
+## Full transcript (indexed, speaker-tagged — THIS is the source of truth)
+The "user" speaker is the learner. ALL other speakers (other_1, other_2, etc.) are not the learner. Base ALL coaching, ALL facts, and ALL identity on the transcript speaker labels — NOT on the agent title/summary above which may have gotten the identity wrong.
 ${formatTranscript(transcript)}
 
 ## Hume AI signals (USER-ONLY across all three models: prosody + bursts from the user's mic channel only, language from user-only text)
@@ -257,6 +262,7 @@ ${humePayload}`;
             fluency: result.output.fluency,
             communicationStyle: result.output.communicationStyle,
             nativeSpeakerRewrites: result.output.nativeSpeakerRewrites,
+            nativeSpeakerVersion: result.output.nativeSpeakerVersion,
         },
     };
 }

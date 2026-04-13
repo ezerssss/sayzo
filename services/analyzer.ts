@@ -7,12 +7,32 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type {
+    CaptureAnalysis,
+    CaptureTranscriptLine,
+} from "@/types/captures";
+import type {
     SessionAnalysisType,
     SessionFeedbackType,
     SessionPlanType,
 } from "@/types/sessions";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
+
+/**
+ * When the session is a scenario replay of a captured conversation, the
+ * analyzer receives the original capture's data so it can produce
+ * comparison-focused feedback ("compared to your original, you …").
+ *
+ * The source capture is **read-only** — the analyzer never writes back to it.
+ */
+export type ReplayContext = {
+    sourceCapture: {
+        title: string;
+        summary: string;
+        transcript: CaptureTranscriptLine[];
+        analysis: CaptureAnalysis;
+    };
+};
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "analyzer");
 
@@ -206,7 +226,46 @@ function sanitizeFeedbackObjectTimestamps(
     };
 }
 
-function buildContextUserMessage(input: AnalyzerInput): string {
+function formatReplayContextBlock(replay: ReplayContext): string {
+    const { sourceCapture } = replay;
+    const analysis = sourceCapture.analysis;
+
+    // Include only user-spoken lines from the original transcript for comparison
+    const userLines = sourceCapture.transcript
+        .filter((l) => l.speaker === "user")
+        .map(
+            (l) =>
+                `[${l.start.toFixed(1)}s] ${l.text}`,
+        )
+        .join("\n");
+
+    return `
+
+## Original capture (this is a replay drill — compare against this)
+Title: ${sourceCapture.title}
+Summary: ${sourceCapture.summary}
+Main issue identified in original: ${analysis.mainIssue}
+Secondary issues: ${analysis.secondaryIssues.join("; ") || "(none)"}
+
+### Original user turns (what the learner actually said in the real conversation)
+${userLines || "(no user turns in original)"}
+
+### Key dimensional assessments from original
+- Structure & flow: ${analysis.structureAndFlow.assessment}
+- Clarity & conciseness: ${analysis.clarityAndConciseness.assessment}
+- Relevance & focus: ${analysis.relevanceAndFocus.assessment}
+- Engagement: ${analysis.engagement.assessment}
+- Professionalism: ${analysis.professionalism.assessment}
+- Voice / tone / expression: ${analysis.voiceToneExpression.assessment}
+
+### Original quantitative metrics
+- Filler rate: ${analysis.fillerWords.perMinute.toFixed(1)}/min
+- Speaking pace: ${analysis.fluency.wordsPerMinute} WPM
+- Self-corrections: ${analysis.fluency.selfCorrections}
+- Communication style: directness=${analysis.communicationStyle.directness.toFixed(2)}, formality=${analysis.communicationStyle.formality.toFixed(2)}, confidence=${analysis.communicationStyle.confidence.toFixed(2)}`;
+}
+
+function buildContextUserMessage(input: AnalyzerInput, replay?: ReplayContext): string {
     const { userProfile, skillMemory, session } = input;
     const hume = session.humeContext?.trim();
 
@@ -241,19 +300,25 @@ ${session.transcript.trim()}
 
 ## Hume AI (prosody / expressive speech)
 ${hume ?? "(no payload for this run)"}
+${replay ? formatReplayContextBlock(replay) : ""}
 `.trim();
 }
 
 /**
  * Structured session analysis — maps to `SessionAnalysisType` for persistence.
+ *
+ * When `replay` is provided, the analysis becomes comparison-focused: the LLM
+ * sees the original capture's transcript + analysis and frames findings as
+ * "compared to your original, you …".
  */
 export async function analyzeSession(
     input: AnalyzerInput,
+    replay?: ReplayContext,
 ): Promise<SessionAnalysisType> {
     requireTranscript(input.session.transcript);
 
     const system = readAnalyzerPrompt("session-analysis.md");
-    const userContent = buildContextUserMessage(input);
+    const userContent = buildContextUserMessage(input, replay);
 
     const result = await generateText({
         model: openai(defaultAnalyzerModel()),
@@ -273,15 +338,19 @@ export async function analyzeSession(
 
 /**
  * Coach-style markdown feedback for the learner — maps to `SessionType.feedback`.
+ *
+ * When `replay` is provided, the feedback becomes comparison-focused: the LLM
+ * sees the original capture and frames coaching as relative to the original.
  */
 export async function generateSessionFeedback(
     input: AnalyzerInput,
     options: GenerateSessionFeedbackOptions = {},
+    replay?: ReplayContext,
 ): Promise<SessionFeedbackType> {
     requireTranscript(input.session.transcript);
 
     const system = readAnalyzerPrompt("session-feedback.md");
-    const context = buildContextUserMessage(input);
+    const context = buildContextUserMessage(input, replay);
     const transcriptTimestamps = listTranscriptTimestampTokens(
         input.session.transcript,
     );

@@ -131,5 +131,22 @@ export type SessionType = {
     processingError?: string | null;
     processingUpdatedAt?: string;
 
+    /**
+     * When this session was created from a captured real conversation via
+     * the "Practice this conversation" flow, this points at `captures/{id}`.
+     * The original capture is never modified — the replay is a separate
+     * session record with this back-link for traceability and so the
+     * analyzer can load it for comparison feedback.
+     */
+    sourceCaptureId?: string;
+
+    /**
+     * Session origin discriminator. Defaults to `"drill"` when absent so
+     * existing sessions remain valid without migration. `"scenario_replay"`
+     * means the session was created from a capture and the analyzer should
+     * compare the user's new attempt against the original.
+     */
+    type?: "drill" | "scenario_replay";
+
     createdAt: string;
 };

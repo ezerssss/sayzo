@@ -5,6 +5,7 @@ import {
     CheckCircle,
     Clock,
     Loader2,
+    MessageSquare,
     Plus,
     SkipForward,
     Trash2,
@@ -34,6 +35,7 @@ type Props = {
     onGoToCurrentDrill: () => void;
     onStartNewDrill: (category?: string) => Promise<void>;
     onDeleteSession: (sessionId: string) => Promise<void>;
+    onGoToConversations?: () => void;
 };
 
 function formatCategory(slug: string): string {
@@ -115,6 +117,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
         onGoToCurrentDrill,
         onStartNewDrill,
         onDeleteSession,
+        onGoToConversations,
     } = props;
 
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -188,6 +191,15 @@ export function SessionsDashboard(props: Readonly<Props>) {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {onGoToConversations && (
+                        <Button
+                            variant="outline"
+                            onClick={onGoToConversations}
+                        >
+                            <MessageSquare className="h-4 w-4" />
+                            Real Conversations
+                        </Button>
+                    )}
                     <Button
                         onClick={() => {
                             setShowCategoryPicker((v) => !v);

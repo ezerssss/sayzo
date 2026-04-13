@@ -1,46 +1,50 @@
 import "server-only";
 
-import ffmpegStatic from "ffmpeg-static";
 import { spawn } from "node:child_process";
+import { join } from "node:path";
 
 /**
- * Extract the left channel (user microphone) from a stereo OGG Opus capture
- * and return it as mono 16-bit PCM WAV.
+ * Extract a single channel from a stereo OGG Opus capture as mono WAV.
  *
- * Captures are stereo by design — left = user mic, right = system audio
- * (other speakers). Sending only the left channel to Hume guarantees that
- * prosody and burst signals are user-only, with zero contamination from the
- * other side of the call. The simpler "send mixed audio + filter by speaker
- * timestamps in the LLM" approach can't handle overlapping speech and
- * depends on brittle timestamp arithmetic.
+ * Captures are stereo by design — left (c0) = user mic, right (c1) = system
+ * audio (other speakers). Splitting by channel is the most reliable way to
+ * identify who said what — no timestamp overlap heuristics needed.
  *
- * Uses `ffmpeg-static` so the binary ships with `node_modules` — no system
- * ffmpeg required, no setup steps for new droplets / dev machines / CI.
- *
- * Memory note: WAV is uncompressed (~115 MB worst case for a 60-min capture
- * at 16 kHz mono 16-bit). Acceptable on the droplet but worth knowing.
+ * Uses `ffmpeg-static` so the binary ships with `node_modules`.
  */
-export async function extractUserChannel(
-    stereoOggBuffer: Buffer,
+function getFfmpegPath(): string {
+    // Resolve at runtime via process.cwd() to avoid Next.js bundler replacing
+    // the path with a build-time placeholder (\ROOT\...). The ffmpeg-static
+    // package puts the binary at node_modules/ffmpeg-static/ffmpeg[.exe].
+    const ext = process.platform === "win32" ? ".exe" : "";
+    const candidate = join(
+        process.cwd(),
+        "node_modules",
+        "ffmpeg-static",
+        `ffmpeg${ext}`,
+    );
+    return candidate;
+}
+
+export async function extractChannel(
+    stereoBuffer: Buffer,
+    channel: "left" | "right",
 ): Promise<Buffer> {
-    const ffmpegPath = ffmpegStatic;
-    if (!ffmpegPath) {
-        throw new Error(
-            "ffmpeg-static binary path is missing. Reinstall the package.",
-        );
-    }
+    const ffmpegPath = getFfmpegPath();
+
+    const channelIdx = channel === "left" ? "c0" : "c1";
 
     return new Promise((resolve, reject) => {
         const ffmpeg = spawn(ffmpegPath, [
             "-loglevel",
-            "error", // suppress chatty progress; only real errors land on stderr
+            "error",
             "-i",
-            "pipe:0", // read input from stdin
+            "pipe:0",
             "-af",
-            "pan=mono|c0=c0", // mono output where channel 0 = input left channel
+            `pan=mono|c0=${channelIdx}`,
             "-f",
             "wav",
-            "pipe:1", // write output to stdout
+            "pipe:1",
         ]);
 
         const chunks: Buffer[] = [];
@@ -86,7 +90,14 @@ export async function extractUserChannel(
             );
         });
 
-        ffmpeg.stdin.write(stereoOggBuffer);
+        ffmpeg.stdin.write(stereoBuffer);
         ffmpeg.stdin.end();
     });
+}
+
+/** Convenience alias — extracts the user's mic channel (left). */
+export async function extractUserChannel(
+    stereoOggBuffer: Buffer,
+): Promise<Buffer> {
+    return extractChannel(stereoOggBuffer, "left");
 }
