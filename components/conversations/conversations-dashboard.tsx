@@ -1,10 +1,12 @@
 "use client";
 
-import { Loader2, Target, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Download, Loader2, Target, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
-import { Button } from "@/components/ui/button";
+import { InstallPanel } from "@/components/install/install-panel";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -13,6 +15,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { useInstallDismissed } from "@/hooks/use-install-dismissed";
+import { cn } from "@/lib/utils";
 import type { CaptureType } from "@/types/captures";
 
 type Props = {
@@ -21,8 +25,6 @@ type Props = {
     error: string | null;
     userLabel: string;
     onSignOut: () => void;
-    onBackToDrills: () => void;
-    onSelectCapture: (capture: CaptureType) => void;
     onDeleteCapture: (captureId: string) => Promise<void>;
 };
 
@@ -58,8 +60,6 @@ export function ConversationsDashboard(props: Readonly<Props>) {
         error,
         userLabel,
         onSignOut,
-        onBackToDrills,
-        onSelectCapture,
         onDeleteCapture,
     } = props;
 
@@ -68,9 +68,12 @@ export function ConversationsDashboard(props: Readonly<Props>) {
     const [confirmDelete, setConfirmDelete] = useState<CaptureType | null>(
         null,
     );
+    const { dismissed: installDismissed, dismiss: dismissInstall } =
+        useInstallDismissed();
 
     const handleDeleteClick = (e: React.MouseEvent, capture: CaptureType) => {
         e.stopPropagation();
+        e.preventDefault();
         setDeleteError(null);
         setConfirmDelete(capture);
     };
@@ -108,10 +111,23 @@ export function ConversationsDashboard(props: Readonly<Props>) {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={onBackToDrills}>
+                    <Link
+                        href="/install"
+                        className={cn(
+                            buttonVariants({ variant: "ghost", size: "sm" }),
+                            "text-muted-foreground",
+                        )}
+                    >
+                        <Download className="h-3.5 w-3.5" />
+                        Install
+                    </Link>
+                    <Link
+                        href="/app"
+                        className={cn(buttonVariants({ variant: "outline" }))}
+                    >
                         <Target className="h-4 w-4" />
                         Drills
-                    </Button>
+                    </Link>
                     <Button variant="outline" onClick={onSignOut}>
                         Sign out
                     </Button>
@@ -125,13 +141,33 @@ export function ConversationsDashboard(props: Readonly<Props>) {
             ) : error ? (
                 <p className="mt-6 text-sm text-destructive">{error}</p>
             ) : captures.length === 0 ? (
-                <div className="mt-6 rounded-xl border border-dashed border-border/70 p-6 text-center">
-                    <p className="text-sm text-muted-foreground">
-                        Nothing here yet. Once the Sayzo companion is running
-                        on your machine, the moments worth coaching on will
-                        show up here — ready to review, or to replay as a
-                        drill.
-                    </p>
+                <div className="mt-6 space-y-4">
+                    {installDismissed === false ? (
+                        <InstallPanel
+                            headline="Nothing here yet — install the companion to fill this up"
+                            subhead="The desktop companion runs quietly on your machine and surfaces the moments worth coaching on. One command to install."
+                            onDismiss={dismissInstall}
+                            showViewAllLink
+                        />
+                    ) : (
+                        <div className="rounded-xl border border-dashed border-border/70 p-6 text-center">
+                            <p className="text-sm text-muted-foreground">
+                                Nothing here yet. Once the Sayzo companion is
+                                running on your machine, the moments worth
+                                coaching on will show up here — ready to
+                                review, or to replay as a drill.
+                            </p>
+                            {installDismissed === true ? (
+                                <Link
+                                    href="/install"
+                                    className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                                >
+                                    View install commands
+                                    <ArrowRight className="size-3" />
+                                </Link>
+                            ) : null}
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="mt-6 space-y-2">
@@ -160,22 +196,9 @@ export function ConversationsDashboard(props: Readonly<Props>) {
                                         isDeleting ? "opacity-50" : ""
                                     }`}
                                 >
-                                    <div
-                                        role="button"
-                                        tabIndex={0}
-                                        className={`w-full cursor-pointer p-3 text-left ${isDeleting ? "pointer-events-none" : ""}`}
-                                        onClick={() =>
-                                            onSelectCapture(capture)
-                                        }
-                                        onKeyDown={(e) => {
-                                            if (
-                                                e.key === "Enter" ||
-                                                e.key === " "
-                                            ) {
-                                                e.preventDefault();
-                                                onSelectCapture(capture);
-                                            }
-                                        }}
+                                    <Link
+                                        href={`/app/conversations/${captureId}`}
+                                        className={`block w-full p-3 text-left ${isDeleting ? "pointer-events-none" : ""}`}
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
@@ -228,7 +251,7 @@ export function ConversationsDashboard(props: Readonly<Props>) {
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
                                 </div>
                             );
                         })}

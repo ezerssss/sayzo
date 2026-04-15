@@ -14,43 +14,45 @@ import { FirestoreCollections } from "@/constants/firebase/firestore-collections
 import { db } from "@/lib/firebase/client";
 import type { SessionType } from "@/types/sessions";
 
-export function useLatestSession(uid?: string) {
+export function usePracticeSessionForCapture(
+    uid: string | undefined,
+    captureId: string | undefined,
+) {
     const [session, setSession] = useState<SessionType | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!uid) {
-            return;
-        }
+        if (!uid || !captureId) return;
 
         const q = query(
             collection(db, FirestoreCollections.sessions.path),
             where("uid", "==", uid),
+            where("sourceCaptureId", "==", captureId),
             orderBy("createdAt", "desc"),
-            limit(10),
+            limit(1),
         );
 
         const unsub = onSnapshot(
             q,
             (snap) => {
-                const latest = snap.docs
-                    .map((d) => ({
-                        ...(d.data() as SessionType),
-                        id: d.id,
-                    }))
-                    .find((s) => s.type !== "scenario_replay");
-                setSession(latest ?? null);
+                const first = snap.docs[0];
+                if (first) {
+                    setSession({
+                        ...(first.data() as SessionType),
+                        id: first.id,
+                    });
+                } else {
+                    setSession(null);
+                }
                 setLoading(false);
             },
             () => {
-                setError("Could not load latest drill.");
                 setLoading(false);
             },
         );
 
         return unsub;
-    }, [uid]);
+    }, [uid, captureId]);
 
-    return { session, loading, error };
+    return { session, loading };
 }

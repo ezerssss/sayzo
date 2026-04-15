@@ -5,6 +5,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { InstallPanel } from "@/components/install/install-panel";
 import {
     OnboardingDrillStep,
     type OnboardingDrillResult,
@@ -371,6 +372,11 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                             {createProfileError ?? onboardingError}
                         </p>
                     ) : null}
+
+                    <InstallPanel
+                        headline="While you wait — install the desktop companion"
+                        subhead="It runs locally and picks up the moments worth coaching on, so your drills stay tuned to real life, not imagined scenarios."
+                    />
                 </div>
             </section>
         );

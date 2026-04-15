@@ -1,6 +1,8 @@
 "use client";
 
 import ky from "ky";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2, Play, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -8,7 +10,7 @@ import { AnalysisView } from "@/components/conversations/analysis-view";
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
 import { TranscriptView } from "@/components/conversations/transcript-view";
 import { AudioPlayer } from "@/components/session/audio-player";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -19,19 +21,14 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCapture } from "@/hooks/use-capture";
+import { usePracticeSessionForCapture } from "@/hooks/use-practice-session-for-capture";
+import { cn } from "@/lib/utils";
+import { getKyErrorMessage } from "@/lib/ky-error-message";
 import type { CaptureStatus, CaptureType } from "@/types/captures";
-import type { SessionType } from "@/types/sessions";
 
 type Props = {
-    capture: CaptureType;
+    captureId: string;
     uid: string;
-    onBack: () => void;
-    onPracticeThisConversation: (captureId: string) => Promise<void>;
-    onDelete: (captureId: string) => Promise<void>;
-    /** Existing practice session for this capture, if any. */
-    practiceSession?: SessionType;
-    /** Navigate to the practice session's drill view. */
-    onGoToPracticeSession?: (sessionId: string) => void;
 };
 
 function formatDate(dateStr: string): string {
@@ -99,18 +96,14 @@ function friendlyStatus(status: CaptureStatus): string {
 }
 
 export function ConversationDetailView(props: Readonly<Props>) {
-    const {
-        capture: initialCapture,
-        uid,
-        onBack,
-        onPracticeThisConversation,
-        onDelete,
-        practiceSession,
-        onGoToPracticeSession,
-    } = props;
+    const { captureId, uid } = props;
+    const router = useRouter();
 
-    // Real-time listener — starts from the list data, then stays in sync
-    const capture = useCapture(initialCapture.id, initialCapture);
+    const { capture, loading } = useCapture(captureId);
+    const { session: practiceSession } = usePracticeSessionForCapture(
+        uid,
+        captureId,
+    );
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -121,22 +114,11 @@ export function ConversationDetailView(props: Readonly<Props>) {
     const [deleting, setDeleting] = useState(false);
     const [resetting, setResetting] = useState(false);
 
-    const captureId = capture.id!;
-    const title = capture.serverTitle ?? capture.title;
-    const summary = capture.serverSummary ?? capture.summary;
-    const transcript = useMemo(
-        () => capture.serverTranscript ?? capture.agentTranscript,
-        [capture.serverTranscript, capture.agentTranscript],
-    );
-    const duration = formatDuration(capture.durationSecs);
-    const speakerCount = countSpeakers(transcript);
-    const analysis = capture.analysis;
-    const isAnalyzed = capture.status === "analyzed" && analysis;
+    const audioStoragePath = capture?.audioStoragePath;
 
-    // Fetch signed audio URL on mount
     useEffect(() => {
         let cancelled = false;
-        if (!capture.audioStoragePath) return;
+        if (!audioStoragePath) return;
 
         setAudioLoading(true);
         ky.get(`/api/captures/${captureId}/audio-url`, {
@@ -157,7 +139,46 @@ export function ConversationDetailView(props: Readonly<Props>) {
         return () => {
             cancelled = true;
         };
-    }, [captureId, uid, capture.audioStoragePath]);
+    }, [captureId, uid, audioStoragePath]);
+
+    const transcript = useMemo(() => {
+        if (!capture) return [];
+        return capture.serverTranscript ?? capture.agentTranscript;
+    }, [capture]);
+
+    if (loading && !capture) {
+        return (
+            <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+                <p className="text-sm text-muted-foreground">
+                    Loading conversation…
+                </p>
+            </section>
+        );
+    }
+
+    if (!capture) {
+        return (
+            <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+                <Link
+                    href="/app/conversations"
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Real Conversations
+                </Link>
+                <p className="mt-4 text-sm text-destructive" role="alert">
+                    Conversation not found.
+                </p>
+            </section>
+        );
+    }
+
+    const title = capture.serverTitle ?? capture.title;
+    const summary = capture.serverSummary ?? capture.summary;
+    const duration = formatDuration(capture.durationSecs);
+    const speakerCount = countSpeakers(transcript);
+    const analysis = capture.analysis;
+    const isAnalyzed = capture.status === "analyzed" && analysis;
 
     const seekToSecond = (seconds: number) => {
         const el = audioRef.current;
@@ -170,12 +191,19 @@ export function ConversationDetailView(props: Readonly<Props>) {
         setPracticing(true);
         setPracticeError(null);
         try {
-            await onPracticeThisConversation(captureId);
+            const res = await ky
+                .post(`/api/captures/${captureId}/practice`, {
+                    json: { uid },
+                    timeout: 60_000,
+                })
+                .json<{ sessionId: string }>();
+            router.push(`/app/drills/${res.sessionId}`);
         } catch (err) {
             setPracticeError(
-                err instanceof Error
-                    ? err.message
-                    : "Failed to create practice session.",
+                await getKyErrorMessage(
+                    err,
+                    "Could not create practice session.",
+                ),
             );
         } finally {
             setPracticing(false);
@@ -190,7 +218,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                 json: { uid },
                 timeout: 15_000,
             });
-            onBack();
+            router.push("/app/conversations");
         } catch {
             // Silently fail
         } finally {
@@ -202,9 +230,18 @@ export function ConversationDetailView(props: Readonly<Props>) {
         setConfirmDeleteOpen(false);
         setDeleting(true);
         try {
-            await onDelete(captureId);
-        } catch {
-            // Error is handled upstream
+            await ky.delete(`/api/captures/${captureId}`, {
+                json: { uid },
+                timeout: 30_000,
+            });
+            router.push("/app/conversations");
+        } catch (err) {
+            setPracticeError(
+                await getKyErrorMessage(
+                    err,
+                    "Could not delete real conversation.",
+                ),
+            );
         } finally {
             setDeleting(false);
         }
@@ -214,26 +251,25 @@ export function ConversationDetailView(props: Readonly<Props>) {
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
             {/* Header */}
             <div className="flex items-center justify-between gap-3">
-                <Button variant="outline" size="sm" onClick={onBack}>
+                <Link
+                    href="/app/conversations"
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
                     <ArrowLeft className="h-4 w-4" />
                     Real Conversations
-                </Button>
+                </Link>
                 <div className="flex items-center gap-2">
                     {capture.status === "analyzed" &&
                         (practiceSession ? (
-                            <Button
-                                size="sm"
-                                onClick={() =>
-                                    onGoToPracticeSession?.(
-                                        practiceSession.id,
-                                    )
-                                }
+                            <Link
+                                href={`/app/drills/${practiceSession.id}`}
+                                className={cn(buttonVariants({ size: "sm" }))}
                             >
                                 <ArrowRight className="h-4 w-4" />
                                 {practiceSession.completionStatus === "pending"
                                     ? "Continue practicing"
                                     : "View practice results"}
-                            </Button>
+                            </Link>
                         ) : (
                             <Button
                                 size="sm"

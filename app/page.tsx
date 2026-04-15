@@ -35,6 +35,15 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
                     <Link
+                        href="/install"
+                        className={cn(
+                            buttonVariants({ variant: "ghost", size: "sm" }),
+                            "hidden text-muted-foreground sm:inline-flex",
+                        )}
+                    >
+                        Install
+                    </Link>
+                    <Link
                         href="/privacy"
                         className={cn(
                             buttonVariants({ variant: "ghost", size: "sm" }),
@@ -279,6 +288,12 @@ export default function LandingPage() {
             <footer className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-3 border-t border-border/70 px-6 py-6 text-xs text-muted-foreground sm:flex-row">
                 <span>© {new Date().getFullYear()} Sayzo</span>
                 <div className="flex items-center gap-5">
+                    <Link
+                        href="/install"
+                        className="transition-colors hover:text-foreground"
+                    >
+                        Install
+                    </Link>
                     <Link
                         href="/privacy"
                         className="transition-colors hover:text-foreground"

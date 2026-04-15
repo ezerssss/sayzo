@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import {
     ArrowRight,
     CheckCircle,
     Clock,
+    Download,
     Loader2,
     MessageSquare,
     Plus,
@@ -13,7 +15,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -22,6 +24,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { RECOMMENDED_SPEAKING_DRILL_CATEGORIES } from "@/types/sessions";
 import type { SessionType } from "@/types/sessions";
 
@@ -32,12 +35,8 @@ type Props = {
     error: string | null;
     userLabel: string;
     onSignOut: () => void;
-    onSelectSession: (session: SessionType) => void;
-    onGoToCurrentDrill: () => void;
     onStartNewDrill: (category?: string) => Promise<void>;
     onDeleteSession: (sessionId: string) => Promise<void>;
-    onGoToConversations?: () => void;
-    onGoToPracticeSession?: (sessionId: string) => void;
 };
 
 function formatCategory(slug: string): string {
@@ -59,6 +58,13 @@ function formatDate(dateStr: string): string {
     } catch {
         return dateStr;
     }
+}
+
+function drillHref(session: SessionType): string {
+    if (session.completionStatus === "pending") {
+        return `/app/drills/${session.id}`;
+    }
+    return `/app/drills/${session.id}/summary`;
 }
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -116,12 +122,8 @@ export function SessionsDashboard(props: Readonly<Props>) {
         error,
         userLabel,
         onSignOut,
-        onSelectSession,
-        onGoToCurrentDrill,
         onStartNewDrill,
         onDeleteSession,
-        onGoToConversations,
-        onGoToPracticeSession,
     } = props;
 
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -134,6 +136,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
 
     const handleDeleteClick = (e: React.MouseEvent, session: SessionType) => {
         e.stopPropagation();
+        e.preventDefault();
         setDeleteError(null);
         setConfirmDeleteSession(session);
     };
@@ -195,15 +198,23 @@ export function SessionsDashboard(props: Readonly<Props>) {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {onGoToConversations && (
-                        <Button
-                            variant="outline"
-                            onClick={onGoToConversations}
-                        >
-                            <MessageSquare className="h-4 w-4" />
-                            Real Conversations
-                        </Button>
-                    )}
+                    <Link
+                        href="/install"
+                        className={cn(
+                            buttonVariants({ variant: "ghost", size: "sm" }),
+                            "text-muted-foreground",
+                        )}
+                    >
+                        <Download className="h-3.5 w-3.5" />
+                        Install
+                    </Link>
+                    <Link
+                        href="/app/conversations"
+                        className={cn(buttonVariants({ variant: "outline" }))}
+                    >
+                        <MessageSquare className="h-4 w-4" />
+                        Real Conversations
+                    </Link>
                     <Button
                         onClick={() => {
                             setShowCategoryPicker((v) => !v);
@@ -317,12 +328,15 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                 {currentSession.plan.skillTarget}
                             </p>
                         </div>
-                        <Button onClick={onGoToCurrentDrill}>
+                        <Link
+                            href={drillHref(currentSession)}
+                            className={cn(buttonVariants())}
+                        >
                             <ArrowRight className="h-4 w-4" />
                             {currentSession.completionStatus === "pending"
                                 ? "Go to drill"
                                 : "Continue"}
-                        </Button>
+                        </Link>
                     </div>
                 </div>
             ) : null}
@@ -360,19 +374,9 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                         isDeleting ? "opacity-50" : ""
                                     }`}
                                 >
-                                    <div
-                                        role="button"
-                                        tabIndex={0}
-                                        className={`w-full cursor-pointer p-3 text-left ${isDeleting ? "pointer-events-none" : ""}`}
-                                        onClick={() =>
-                                            onSelectSession(session)
-                                        }
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter" || e.key === " ") {
-                                                e.preventDefault();
-                                                onSelectSession(session);
-                                            }
-                                        }}
+                                    <Link
+                                        href={drillHref(session)}
+                                        className={`block w-full p-3 text-left ${isDeleting ? "pointer-events-none" : ""}`}
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
@@ -426,7 +430,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
                                 </div>
                             );
                         })}
@@ -451,26 +455,9 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                         isDeleting ? "opacity-50" : ""
                                     }`}
                                 >
-                                    <div
-                                        role="button"
-                                        tabIndex={0}
-                                        className={`w-full cursor-pointer p-3 text-left ${isDeleting ? "pointer-events-none" : ""}`}
-                                        onClick={() =>
-                                            onGoToPracticeSession?.(
-                                                session.id,
-                                            )
-                                        }
-                                        onKeyDown={(e) => {
-                                            if (
-                                                e.key === "Enter" ||
-                                                e.key === " "
-                                            ) {
-                                                e.preventDefault();
-                                                onGoToPracticeSession?.(
-                                                    session.id,
-                                                );
-                                            }
-                                        }}
+                                    <Link
+                                        href={drillHref(session)}
+                                        className={`block w-full p-3 text-left ${isDeleting ? "pointer-events-none" : ""}`}
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
@@ -524,7 +511,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
                                 </div>
                             );
                         })}

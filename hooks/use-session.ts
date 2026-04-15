@@ -38,7 +38,10 @@ export function useSession(sessionId?: string) {
             docRef,
             (snap) => {
                 if (snap.exists()) {
-                    setSession(snap.data() as SessionType);
+                    setSession({
+                        ...(snap.data() as SessionType),
+                        id: snap.id,
+                    });
                 } else {
                     setSession(null);
                 }

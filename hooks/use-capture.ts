@@ -7,16 +7,9 @@ import { FirestoreCollections } from "@/constants/firebase/firestore-collections
 import { db } from "@/lib/firebase/client";
 import type { CaptureType } from "@/types/captures";
 
-/**
- * Real-time listener for a single capture document. Returns the latest
- * snapshot so the detail view updates live as the pipeline progresses
- * (queued → transcribing → … → analyzed).
- *
- * Takes an initial value so the UI renders instantly from the list data,
- * then the listener keeps it in sync with Firestore.
- */
-export function useCapture(captureId: string | undefined, initial: CaptureType) {
-    const [capture, setCapture] = useState<CaptureType>(initial);
+export function useCapture(captureId?: string, initial?: CaptureType) {
+    const [capture, setCapture] = useState<CaptureType | null>(initial ?? null);
+    const [loading, setLoading] = useState(!initial);
 
     useEffect(() => {
         if (!captureId) return;
@@ -36,14 +29,15 @@ export function useCapture(captureId: string | undefined, initial: CaptureType) 
                         id: snap.id,
                     });
                 }
+                setLoading(false);
             },
             () => {
-                // On error, keep using whatever we have
+                setLoading(false);
             },
         );
 
         return unsub;
     }, [captureId]);
 
-    return capture;
+    return { capture, loading };
 }

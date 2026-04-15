@@ -33,9 +33,10 @@ export function useAllSessions(uid?: string) {
         const unsub = onSnapshot(
             q,
             (snap) => {
-                const all = snap.docs.map(
-                    (doc) => doc.data() as SessionType,
-                );
+                const all = snap.docs.map((doc) => ({
+                    ...(doc.data() as SessionType),
+                    id: doc.id,
+                }));
                 setSessions(all.filter((s) => s.type !== "scenario_replay"));
                 setPracticeSessions(
                     all.filter((s) => s.type === "scenario_replay"),

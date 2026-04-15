@@ -5,7 +5,6 @@ export type SessionHomeProps = {
     userLabel: string;
     onSignOut: () => void;
     authError?: string | null;
-    onBackToDashboard?: () => void;
     /** When set, loads this specific session instead of the latest. Used for conversation practice. */
     sessionId?: string;
 };

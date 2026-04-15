@@ -42,7 +42,7 @@ import type {
 export type { SessionHomeProps } from "./types";
 
 export function SessionHome(props: Readonly<SessionHomeProps>) {
-    const { uid, userLabel, onSignOut, authError, onBackToDashboard, sessionId } = props;
+    const { uid, userLabel, onSignOut, authError, sessionId } = props;
     const [drillState, setDrillState] = useState<DrillState>("idle");
     const [seconds, setSeconds] = useState(DEFAULT_MAX_SECONDS);
     const [drillError, setDrillError] = useState<string | null>(null);
@@ -639,7 +639,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
 
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-            <SessionHomeHeader userLabel={userLabel} onSignOut={onSignOut} onBackToDashboard={onBackToDashboard} />
+            <SessionHomeHeader userLabel={userLabel} onSignOut={onSignOut} />
 
             {isDrillView ? (
                 <>

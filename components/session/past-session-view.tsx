@@ -1,17 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useMemo, useRef } from "react";
 
 import { AudioPlayer } from "@/components/session/audio-player";
 import { SessionFeedbackSection } from "@/components/session/session-home/session-feedback-section";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { SessionFeedbackType, SessionType } from "@/types/sessions";
 
 type Props = {
     session: SessionType;
     uid: string;
-    onBack: () => void;
 };
 
 function formatDate(dateStr: string): string {
@@ -31,7 +32,7 @@ function formatDate(dateStr: string): string {
 }
 
 export function PastSessionView(props: Readonly<Props>) {
-    const { session, uid, onBack } = props;
+    const { session, uid } = props;
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const currentTranscript = useMemo(() => {
@@ -79,10 +80,13 @@ export function PastSessionView(props: Readonly<Props>) {
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
             <div className="flex items-center gap-3">
-                <Button variant="outline" size="sm" onClick={onBack}>
+                <Link
+                    href="/app"
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
                     <ArrowLeft className="h-4 w-4" />
                     All drills
-                </Button>
+                </Link>
             </div>
 
             <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-4">
