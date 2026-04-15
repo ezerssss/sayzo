@@ -3,14 +3,16 @@
 import ky from "ky";
 import { useRouter } from "next/navigation";
 
+import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { SessionsDashboard } from "@/components/session/sessions-dashboard";
 import { useAllSessions } from "@/hooks/use-all-sessions";
 import { useAuthUser } from "@/hooks/use-auth-user";
-import { getKyErrorMessage } from "@/lib/ky-error-message";
+import { getKyErrorMessage, isKyHttpStatus } from "@/lib/ky-error-message";
 
 export default function DashboardPage() {
     const { user, signOut } = useAuthUser();
     const router = useRouter();
+    const creditGate = useCreditGate();
     const { sessions, practiceSessions, loading, error } = useAllSessions(
         user?.uid,
     );
@@ -18,6 +20,7 @@ export default function DashboardPage() {
     if (!user) return null;
 
     const handleStartNewDrill = async (category?: string) => {
+        if (!creditGate.guard()) return;
         const json: Record<string, string> = { uid: user.uid };
         if (category) json.category = category;
         try {
@@ -27,6 +30,10 @@ export default function DashboardPage() {
             });
             router.push("/app/drills/latest");
         } catch (err) {
+            if (isKyHttpStatus(err, 402)) {
+                creditGate.openLimitDialog();
+                return;
+            }
             throw new Error(
                 await getKyErrorMessage(err, "Could not create a new drill."),
             );

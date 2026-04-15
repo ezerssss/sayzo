@@ -9,17 +9,19 @@ interface PropsInterface {
     className?: string;
 }
 
+/**
+ * Subtle "N left" pill shown in headers only when the user is close to — but
+ * not yet past — their credit limit. When exhausted, rely on <CreditsBanner />
+ * (more prominent) and locked button states instead.
+ */
 export function CreditsIndicator({ className }: Readonly<PropsInterface>) {
     const { user } = useAuthUser();
     const { loading, hasFullAccess, remaining } = useUserCredits(user?.uid);
 
     if (loading || hasFullAccess || !user) return null;
-    if (remaining > CREDIT_WARN_THRESHOLD || remaining <= 0) return null;
+    if (remaining <= 0 || remaining > CREDIT_WARN_THRESHOLD) return null;
 
-    const label =
-        remaining === 1
-            ? "1 free action left"
-            : `${remaining} free actions left`;
+    const label = remaining === 1 ? "1 left" : `${remaining} left`;
 
     return (
         <span
@@ -27,7 +29,7 @@ export function CreditsIndicator({ className }: Readonly<PropsInterface>) {
                 "inline-flex items-center rounded-full border border-border/70 bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground",
                 className,
             )}
-            title="Request full access before you run out"
+            title={`${remaining} Sayzo ${remaining === 1 ? "action" : "actions"} left`}
         >
             {label}
         </span>

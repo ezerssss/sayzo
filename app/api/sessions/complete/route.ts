@@ -8,11 +8,6 @@ import {
 } from "@/services/analyzer";
 import type { CaptureType } from "@/types/captures";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
-import {
-    assertHasCredit,
-    CreditLimitReachedError,
-    creditLimitResponse,
-} from "@/lib/credits/server";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
 import { randomUUID } from "node:crypto";
@@ -181,15 +176,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Gate (not charge) — the drill credit was consumed at /new-drill.
-        try {
-            await assertHasCredit(uid);
-        } catch (err) {
-            if (err instanceof CreditLimitReachedError) {
-                return creditLimitResponse();
-            }
-            throw err;
-        }
+        // No credit gate here — the drill credit was charged at /new-drill
+        // and covers the full cycle (generation + analysis + any needs_retry
+        // re-submits). A user who spent their last credit creating a drill
+        // must be able to finish it.
 
         // Transactionally claim the "processing" slot so a parallel submit
         // that slipped past the check above lands on 409.

@@ -7,6 +7,7 @@ import {
     Clock,
     Download,
     Loader2,
+    Lock,
     MessageSquare,
     Plus,
     SkipForward,
@@ -15,6 +16,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { useCreditGate } from "@/components/credits/credit-gate-provider";
+import { CreditsBanner } from "@/components/credits/credits-banner";
+import { CreditsIndicator } from "@/components/credits/credits-indicator";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
     Dialog,
@@ -126,6 +130,8 @@ export function SessionsDashboard(props: Readonly<Props>) {
         onDeleteSession,
     } = props;
 
+    const creditGate = useCreditGate();
+    const outOfCredits = creditGate.isExhausted;
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const [creatingDrill, setCreatingDrill] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -185,6 +191,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
 
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+            <CreditsBanner />
             <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                     <h1 className="text-2xl font-semibold tracking-tight">
@@ -198,6 +205,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <CreditsIndicator />
                     <Link
                         href="/install"
                         className={cn(
@@ -217,12 +225,26 @@ export function SessionsDashboard(props: Readonly<Props>) {
                     </Link>
                     <Button
                         onClick={() => {
+                            if (!creditGate.guard()) return;
                             setShowCategoryPicker((v) => !v);
                             setCreateError(null);
                         }}
                         disabled={creatingDrill}
+                        className={cn(
+                            outOfCredits &&
+                                "opacity-60 [&>svg:first-child]:hidden",
+                        )}
+                        title={
+                            outOfCredits
+                                ? "You're out of Sayzo credits"
+                                : undefined
+                        }
                     >
-                        <Plus className="h-4 w-4" />
+                        {outOfCredits ? (
+                            <Lock className="h-4 w-4" />
+                        ) : (
+                            <Plus className="h-4 w-4" />
+                        )}
                         New drill
                     </Button>
                     <Button variant="outline" onClick={onSignOut}>

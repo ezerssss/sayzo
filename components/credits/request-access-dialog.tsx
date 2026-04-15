@@ -85,9 +85,9 @@ export function RequestAccessDialog(props: Readonly<PropsInterface>) {
                         <DialogHeader>
                             <DialogTitle>Request full access to Sayzo</DialogTitle>
                             <DialogDescription>
-                                Tell us a little about how you&apos;d use Sayzo day to
-                                day (optional). We&apos;ll reach out by email once
-                                your account is unlocked.
+                                Tell us a little about how you&apos;d use Sayzo
+                                day to day (optional). We&apos;ll reach out by
+                                email once your account is unlocked.
                             </DialogDescription>
                         </DialogHeader>
                         <Textarea

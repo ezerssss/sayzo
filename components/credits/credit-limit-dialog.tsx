@@ -33,9 +33,9 @@ export function CreditLimitDialog(props: Readonly<PropsInterface>) {
                                 <DialogTitle>Request received</DialogTitle>
                             </div>
                             <DialogDescription>
-                                Thanks for giving Sayzo a try. We&apos;ve got your
-                                request and will follow up by email as soon as we
-                                can unlock full access for you.
+                                Thanks — we&apos;ve got your request and will
+                                follow up by email as soon as we can unlock full
+                                access for you.
                             </DialogDescription>
                         </DialogHeader>
                         <DialogFooter className="sm:justify-end">
@@ -50,12 +50,11 @@ export function CreditLimitDialog(props: Readonly<PropsInterface>) {
                 ) : (
                     <>
                         <DialogHeader>
-                            <DialogTitle>You&apos;ve used your free trial</DialogTitle>
+                            <DialogTitle>You&apos;re out of Sayzo credits</DialogTitle>
                             <DialogDescription>
-                                Thanks for trying Sayzo — we hope the practice has
-                                been useful. Sayzo is in early access, so free
-                                actions are limited while we scale. Request full
-                                access and we&apos;ll get you unlocked soon.
+                                You&apos;ve used all your available actions.
+                                Request full access and we&apos;ll get you
+                                unlocked soon.
                             </DialogDescription>
                         </DialogHeader>
                         <DialogFooter className="sm:justify-end">

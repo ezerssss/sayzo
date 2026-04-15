@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Download, Loader2, Target, Trash2 } from "lucide-react";
+import { Download, Loader2, Target, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
+import { CreditsBanner } from "@/components/credits/credits-banner";
 import { CreditsIndicator } from "@/components/credits/credits-indicator";
 import { InstallPanel } from "@/components/install/install-panel";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,7 +17,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { useInstallDismissed } from "@/hooks/use-install-dismissed";
 import { cn } from "@/lib/utils";
 import type { CaptureType } from "@/types/captures";
 
@@ -69,8 +69,6 @@ export function ConversationsDashboard(props: Readonly<Props>) {
     const [confirmDelete, setConfirmDelete] = useState<CaptureType | null>(
         null,
     );
-    const { dismissed: installDismissed, dismiss: dismissInstall } =
-        useInstallDismissed();
 
     const handleDeleteClick = (e: React.MouseEvent, capture: CaptureType) => {
         e.stopPropagation();
@@ -99,6 +97,7 @@ export function ConversationsDashboard(props: Readonly<Props>) {
 
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+            <CreditsBanner />
             <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                     <h1 className="text-2xl font-semibold tracking-tight">
@@ -144,32 +143,11 @@ export function ConversationsDashboard(props: Readonly<Props>) {
                 <p className="mt-6 text-sm text-destructive">{error}</p>
             ) : captures.length === 0 ? (
                 <div className="mt-6 space-y-4">
-                    {installDismissed === false ? (
-                        <InstallPanel
-                            headline="Nothing here yet — install the companion to fill this up"
-                            subhead="The desktop companion runs quietly on your machine and surfaces the moments worth coaching on. One command to install."
-                            onDismiss={dismissInstall}
-                            showViewAllLink
-                        />
-                    ) : (
-                        <div className="rounded-xl border border-dashed border-border/70 p-6 text-center">
-                            <p className="text-sm text-muted-foreground">
-                                Nothing here yet. Once the Sayzo companion is
-                                running on your machine, the moments worth
-                                coaching on will show up here — ready to
-                                review, or to replay as a drill.
-                            </p>
-                            {installDismissed === true ? (
-                                <Link
-                                    href="/install"
-                                    className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                                >
-                                    View install commands
-                                    <ArrowRight className="size-3" />
-                                </Link>
-                            ) : null}
-                        </div>
-                    )}
+                    <InstallPanel
+                        headline="Nothing here yet — install the companion to fill this up"
+                        subhead="The desktop companion runs quietly on your machine and surfaces the moments worth coaching on. One command to install."
+                        showViewAllLink
+                    />
                 </div>
             ) : (
                 <div className="mt-6 space-y-2">

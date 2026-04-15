@@ -14,6 +14,7 @@ import {
 } from "@/lib/ky-error-message";
 import { Button } from "@/components/ui/button";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
+import { CreditsBanner } from "@/components/credits/credits-banner";
 import {
     hasSessionFeedbackContent,
     type SessionFeedbackType,
@@ -658,6 +659,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
 
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+            <CreditsBanner />
             <SessionHomeHeader userLabel={userLabel} onSignOut={onSignOut} />
 
             {isDrillView ? (
@@ -703,6 +705,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                         shouldShowAnalyzingState={shouldShowAnalyzingState}
                         playbackSrc={playbackSrc}
                         audioRef={audioRef}
+                        outOfCredits={creditGate.isExhausted}
                         onStartRecording={() => void startRecording()}
                         onStopRecording={() => void stopRecording()}
                         onOpenSkipModal={() => {

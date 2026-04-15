@@ -3,13 +3,14 @@
 import ky from "ky";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Loader2, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Lock, Play, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnalysisView } from "@/components/conversations/analysis-view";
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
 import { TranscriptView } from "@/components/conversations/transcript-view";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
+import { CreditsBanner } from "@/components/credits/credits-banner";
 import { CreditsIndicator } from "@/components/credits/credits-indicator";
 import { AudioPlayer } from "@/components/session/audio-player";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -240,6 +241,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
 
     return (
         <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+            <CreditsBanner />
             {/* Header */}
             <div className="flex items-center justify-between gap-3">
                 <Link
@@ -267,9 +269,19 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                 size="sm"
                                 onClick={() => void handlePractice()}
                                 disabled={practicing}
+                                className={cn(
+                                    creditGate.isExhausted && "opacity-60",
+                                )}
+                                title={
+                                    creditGate.isExhausted
+                                        ? "You're out of Sayzo credits"
+                                        : undefined
+                                }
                             >
                                 {practicing ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : creditGate.isExhausted ? (
+                                    <Lock className="h-4 w-4" />
                                 ) : (
                                     <Play className="h-4 w-4" />
                                 )}

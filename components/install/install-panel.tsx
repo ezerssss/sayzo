@@ -32,7 +32,6 @@ function detectOS(): OS {
 }
 
 type Props = {
-    onDismiss?: () => void;
     showViewAllLink?: boolean;
     headline?: string;
     subhead?: string;
@@ -40,7 +39,6 @@ type Props = {
 
 export function InstallPanel(props: Readonly<Props>) {
     const {
-        onDismiss,
         showViewAllLink,
         headline = "Install the Sayzo desktop companion",
         subhead = "One terminal command. The companion runs locally and feeds your coaching loop the moments worth working on.",
@@ -120,30 +118,17 @@ export function InstallPanel(props: Readonly<Props>) {
                 })}
             </Tabs>
 
-            {(onDismiss || showViewAllLink) && (
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                    {onDismiss ? (
-                        <button
-                            type="button"
-                            className="hover:text-foreground transition-colors"
-                            onClick={onDismiss}
-                        >
-                            I&apos;ll do it later
-                        </button>
-                    ) : (
-                        <span />
-                    )}
-                    {showViewAllLink ? (
-                        <Link
-                            href="/install"
-                            className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                        >
-                            Open install page
-                            <ArrowRight className="size-3" />
-                        </Link>
-                    ) : null}
+            {showViewAllLink ? (
+                <div className="mt-4 flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
+                    <Link
+                        href="/install"
+                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                        Open install page
+                        <ArrowRight className="size-3" />
+                    </Link>
                 </div>
-            )}
+            ) : null}
         </div>
     );
 }

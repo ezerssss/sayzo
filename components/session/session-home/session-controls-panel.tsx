@@ -1,9 +1,10 @@
-import { Loader2, Mic, Play, RotateCcw, SkipForward, Square } from "lucide-react";
+import { Loader2, Lock, Mic, Play, RotateCcw, SkipForward, Square } from "lucide-react";
 import type { RefObject } from "react";
 
 import { AudioPlayer } from "@/components/session/audio-player";
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { DrillState } from "./types";
 
 type Props = {
@@ -24,6 +25,7 @@ type Props = {
     shouldShowAnalyzingState: boolean;
     playbackSrc: string | null;
     audioRef: RefObject<HTMLAudioElement | null>;
+    outOfCredits: boolean;
     onStartRecording: () => void;
     onStopRecording: () => void;
     onOpenSkipModal: () => void;
@@ -49,6 +51,7 @@ export function SessionControlsPanel(props: Readonly<Props>) {
         shouldShowAnalyzingState,
         playbackSrc,
         audioRef,
+        outOfCredits,
         onStartRecording,
         onStopRecording,
         onOpenSkipModal,
@@ -119,8 +122,14 @@ export function SessionControlsPanel(props: Readonly<Props>) {
                         <Button
                             variant="outline"
                             onClick={() => void onRedoDrill()}
+                            className={cn(outOfCredits && "opacity-60")}
+                            title={
+                                outOfCredits
+                                    ? "You're out of Sayzo credits"
+                                    : undefined
+                            }
                         >
-                            <RotateCcw />
+                            {outOfCredits ? <Lock /> : <RotateCcw />}
                             Redo this drill
                         </Button>
                     </>
