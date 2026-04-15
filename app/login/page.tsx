@@ -53,11 +53,12 @@ export default function LoginPage() {
             <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
                 <div className="space-y-3">
                     <h1 className="text-2xl font-semibold tracking-tight">
-                        sayzo
+                        Sayzo
                     </h1>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                        Sign in with your Google account to connect the Sayzo
-                        desktop agent.
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                        Sign in to connect the Sayzo desktop companion to
+                        your account. You&apos;ll be sent back to the app
+                        automatically when you&apos;re done.
                     </p>
                 </div>
 

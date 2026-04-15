@@ -13,9 +13,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Sayzo",
+    title: "Sayzo — An English coach, tuned to you.",
     description:
-        "A simple daily habit—about 30 minutes—to get measurably better in weeks.",
+        "Short, personalized speaking drills built from the English you actually use at work. Meetings, demos, interviews, client calls. Hear the difference in weeks.",
+    openGraph: {
+        title: "Sayzo — An English coach, tuned to you.",
+        description:
+            "Short, personalized speaking drills built from the English you actually use at work.",
+        type: "website",
+    },
 };
 
 export default function RootLayout({

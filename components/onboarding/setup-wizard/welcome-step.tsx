@@ -18,9 +18,10 @@ export function WelcomeStep(props: Readonly<PropsInterface>) {
                 <h2 className="text-xl font-semibold tracking-tight">
                     3 quick drills. Real feedback. Let&apos;s go.
                 </h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                    No forms to fill out — just speak, and we&apos;ll build your
-                    personalized practice plan from there.
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                    No forms, no quizzes — just speak. Sayzo listens to how
+                    you actually sound and builds your coaching plan from
+                    there.
                 </p>
             </div>
             <MockWaveform active className="opacity-90" />

@@ -11,8 +11,8 @@ export function NativeSpeakerPanel({ content }: NativeSpeakerPanelProps) {
         <div className="rounded-xl border border-border/70 p-4">
             <p className="text-sm font-medium">Improved Version</p>
             <p className="mt-1 text-xs text-muted-foreground">
-                Here&apos;s how a confident, fluent speaker would deliver the
-                same message. Notes highlight what&apos;s different and why.
+                Your message, rewritten the way a confident, fluent speaker
+                would land it. The notes walk through what changed and why.
             </p>
 
             <div className="mt-4">

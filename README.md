@@ -1,4 +1,8 @@
-**Sayzo** is a platform for learning to speak English fluently in professional contexts—think product demos, extemporaneous talks, and workplace conversation—not gamified phrase drills. The idea is a simple daily rhythm: about thirty minutes in Sayzo, meaningful progress over thirty or sixty days.
+**Sayzo** is a personal English coach, tuned to how you actually speak. It turns the conversations from a user's real workday—meetings, demos, client calls, interviews—into short, personalized speaking drills. No generic flashcards. No streaks. Just targeted practice for the words, rooms, and people that actually show up in their week.
+
+The product is a loop between two surfaces: a quiet desktop companion that keeps Sayzo in sync with a user's real speaking, and a webapp where they practice drills built from what it picks up. Heavy processing happens locally—only moments worth coaching on ever leave the user's machine.
+
+This repo is the Sayzo webapp (Next.js). Drill UI, coaching analysis, onboarding, and the APIs the desktop companion talks to live here.
 
 This repo is a [Next.js](https://nextjs.org) app bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 

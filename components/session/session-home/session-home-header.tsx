@@ -24,7 +24,7 @@ export function SessionHomeHeader(props: Readonly<Props>) {
                     </button>
                 ) : null}
                 <h1 className="text-2xl font-semibold tracking-tight">
-                    You&apos;re in
+                    Your drill
                 </h1>
                 <p className="text-sm text-muted-foreground">
                     Signed in as{" "}
