@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+import { CreditsIndicator } from "@/components/credits/credits-indicator";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -30,9 +31,12 @@ export function SessionHomeHeader(props: Readonly<Props>) {
                     </span>
                 </p>
             </div>
-            <Button variant="outline" onClick={onSignOut}>
-                Sign out
-            </Button>
+            <div className="flex items-center gap-2">
+                <CreditsIndicator />
+                <Button variant="outline" onClick={onSignOut}>
+                    Sign out
+                </Button>
+            </div>
         </div>
     );
 }

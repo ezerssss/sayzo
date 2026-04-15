@@ -1,4 +1,9 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import {
+    assertHasCredit,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { mergeInternalDrillSignalNotes } from "@/services/drill-signal-context";
 import { transcribeAudioFileToPlainText } from "@/services/openai-audio-transcription";
@@ -102,6 +107,15 @@ export async function POST(request: NextRequest) {
                 },
                 { status: 409 },
             );
+        }
+
+        try {
+            await assertHasCredit(uid);
+        } catch (err) {
+            if (err instanceof CreditLimitReachedError) {
+                return creditLimitResponse();
+            }
+            throw err;
         }
 
         let spoken = "";

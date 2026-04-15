@@ -1,5 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import {
+    assertHasCredit,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
+
 const OPENAI_TRANSCRIPTIONS_URL =
     "https://api.openai.com/v1/audio/transcriptions";
 
@@ -26,6 +32,24 @@ export async function POST(request: NextRequest) {
             { error: "Expected multipart form data." },
             { status: 400 },
         );
+    }
+
+    const uidRaw = formData.get("uid");
+    const uid = typeof uidRaw === "string" ? uidRaw.trim() : "";
+    if (!uid) {
+        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
+    }
+
+    // assertHasCredit treats a missing user doc as "0 used" which is the
+    // correct behavior for onboarding (user doc is created only on onboarding
+    // complete).
+    try {
+        await assertHasCredit(uid);
+    } catch (err) {
+        if (err instanceof CreditLimitReachedError) {
+            return creditLimitResponse();
+        }
+        throw err;
     }
 
     const file = formData.get("file");

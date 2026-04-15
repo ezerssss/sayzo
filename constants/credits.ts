@@ -1,0 +1,3 @@
+export const DEFAULT_FREE_CREDIT_LIMIT = 10;
+
+export const CREDIT_WARN_THRESHOLD = 3;

@@ -9,9 +9,11 @@ import { useSession } from "@/hooks/use-session";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import {
     getKyErrorMessage,
+    isKyHttpStatus,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
 import { Button } from "@/components/ui/button";
+import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import {
     hasSessionFeedbackContent,
     type SessionFeedbackType,
@@ -43,6 +45,7 @@ export type { SessionHomeProps } from "./types";
 
 export function SessionHome(props: Readonly<SessionHomeProps>) {
     const { uid, userLabel, onSignOut, authError, sessionId } = props;
+    const creditGate = useCreditGate();
     const [drillState, setDrillState] = useState<DrillState>("idle");
     const [seconds, setSeconds] = useState(DEFAULT_MAX_SECONDS);
     const [drillError, setDrillError] = useState<string | null>(null);
@@ -340,6 +343,12 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             setHasPendingAnalysisRequest(false);
             setDrillState("complete");
         } catch (error) {
+            if (isKyHttpStatus(error, 402)) {
+                creditGate.openLimitDialog();
+                setHasPendingAnalysisRequest(false);
+                setDrillState("idle");
+                return;
+            }
             console.error(
                 "[components/session/session-home] stopRecording failed",
                 error,
@@ -384,6 +393,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 setSkipTranscribing(true);
                 try {
                     const fd = new FormData();
+                    fd.append("uid", uid);
                     fd.append(
                         "file",
                         new File([result.blob], "skip-note.webm", {
@@ -432,6 +442,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 setReflectionTranscribing(true);
                 try {
                     const fd = new FormData();
+                    fd.append("uid", uid);
                     fd.append(
                         "file",
                         new File([result.blob], "reflection-note.webm", {
@@ -472,6 +483,10 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     };
 
     const createNewDrillRequest = async () => {
+        if (!creditGate.guard()) {
+            setIsCreatingDrill(false);
+            return;
+        }
         setIsCreatingDrill(true);
         setDrillError(null);
         try {
@@ -487,6 +502,10 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 setRecordedAudioUrl(null);
             }
         } catch (error) {
+            if (isKyHttpStatus(error, 402)) {
+                creditGate.openLimitDialog();
+                return;
+            }
             console.error(
                 "[components/session/session-home] createNewDrillRequest failed",
                 error,

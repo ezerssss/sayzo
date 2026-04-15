@@ -8,6 +8,11 @@ import {
 } from "@/services/analyzer";
 import type { CaptureType } from "@/types/captures";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
+import {
+    assertHasCredit,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
 import { randomUUID } from "node:crypto";
@@ -142,23 +147,91 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await sessionRef.set(
-            {
-                audioUrl: null,
-                audioObjectPath: null,
-                transcript: null,
-                analysis: null,
-                feedback: null,
-                completionStatus: "pending",
-                completionReason: null,
-                processingStatus: "processing",
-                processingStage: "transcribing",
-                processingJobId,
-                processingError: null,
-                processingUpdatedAt: new Date().toISOString(),
-            },
-            { merge: true },
-        );
+        // Idempotency / double-processing guards — the credit charged at drill
+        // creation is wasted if a client re-POSTs and we re-run Whisper + Hume
+        // + LLM on an already-analyzed (or in-flight) session.
+        if (session.processingStatus === "processing") {
+            return NextResponse.json(
+                {
+                    error: "already_processing",
+                    message: "Analysis is already running for this drill.",
+                },
+                { status: 409 },
+            );
+        }
+        if (session.completionStatus === "passed" || session.analysis) {
+            return NextResponse.json(
+                {
+                    error: "already_completed",
+                    message: "This drill has already been analyzed.",
+                },
+                { status: 409 },
+            );
+        }
+        if (
+            session.completionStatus !== "pending" &&
+            session.completionStatus !== "needs_retry"
+        ) {
+            return NextResponse.json(
+                {
+                    error: "invalid_state",
+                    message: `Cannot analyze a drill with status "${session.completionStatus}".`,
+                },
+                { status: 409 },
+            );
+        }
+
+        // Gate (not charge) — the drill credit was consumed at /new-drill.
+        try {
+            await assertHasCredit(uid);
+        } catch (err) {
+            if (err instanceof CreditLimitReachedError) {
+                return creditLimitResponse();
+            }
+            throw err;
+        }
+
+        // Transactionally claim the "processing" slot so a parallel submit
+        // that slipped past the check above lands on 409.
+        const PROCESSING_RACE = "PROCESSING_RACE";
+        try {
+            await db.runTransaction(async (tx) => {
+                const fresh = await tx.get(sessionRef);
+                const freshSession = fresh.data() as SessionType | undefined;
+                if (freshSession?.processingStatus === "processing") {
+                    throw new Error(PROCESSING_RACE);
+                }
+                tx.set(
+                    sessionRef,
+                    {
+                        audioUrl: null,
+                        audioObjectPath: null,
+                        transcript: null,
+                        analysis: null,
+                        feedback: null,
+                        completionStatus: "pending",
+                        completionReason: null,
+                        processingStatus: "processing",
+                        processingStage: "transcribing",
+                        processingJobId,
+                        processingError: null,
+                        processingUpdatedAt: new Date().toISOString(),
+                    },
+                    { merge: true },
+                );
+            });
+        } catch (err) {
+            if (err instanceof Error && err.message === PROCESSING_RACE) {
+                return NextResponse.json(
+                    {
+                        error: "already_processing",
+                        message: "Analysis is already running for this drill.",
+                    },
+                    { status: 409 },
+                );
+            }
+            throw err;
+        }
 
         const userSnap = await db
             .collection(FirestoreCollections.users.path)

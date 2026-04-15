@@ -1,6 +1,11 @@
 import { openai } from "@ai-sdk/openai";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 
+import {
+    assertHasCredit,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { FirestoreCollectionName } from "@/enums/firebase";
 import type { SessionType } from "@/types/sessions";
@@ -72,6 +77,15 @@ export async function POST(request: Request) {
 
     if (session.uid !== uid) {
         return Response.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    try {
+        await assertHasCredit(uid);
+    } catch (err) {
+        if (err instanceof CreditLimitReachedError) {
+            return creditLimitResponse();
+        }
+        throw err;
     }
 
     const transcript = session.transcript?.trim() ?? "(no transcript available)";

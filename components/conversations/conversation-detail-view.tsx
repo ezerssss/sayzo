@@ -3,12 +3,14 @@
 import ky from "ky";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Loader2, Play, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Play, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnalysisView } from "@/components/conversations/analysis-view";
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
 import { TranscriptView } from "@/components/conversations/transcript-view";
+import { useCreditGate } from "@/components/credits/credit-gate-provider";
+import { CreditsIndicator } from "@/components/credits/credits-indicator";
 import { AudioPlayer } from "@/components/session/audio-player";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -23,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCapture } from "@/hooks/use-capture";
 import { usePracticeSessionForCapture } from "@/hooks/use-practice-session-for-capture";
 import { cn } from "@/lib/utils";
-import { getKyErrorMessage } from "@/lib/ky-error-message";
+import { getKyErrorMessage, isKyHttpStatus } from "@/lib/ky-error-message";
 import type { CaptureStatus, CaptureType } from "@/types/captures";
 
 type Props = {
@@ -98,6 +100,7 @@ function friendlyStatus(status: CaptureStatus): string {
 export function ConversationDetailView(props: Readonly<Props>) {
     const { captureId, uid } = props;
     const router = useRouter();
+    const creditGate = useCreditGate();
 
     const { capture, loading } = useCapture(captureId);
     const { session: practiceSession } = usePracticeSessionForCapture(
@@ -112,7 +115,6 @@ export function ConversationDetailView(props: Readonly<Props>) {
     const [practiceError, setPracticeError] = useState<string | null>(null);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
-    const [resetting, setResetting] = useState(false);
 
     const audioStoragePath = capture?.audioStoragePath;
 
@@ -188,6 +190,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
     };
 
     const handlePractice = async () => {
+        if (!creditGate.guard()) return;
         setPracticing(true);
         setPracticeError(null);
         try {
@@ -199,6 +202,10 @@ export function ConversationDetailView(props: Readonly<Props>) {
                 .json<{ sessionId: string }>();
             router.push(`/app/drills/${res.sessionId}`);
         } catch (err) {
+            if (isKyHttpStatus(err, 402)) {
+                creditGate.openLimitDialog();
+                return;
+            }
             setPracticeError(
                 await getKyErrorMessage(
                     err,
@@ -207,22 +214,6 @@ export function ConversationDetailView(props: Readonly<Props>) {
             );
         } finally {
             setPracticing(false);
-        }
-    };
-
-    // DEV ONLY — remove before production
-    const handleReset = async () => {
-        setResetting(true);
-        try {
-            await ky.post(`/api/captures/${captureId}/reset`, {
-                json: { uid },
-                timeout: 15_000,
-            });
-            router.push("/app/conversations");
-        } catch {
-            // Silently fail
-        } finally {
-            setResetting(false);
         }
     };
 
@@ -259,6 +250,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                     Real Conversations
                 </Link>
                 <div className="flex items-center gap-2">
+                    <CreditsIndicator />
                     {capture.status === "analyzed" &&
                         (practiceSession ? (
                             <Link
@@ -284,20 +276,6 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                 Practice this conversation
                             </Button>
                         ))}
-                    {/* DEV ONLY — remove before production */}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void handleReset()}
-                        disabled={resetting}
-                        title="DEV: Reprocess from scratch"
-                    >
-                        {resetting ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <RotateCcw className="h-4 w-4" />
-                        )}
-                    </Button>
                     <Button
                         variant="outline"
                         size="sm"

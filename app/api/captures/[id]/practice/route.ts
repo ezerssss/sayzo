@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import {
+    consumeCreditOrThrow,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
+import {
     getAdminFirestore,
 } from "@/lib/firebase/admin";
 import { planScenarioReplayFromCapture } from "@/services/capture-replay-planner";
@@ -91,7 +96,17 @@ export async function POST(
             );
         }
 
-        // 3. Load user profile + skill memory in parallel
+        // 3. Credit gate — only charge when we're actually creating a new practice session.
+        try {
+            await consumeCreditOrThrow(uid);
+        } catch (err) {
+            if (err instanceof CreditLimitReachedError) {
+                return creditLimitResponse();
+            }
+            throw err;
+        }
+
+        // 4. Load user profile + skill memory in parallel
         const [userSnap, skillSnap] = await Promise.all([
             db.collection(FirestoreCollections.users.path).doc(uid).get(),
             db

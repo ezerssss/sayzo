@@ -223,6 +223,7 @@ export function FeedbackChat({
             setIsTranscribing(true);
             try {
                 const fd = new FormData();
+                fd.append("uid", uid);
                 fd.append(
                     "file",
                     new File([result.blob], "chat-voice.webm", {

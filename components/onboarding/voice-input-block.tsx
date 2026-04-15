@@ -6,6 +6,7 @@ import { useCallback, useState, type ReactNode } from "react";
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
         stop,
         clearError,
     } = useVoiceRecorder();
+    const { user } = useAuthUser();
     const [transcribeError, setTranscribeError] = useState<string | null>(null);
     const [isTranscribing, setIsTranscribing] = useState(false);
 
@@ -46,6 +48,7 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
             setIsTranscribing(true);
             try {
                 const fd = new FormData();
+                if (user?.uid) fd.append("uid", user.uid);
                 fd.append(
                     "file",
                     new File([blob], "voice-input.webm", { type: mimeType }),
@@ -72,7 +75,7 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
                 setIsTranscribing(false);
             }
         },
-        [onChange],
+        [onChange, user?.uid],
     );
 
     const onToggleRecording = useCallback(async () => {

@@ -5,6 +5,7 @@ import { ArrowRight, Download, Loader2, Target, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
+import { CreditsIndicator } from "@/components/credits/credits-indicator";
 import { InstallPanel } from "@/components/install/install-panel";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -111,6 +112,7 @@ export function ConversationsDashboard(props: Readonly<Props>) {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <CreditsIndicator />
                     <Link
                         href="/install"
                         className={cn(

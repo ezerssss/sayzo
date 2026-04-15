@@ -23,6 +23,7 @@ import type { OnboardingDrillConfig } from "@/components/onboarding/setup-wizard
 import { CoachingPanel } from "@/components/session/coaching-panel";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
 import { Button } from "@/components/ui/button";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import type { SessionFeedbackType } from "@/types/sessions";
@@ -57,6 +58,7 @@ interface PropsInterface {
 export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
     const { drill, drillIndex, totalDrills, onBack, onNext, isLast } = props;
     const { isRecording, stream, start, stop } = useVoiceRecorder();
+    const { user } = useAuthUser();
     const MAX_RECORDINGS = 3;
     const [recordingCount, setRecordingCount] = useState(0);
     const [secondsLeft, setSecondsLeft] = useState(drill.maxSeconds);
@@ -110,6 +112,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
         try {
             const ext = extensionForMime(result.mimeType);
             const fd = new FormData();
+            if (user?.uid) fd.append("uid", user.uid);
             fd.append(
                 "file",
                 new File(
@@ -144,7 +147,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
         } finally {
             setIsTranscribing(false);
         }
-    }, [clearTick, stop, drill.drillType, fetchFeedback]);
+    }, [clearTick, stop, drill.drillType, fetchFeedback, user?.uid]);
 
     const stopRef = useRef(handleStop);
     useEffect(() => {

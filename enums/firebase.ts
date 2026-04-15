@@ -6,4 +6,5 @@ export enum FirestoreCollectionName {
     AUTH_SESSIONS = "auth_sessions",
     AUTH_CODES = "auth_codes",
     REFRESH_TOKENS = "refresh_tokens",
+    ACCESS_REQUESTS = "access_requests",
 }

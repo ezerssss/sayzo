@@ -1,4 +1,9 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import {
+    consumeCreditOrThrow,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import {
     enrichCompanyContext,
@@ -178,6 +183,15 @@ export async function POST(request: NextRequest) {
                 { error: "User profile not found." },
                 { status: 404 },
             );
+        }
+
+        try {
+            await consumeCreditOrThrow(uid);
+        } catch (err) {
+            if (err instanceof CreditLimitReachedError) {
+                return creditLimitResponse();
+            }
+            throw err;
         }
 
         const skillDoc = await db

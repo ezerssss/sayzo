@@ -4,6 +4,11 @@ import {
     ingestCapture,
     parseAndValidateRecord,
 } from "@/lib/captures/ingest";
+import {
+    consumeCreditOrThrow,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
 import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
@@ -58,7 +63,18 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // 3. Parse multipart form data
+    // 3. Credit gate — block BEFORE multipart parsing / Storage write so we
+    // don't spend Firebase Storage bytes on an over-limit user.
+    try {
+        await consumeCreditOrThrow(uid);
+    } catch (err) {
+        if (err instanceof CreditLimitReachedError) {
+            return creditLimitResponse();
+        }
+        throw err;
+    }
+
+    // 4. Parse multipart form data
     let formData: FormData;
     try {
         formData = await request.formData();
@@ -86,7 +102,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // 4. Validate and ingest
+    // 5. Validate and ingest
     try {
         const record = parseAndValidateRecord(recordRaw);
         const result = await ingestCapture(uid, record, audio);

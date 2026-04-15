@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 
 import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
+import { CreditGateProvider } from "@/components/credits/credit-gate-provider";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useUserProfileExists } from "@/hooks/use-user-profile-exists";
 
@@ -64,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         return <LoadingCard>Redirecting&hellip;</LoadingCard>;
     }
 
-    return <>{children}</>;
+    return <CreditGateProvider>{children}</CreditGateProvider>;
 }
 
 function LoadingCard({ children }: { children: ReactNode }) {

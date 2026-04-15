@@ -63,3 +63,7 @@ export function isKyTimeoutLikeError(error: unknown): boolean {
     }
     return false;
 }
+
+export function isKyHttpStatus(error: unknown, status: number): boolean {
+    return error instanceof HTTPError && error.response.status === status;
+}

@@ -22,4 +22,7 @@ export const FirestoreCollections = {
     refreshTokens: {
         path: FirestoreCollectionName.REFRESH_TOKENS,
     },
+    accessRequests: {
+        path: FirestoreCollectionName.ACCESS_REQUESTS,
+    },
 } as const;

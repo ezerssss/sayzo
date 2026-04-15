@@ -1,4 +1,9 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import {
+    assertHasCredit,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { mergeInternalDrillSignalNotes } from "@/services/drill-signal-context";
 import { transcribeAudioFileToPlainText } from "@/services/openai-audio-transcription";
@@ -103,6 +108,27 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Idempotency: skip Whisper entirely if this reflection was already recorded.
+        const userRef = db.collection(FirestoreCollections.users.path).doc(uid);
+        const userSnap = await userRef.get();
+        const profile = userSnap.data() as UserProfileType | undefined;
+        const lastSignal =
+            typeof profile?.lastDrillSignalNotesSessionId === "string"
+                ? profile.lastDrillSignalNotesSessionId.trim()
+                : "";
+        if (profile && lastSignal === priorSessionId) {
+            return NextResponse.json({ alreadyRecorded: true });
+        }
+
+        try {
+            await assertHasCredit(uid);
+        } catch (err) {
+            if (err instanceof CreditLimitReachedError) {
+                return creditLimitResponse();
+            }
+            throw err;
+        }
+
         let spoken = "";
         if (audioFile) {
             try {
@@ -135,14 +161,7 @@ export async function POST(request: NextRequest) {
         const nowIso = new Date().toISOString();
 
         try {
-            const userRef = db.collection(FirestoreCollections.users.path).doc(uid);
-            const userSnap = await userRef.get();
-            const profile = userSnap.data() as UserProfileType | undefined;
-            const lastSignal =
-                typeof profile?.lastDrillSignalNotesSessionId === "string"
-                    ? profile.lastDrillSignalNotesSessionId.trim()
-                    : "";
-            if (profile && lastSignal !== priorSessionId) {
+            if (profile) {
                 const priorTitle =
                     priorSession.plan?.scenario?.title?.trim() ||
                     "your last drill";

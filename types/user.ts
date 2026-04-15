@@ -84,4 +84,20 @@ export type UserProfileType = {
 
     createdAt: string;
     updatedAt: string;
+
+    /**
+     * Free-credit counters. Absent on pre-rollout user docs — treat undefined as 0 / default limit / false.
+     * A "credit" is charged when a drill is created, a real-life capture is uploaded, or a capture replay is created.
+     * Drill analysis + retries and secondary endpoints (TTS, feedback-chat, reflection, skip, transcribe) are
+     * gated by remaining credit but do NOT charge (see lib/credits/server.ts).
+     */
+    creditsUsed?: number;
+    creditsLimit?: number;
+    hasFullAccess?: boolean;
+    /** ISO timestamp of the last in-app access request. */
+    accessRequestedAt?: string | null;
+    /** Optional note the user submitted with their access request. */
+    accessRequestNote?: string;
+    /** ISO timestamp set by admin when full access is granted. */
+    accessGrantedAt?: string | null;
 };
