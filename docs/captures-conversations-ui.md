@@ -39,7 +39,7 @@ Lists the user's processed conversations, newest first.
 - Duration range
 - Search by title
 
-**Empty state:** "No conversations yet. The Eloquy desktop agent will surface your real meetings and calls here once it picks one up."
+**Empty state:** "No conversations yet. The Sayzo desktop agent will surface your real meetings and calls here once it picks one up."
 
 **Real-time updates:** Should use Firestore real-time listeners so the user sees status changes as the pipeline progresses (matches how drills already do `processingStage` updates).
 

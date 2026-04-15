@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "eloquy",
+    title: "Sayzo",
     description:
         "A simple daily habit—about 30 minutes—to get measurably better in weeks.",
 };

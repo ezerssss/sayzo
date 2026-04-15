@@ -27,7 +27,7 @@ async function crawlWithJinaFallback(
         const response = await fetch(readerUrl, {
             signal: controller.signal,
             headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; EloquyBot/1.0)",
+                "User-Agent": "Mozilla/5.0 (compatible; SayzoBot/1.0)",
             },
         });
         if (!response.ok) return null;
@@ -58,7 +58,7 @@ export async function crawlWebsiteText(
         crawler.queue({
             uri: url,
             headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; EloquyBot/1.0)",
+                "User-Agent": "Mozilla/5.0 (compatible; SayzoBot/1.0)",
             },
             callback: (
                 error: unknown,
@@ -93,7 +93,7 @@ export async function crawlWebsiteText(
             const response = await fetch(url, {
                 signal: controller.signal,
                 headers: {
-                    "User-Agent": "Mozilla/5.0 (compatible; EloquyBot/1.0)",
+                    "User-Agent": "Mozilla/5.0 (compatible; SayzoBot/1.0)",
                 },
             });
             if (!response.ok) return null;

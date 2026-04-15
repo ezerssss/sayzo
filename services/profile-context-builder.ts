@@ -188,7 +188,7 @@ function requireMinimumInput(input: ProfileContextBuilderInput): void {
     }
 }
 
-const DRILL_BASED_SYSTEM_PROMPT = `You are the **profile field mapper** for Eloquy. You **do not** coach, analyze sessions, or add opinions. You only **extract and normalize** a user's professional profile from their onboarding speaking drill transcripts into a single **JSON-shaped** user profile slice that matches the product schema.
+const DRILL_BASED_SYSTEM_PROMPT = `You are the **profile field mapper** for Sayzo. You **do not** coach, analyze sessions, or add opinions. You only **extract and normalize** a user's professional profile from their onboarding speaking drill transcripts into a single **JSON-shaped** user profile slice that matches the product schema.
 
 ### Required JSON output (exact keys)
 

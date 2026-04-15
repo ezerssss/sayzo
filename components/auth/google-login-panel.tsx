@@ -17,7 +17,7 @@ export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
         <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
             <div className="space-y-3">
                 <h1 className="text-2xl font-semibold tracking-tight">
-                    eloquy
+                    sayzo
                 </h1>
                 <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
                     <p>Get better with repitition.</p>

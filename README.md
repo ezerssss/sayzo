@@ -1,4 +1,4 @@
-**eloquy** is a platform for learning to speak English fluently in professional contexts—think product demos, extemporaneous talks, and workplace conversation—not gamified phrase drills. The idea is a simple daily rhythm: about thirty minutes in eloquy, meaningful progress over thirty or sixty days.
+**Sayzo** is a platform for learning to speak English fluently in professional contexts—think product demos, extemporaneous talks, and workplace conversation—not gamified phrase drills. The idea is a simple daily rhythm: about thirty minutes in Sayzo, meaningful progress over thirty or sixty days.
 
 This repo is a [Next.js](https://nextjs.org) app bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 

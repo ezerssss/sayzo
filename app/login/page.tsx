@@ -53,10 +53,10 @@ export default function LoginPage() {
             <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
                 <div className="space-y-3">
                     <h1 className="text-2xl font-semibold tracking-tight">
-                        eloquy
+                        sayzo
                     </h1>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                        Sign in with your Google account to connect the Eloquy
+                        Sign in with your Google account to connect the Sayzo
                         desktop agent.
                     </p>
                 </div>

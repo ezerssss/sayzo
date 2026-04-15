@@ -5,7 +5,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { FirestoreCollectionName } from "@/enums/firebase";
 import type { SessionType } from "@/types/sessions";
 
-const SYSTEM_PROMPT = `You are Eloquy's feedback coach. The user just completed a spoken practice drill and received AI-generated coaching feedback. They now want to discuss that feedback with you — ask follow-up questions, challenge points, get clarification, or dig deeper.
+const SYSTEM_PROMPT = `You are Sayzo's feedback coach. The user just completed a spoken practice drill and received AI-generated coaching feedback. They now want to discuss that feedback with you — ask follow-up questions, challenge points, get clarification, or dig deeper.
 
 You have access to:
 1. The original session transcript (what the user actually said during their drill)

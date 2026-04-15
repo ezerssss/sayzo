@@ -127,7 +127,7 @@ export function ConversationsDashboard(props: Readonly<Props>) {
             ) : captures.length === 0 ? (
                 <div className="mt-6 rounded-xl border border-dashed border-border/70 p-6 text-center">
                     <p className="text-sm text-muted-foreground">
-                        No real conversations yet. The Eloquy desktop agent
+                        No real conversations yet. The Sayzo desktop agent
                         will surface your real meetings and calls here once
                         it picks one up.
                     </p>
