@@ -268,7 +268,8 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                         </div>
                         {sessionId && uid && section.content ? (
                             <FeedbackChat
-                                sessionId={sessionId}
+                                source="session"
+                                sourceId={sessionId}
                                 uid={uid}
                                 sectionKey={section.key}
                                 sectionTitle={section.title}

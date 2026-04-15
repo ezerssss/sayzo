@@ -217,7 +217,8 @@ export function CoachingPanel({
                                 </ReactMarkdown>
                                 {sessionId && uid ? (
                                     <FeedbackChat
-                                        sessionId={sessionId}
+                                        source="session"
+                                        sourceId={sessionId}
                                         uid={uid}
                                         sectionKey={section.key}
                                         sectionTitle={section.title}

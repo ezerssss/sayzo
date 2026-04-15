@@ -28,8 +28,11 @@ import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import { cn } from "@/lib/utils";
 
+export type FeedbackChatSource = "session" | "capture";
+
 interface FeedbackChatProps {
-    sessionId: string;
+    source: FeedbackChatSource;
+    sourceId: string;
     uid: string;
     sectionKey: string;
     sectionTitle: string;
@@ -148,7 +151,8 @@ function chatMarkdownComponents(onSeekToSecond?: (seconds: number) => void) {
 }
 
 export function FeedbackChat({
-    sessionId,
+    source,
+    sourceId,
     uid,
     sectionKey,
     sectionTitle,
@@ -169,18 +173,19 @@ export function FeedbackChat({
             new DefaultChatTransport({
                 api: "/api/feedback-chat",
                 body: {
-                    sessionId,
+                    source,
+                    sourceId,
                     uid,
                     sectionKey,
                     sectionTitle,
                     feedbackContent,
                 },
             }),
-        [sessionId, uid, sectionKey, sectionTitle, feedbackContent],
+        [source, sourceId, uid, sectionKey, sectionTitle, feedbackContent],
     );
 
     const { messages, sendMessage, status } = useChat({
-        id: `feedback-chat-${sessionId}-${sectionKey}`,
+        id: `feedback-chat-${source}-${sourceId}-${sectionKey}`,
         transport,
     });
 

@@ -371,6 +371,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             analysis={analysis}
                             onSeekToSecond={seekToSecond}
                             section="overview"
+                            captureId={captureId}
+                            uid={uid}
                         />
                         {transcript.length > 0 && (
                             <div className="rounded-xl border border-border/70 p-4">
@@ -395,6 +397,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             analysis={analysis}
                             onSeekToSecond={seekToSecond}
                             section="coaching"
+                            captureId={captureId}
+                            uid={uid}
                         />
                     </TabsContent>
 
@@ -405,6 +409,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             onSeekToSecond={seekToSecond}
                             section="rewrites"
                             transcript={transcript}
+                            captureId={captureId}
+                            uid={uid}
                         />
                     </TabsContent>
                 </Tabs>

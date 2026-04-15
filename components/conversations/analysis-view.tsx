@@ -1,8 +1,9 @@
 "use client";
 
 import { ChevronDown, ChevronRight, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
+import { FeedbackChat } from "@/components/session/feedback-chat";
 import type {
     CaptureAnalysis,
     CaptureTranscriptLine,
@@ -19,7 +20,78 @@ type Props = {
     section?: "overview" | "coaching" | "rewrites";
     /** Full transcript — needed for the "rewrites" section to show a flowing improved version. */
     transcript?: CaptureTranscriptLine[];
+    /** When both provided, enables a per-section "Discuss this feedback" chat. */
+    captureId?: string;
+    uid?: string;
 };
+
+function formatCoachingMoment(moment: CoachingMoment): string {
+    return `- **What happened:** ${moment.anchor}\n  - **Why this is an issue:** ${moment.whyIssue}\n  - **Better:** ${moment.betterOption}\n  - **Key takeaway:** ${moment.keyTakeaway}`;
+}
+
+function dimensionalToText(dim: DimensionalAnalysis): string {
+    if (!dim.findings.length) return dim.assessment;
+    return `${dim.assessment}\n\n**Specific findings:**\n${dim.findings.map(formatCoachingMoment).join("\n")}`;
+}
+
+function overviewToText(analysis: CaptureAnalysis): string {
+    const parts = [
+        `**Overview:** ${analysis.overview}`,
+        `**Main issue:** ${analysis.mainIssue}`,
+    ];
+    if (analysis.secondaryIssues.length > 0) {
+        parts.push(
+            `**Secondary issues:**\n${analysis.secondaryIssues.map((s) => `- ${s}`).join("\n")}`,
+        );
+    }
+    if (analysis.improvements.length > 0) {
+        parts.push(
+            `**Improvements:**\n${analysis.improvements.map((s) => `- ${s}`).join("\n")}`,
+        );
+    }
+    if (analysis.regressions.length > 0) {
+        parts.push(
+            `**Regressions:**\n${analysis.regressions.map((s) => `- ${s}`).join("\n")}`,
+        );
+    }
+    if (analysis.notes?.trim()) {
+        parts.push(`**Notes:** ${analysis.notes.trim()}`);
+    }
+    return parts.join("\n\n");
+}
+
+function teachableMomentsToText(moments: TeachableMoment[]): string {
+    if (!moments.length) return "";
+    return moments
+        .map((m) => {
+            const mm = Math.floor(m.timestamp / 60);
+            const ss = Math.floor(m.timestamp % 60)
+                .toString()
+                .padStart(2, "0");
+            return `**[${mm}:${ss}] ${m.type} (${m.severity})**\n${formatCoachingMoment(m)}`;
+        })
+        .join("\n\n");
+}
+
+function rewritesToText(analysis: CaptureAnalysis): string {
+    const parts: string[] = [];
+    if (analysis.nativeSpeakerVersion?.trim()) {
+        parts.push(
+            `**Full native-speaker rewrite:**\n${analysis.nativeSpeakerVersion.trim()}`,
+        );
+    }
+    if (analysis.nativeSpeakerRewrites.length > 0) {
+        parts.push(
+            `**Per-turn rewrites:**\n${analysis.nativeSpeakerRewrites
+                .map(
+                    (r) =>
+                        `- Original: "${r.original}"\n  - Rewrite: "${r.rewrite}"\n  - Note: ${r.note}`,
+                )
+                .join("\n")}`,
+        );
+    }
+    return parts.join("\n\n");
+}
 
 function formatTimestamp(seconds: number): string {
     const m = Math.floor(seconds / 60);
@@ -106,10 +178,12 @@ function DimensionalCard({
     title,
     dimension,
     emphasized = false,
+    chat,
 }: {
     title: string;
     dimension: DimensionalAnalysis;
     emphasized?: boolean;
+    chat?: ReactNode;
 }) {
     return (
         <CollapsibleCard title={title} defaultOpen={emphasized} emphasized={emphasized}>
@@ -123,6 +197,7 @@ function DimensionalCard({
                     ))}
                 </div>
             )}
+            {chat}
         </CollapsibleCard>
     );
 }
@@ -262,10 +337,34 @@ function GaugeBar({ label, value }: { label: string; value: number }) {
 }
 
 export function AnalysisView(props: Readonly<Props>) {
-    const { analysis, onSeekToSecond, section, transcript = [] } = props;
+    const {
+        analysis,
+        onSeekToSecond,
+        section,
+        transcript = [],
+        captureId,
+        uid,
+    } = props;
+    const chatEnabled = Boolean(captureId && uid);
+
+    const renderChat = (sectionKey: string, sectionTitle: string, content: string) => {
+        if (!chatEnabled || !content.trim()) return null;
+        return (
+            <FeedbackChat
+                source="capture"
+                sourceId={captureId!}
+                uid={uid!}
+                sectionKey={sectionKey}
+                sectionTitle={sectionTitle}
+                feedbackContent={content}
+                onSeekToSecond={onSeekToSecond}
+            />
+        );
+    };
 
     // ── Overview section (Main tab) ──────────────────────────────────
     if (section === "overview") {
+        const overviewContent = overviewToText(analysis);
         return (
             <div className="space-y-3">
                 <div className="rounded-xl border border-border/70 p-4">
@@ -273,6 +372,7 @@ export function AnalysisView(props: Readonly<Props>) {
                     <p className="text-sm leading-relaxed text-muted-foreground">
                         {analysis.overview}
                     </p>
+                    {renderChat("overview", "Overview", overviewContent)}
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
@@ -383,33 +483,60 @@ export function AnalysisView(props: Readonly<Props>) {
 
     // ── Coaching section (Coaching tab) ──────────────────────────────
     if (section === "coaching") {
+        const dimensions: Array<{
+            key: string;
+            title: string;
+            dim: DimensionalAnalysis;
+            emphasized?: boolean;
+        }> = [
+            {
+                key: "structureAndFlow",
+                title: "Structure & Flow",
+                dim: analysis.structureAndFlow,
+                emphasized: true,
+            },
+            {
+                key: "clarityAndConciseness",
+                title: "Clarity & Conciseness",
+                dim: analysis.clarityAndConciseness,
+            },
+            {
+                key: "relevanceAndFocus",
+                title: "Relevance & Focus",
+                dim: analysis.relevanceAndFocus,
+            },
+            {
+                key: "engagement",
+                title: "Engagement",
+                dim: analysis.engagement,
+            },
+            {
+                key: "professionalism",
+                title: "Professionalism",
+                dim: analysis.professionalism,
+            },
+            {
+                key: "voiceToneExpression",
+                title: "Voice, Tone & Expression",
+                dim: analysis.voiceToneExpression,
+            },
+        ];
+
         return (
             <div className="space-y-3">
-                <DimensionalCard
-                    title="Structure & Flow"
-                    dimension={analysis.structureAndFlow}
-                    emphasized
-                />
-                <DimensionalCard
-                    title="Clarity & Conciseness"
-                    dimension={analysis.clarityAndConciseness}
-                />
-                <DimensionalCard
-                    title="Relevance & Focus"
-                    dimension={analysis.relevanceAndFocus}
-                />
-                <DimensionalCard
-                    title="Engagement"
-                    dimension={analysis.engagement}
-                />
-                <DimensionalCard
-                    title="Professionalism"
-                    dimension={analysis.professionalism}
-                />
-                <DimensionalCard
-                    title="Voice, Tone & Expression"
-                    dimension={analysis.voiceToneExpression}
-                />
+                {dimensions.map((d) => (
+                    <DimensionalCard
+                        key={d.key}
+                        title={d.title}
+                        dimension={d.dim}
+                        emphasized={d.emphasized}
+                        chat={renderChat(
+                            d.key,
+                            d.title,
+                            dimensionalToText(d.dim),
+                        )}
+                    />
+                ))}
 
                 {analysis.teachableMoments.length > 0 && (
                     <CollapsibleCard
@@ -424,6 +551,11 @@ export function AnalysisView(props: Readonly<Props>) {
                                 />
                             ))}
                         </div>
+                        {renderChat(
+                            "teachableMoments",
+                            "Teachable Moments",
+                            teachableMomentsToText(analysis.teachableMoments),
+                        )}
                     </CollapsibleCard>
                 )}
             </div>
@@ -448,6 +580,8 @@ export function AnalysisView(props: Readonly<Props>) {
                 </div>
             );
         }
+
+        const rewriteContent = rewritesToText(analysis);
 
         return (
             <div className="space-y-4">
@@ -500,6 +634,12 @@ export function AnalysisView(props: Readonly<Props>) {
                             ))}
                         </div>
                     </CollapsibleCard>
+                )}
+
+                {renderChat(
+                    "nativeSpeakerVersion",
+                    "Improved Version",
+                    rewriteContent,
                 )}
             </div>
         );

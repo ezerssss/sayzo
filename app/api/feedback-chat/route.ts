@@ -1,19 +1,27 @@
 import { openai } from "@ai-sdk/openai";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 
+import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import {
     assertHasCredit,
     CreditLimitReachedError,
     creditLimitResponse,
 } from "@/lib/credits/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import { FirestoreCollectionName } from "@/enums/firebase";
+import type { CaptureTranscriptLine, CaptureType } from "@/types/captures";
 import type { SessionType } from "@/types/sessions";
 
-const SYSTEM_PROMPT = `You are Sayzo's feedback coach. The user just completed a spoken practice drill and received AI-generated coaching feedback. They now want to discuss that feedback with you — ask follow-up questions, challenge points, get clarification, or dig deeper.
+type FeedbackChatSource = "session" | "capture";
+
+function buildSystemPrompt(source: FeedbackChatSource): string {
+    const sourceLabel =
+        source === "capture"
+            ? "real-life conversation we captured for analysis"
+            : "spoken practice drill";
+    return `You are Sayzo's feedback coach. The user just completed a ${sourceLabel} and received AI-generated coaching feedback. They now want to discuss that feedback with you — ask follow-up questions, challenge points, get clarification, or dig deeper.
 
 You have access to:
-1. The original session transcript (what the user actually said during their drill)
+1. The original transcript (what the user actually said)
 2. The specific feedback section they're looking at
 3. The feedback section title (e.g. "Structure & flow", "Clarity & conciseness")
 
@@ -26,6 +34,7 @@ Guidelines:
 - Don't repeat the original feedback verbatim. They can already see it. Build on it.
 - Match their energy — if they're casual, be casual. If they want depth, go deep.
 - When referencing specific moments, always include the timestamp in mm:ss format (e.g. "At 2:36" or "at 0:45"). The user can click these to jump to that point in their recording.`;
+}
 
 function buildContextMessage(
     transcript: string,
@@ -36,47 +45,99 @@ function buildContextMessage(
 
 ${feedbackContent}
 
-## Session transcript
+## Transcript
 ${transcript}`;
+}
+
+function formatCaptureTranscript(lines: CaptureTranscriptLine[]): string {
+    if (!lines.length) return "(no transcript available)";
+    return lines
+        .map(
+            (line, idx) =>
+                `[${idx}] [${line.start.toFixed(1)}s - ${line.end.toFixed(1)}s] ${line.speaker}: ${line.text}`,
+        )
+        .join("\n");
+}
+
+async function loadSourceContext(
+    source: FeedbackChatSource,
+    sourceId: string,
+    uid: string,
+): Promise<
+    | { ok: true; transcript: string }
+    | { ok: false; status: number; error: string }
+> {
+    const db = getAdminFirestore();
+
+    if (source === "session") {
+        const snap = await db
+            .collection(FirestoreCollections.sessions.path)
+            .doc(sourceId)
+            .get();
+        if (!snap.exists) {
+            return { ok: false, status: 404, error: "Session not found" };
+        }
+        const session = snap.data() as SessionType;
+        if (session.uid !== uid) {
+            return { ok: false, status: 403, error: "Unauthorized" };
+        }
+        return {
+            ok: true,
+            transcript:
+                session.transcript?.trim() ?? "(no transcript available)",
+        };
+    }
+
+    const snap = await db
+        .collection(FirestoreCollections.captures.path)
+        .doc(sourceId)
+        .get();
+    if (!snap.exists) {
+        return { ok: false, status: 404, error: "Conversation not found" };
+    }
+    const capture = snap.data() as CaptureType;
+    if (capture.uid !== uid) {
+        return { ok: false, status: 403, error: "Unauthorized" };
+    }
+    const lines = capture.serverTranscript ?? capture.agentTranscript ?? [];
+    return { ok: true, transcript: formatCaptureTranscript(lines) };
 }
 
 export async function POST(request: Request) {
     const body = await request.json();
     const {
         messages,
-        sessionId,
+        source,
+        sourceId,
         uid,
         sectionTitle,
         feedbackContent,
     } = body as {
         messages: UIMessage[];
-        sessionId: string;
+        source: FeedbackChatSource;
+        sourceId: string;
         uid: string;
         sectionTitle: string;
         feedbackContent: string;
     };
 
-    if (!sessionId || !uid) {
+    if (source !== "session" && source !== "capture") {
         return Response.json(
-            { error: "Missing sessionId or uid" },
+            { error: "Invalid or missing source (expected 'session' or 'capture')" },
             { status: 400 },
         );
     }
 
-    const db = getAdminFirestore();
-    const sessionDoc = await db
-        .collection(FirestoreCollectionName.SESSIONS)
-        .doc(sessionId)
-        .get();
-
-    if (!sessionDoc.exists) {
-        return Response.json({ error: "Session not found" }, { status: 404 });
+    if (!sourceId || !uid) {
+        return Response.json(
+            { error: "Missing sourceId or uid" },
+            { status: 400 },
+        );
     }
 
-    const session = sessionDoc.data() as SessionType;
-
-    if (session.uid !== uid) {
-        return Response.json({ error: "Unauthorized" }, { status: 403 });
+    const loaded = await loadSourceContext(source, sourceId, uid);
+    if (!loaded.ok) {
+        return Response.json({ error: loaded.error }, { status: loaded.status });
     }
 
     try {
@@ -88,10 +149,8 @@ export async function POST(request: Request) {
         throw err;
     }
 
-    const transcript = session.transcript?.trim() ?? "(no transcript available)";
-
     const contextMessage = buildContextMessage(
-        transcript,
+        loaded.transcript,
         feedbackContent,
         sectionTitle,
     );
@@ -102,10 +161,18 @@ export async function POST(request: Request) {
 
     const result = streamText({
         model: openai(model),
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(source),
         messages: [
             { role: "user", content: contextMessage },
-            { role: "assistant", content: [{ type: "text", text: "I've reviewed the feedback and your transcript. What would you like to discuss?" }] },
+            {
+                role: "assistant",
+                content: [
+                    {
+                        type: "text",
+                        text: "I've reviewed the feedback and your transcript. What would you like to discuss?",
+                    },
+                ],
+            },
             ...modelMessages,
         ],
         temperature: 0.4,
