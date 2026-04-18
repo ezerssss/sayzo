@@ -284,7 +284,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                 My Drills
                             </h2>
                             <p className="text-sm text-muted-foreground">
-                                Practice speaking scenarios
+                                Rehearse a scenario on your own — pick a situation, talk through it, and get feedback on how you sounded.
                             </p>
                         </div>
                         <Button
@@ -629,7 +629,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                             My Captures
                         </h2>
                         <p className="text-sm text-muted-foreground">
-                            Real conversations recorded and analyzed
+                            Real conversations from your calls, recorded quietly. Get feedback on how you did, and turn any moment into a drill to practice again.
                         </p>
                     </div>
                     {capturesLoading ? (
