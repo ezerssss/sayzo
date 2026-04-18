@@ -176,7 +176,7 @@ export default function PrivacyPage() {
                                 includes the audio, a transcript with
                                 speaker labels, and metadata like duration
                                 and timestamps. Uploaded conversations
-                                appear in the &quot;Real Conversations&quot;
+                                appear in the &quot;Captures&quot;
                                 section of the webapp, where you can review
                                 them, replay them, delete them, or turn
                                 them into a practice drill.

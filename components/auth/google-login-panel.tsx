@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { LogIn } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,9 +17,19 @@ export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
     return (
         <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
             <div className="space-y-3">
-                <h1 className="text-2xl font-semibold tracking-tight">
-                    Sayzo
-                </h1>
+                <div className="flex items-center gap-3">
+                    <Image
+                        src="/sayzo-logo.png"
+                        alt="Sayzo logo"
+                        width={40}
+                        height={40}
+                        priority
+                        className="rounded-lg"
+                    />
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                        Sayzo
+                    </h1>
+                </div>
                 <div className="space-y-2 text-sm leading-relaxed text-muted-foreground">
                     <p>
                         Your English coach — tuned to how you actually speak.

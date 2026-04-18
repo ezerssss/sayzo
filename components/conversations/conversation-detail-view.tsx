@@ -163,11 +163,11 @@ export function ConversationDetailView(props: Readonly<Props>) {
         return (
             <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
                 <Link
-                    href="/app/conversations"
+                    href="/app?tab=captures"
                     className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    Real Conversations
+                    Captures
                 </Link>
                 <p className="mt-4 text-sm text-destructive" role="alert">
                     Conversation not found.
@@ -226,12 +226,12 @@ export function ConversationDetailView(props: Readonly<Props>) {
                 json: { uid },
                 timeout: 30_000,
             });
-            router.push("/app/conversations");
+            router.push("/app?tab=captures");
         } catch (err) {
             setPracticeError(
                 await getKyErrorMessage(
                     err,
-                    "Could not delete real conversation.",
+                    "Could not delete capture.",
                 ),
             );
         } finally {
@@ -245,11 +245,11 @@ export function ConversationDetailView(props: Readonly<Props>) {
             {/* Header */}
             <div className="flex items-center justify-between gap-3">
                 <Link
-                    href="/app/conversations"
+                    href="/app?tab=captures"
                     className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    Real Conversations
+                    Captures
                 </Link>
                 <div className="flex items-center gap-2">
                     <CreditsIndicator />
@@ -438,7 +438,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            Delete this real conversation?
+                            Delete this capture?
                         </DialogTitle>
                         <DialogDescription>
                             This will permanently delete{" "}

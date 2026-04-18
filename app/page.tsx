@@ -15,9 +15,13 @@ import {
 } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { cn } from "@/lib/utils";
 
 export default function LandingPage() {
+    const { user, loading } = useAuthUser();
+    const isSignedIn = !loading && user !== null;
+
     return (
         <main className="min-h-screen bg-background">
             <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
@@ -58,7 +62,7 @@ export default function LandingPage() {
                             buttonVariants({ variant: "ghost", size: "sm" }),
                         )}
                     >
-                        Sign in
+                        {isSignedIn ? "Open app" : "Sign in"}
                     </Link>
                 </div>
             </header>
@@ -99,9 +103,11 @@ export default function LandingPage() {
                         Open Sayzo
                         <ArrowRight />
                     </Link>
-                    <p className="text-xs text-muted-foreground">
-                        Sign in with Google to get started.
-                    </p>
+                    {!isSignedIn && (
+                        <p className="text-xs text-muted-foreground">
+                            Sign in with Google to get started.
+                        </p>
+                    )}
                 </div>
             </section>
 

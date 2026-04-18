@@ -1,10 +1,11 @@
 "use client";
 
 import ky from "ky";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { SessionsDashboard } from "@/components/session/sessions-dashboard";
+import { useAllCaptures } from "@/hooks/use-all-captures";
 import { useAllSessions } from "@/hooks/use-all-sessions";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { getKyErrorMessage, isKyHttpStatus } from "@/lib/ky-error-message";
@@ -12,12 +13,21 @@ import { getKyErrorMessage, isKyHttpStatus } from "@/lib/ky-error-message";
 export default function DashboardPage() {
     const { user, signOut } = useAuthUser();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const creditGate = useCreditGate();
     const { sessions, practiceSessions, loading, error } = useAllSessions(
         user?.uid,
     );
+    const {
+        captures,
+        loading: capturesLoading,
+        error: capturesError,
+    } = useAllCaptures(user?.uid);
 
     if (!user) return null;
+
+    const defaultTab =
+        searchParams.get("tab") === "captures" ? "captures" : "drills";
 
     const handleStartNewDrill = async (category?: string) => {
         if (!creditGate.guard()) return;
@@ -53,16 +63,34 @@ export default function DashboardPage() {
         }
     };
 
+    const handleDeleteCapture = async (captureId: string) => {
+        try {
+            await ky.delete(`/api/captures/${captureId}`, {
+                json: { uid: user.uid },
+                timeout: 30_000,
+            });
+        } catch (err) {
+            throw new Error(
+                await getKyErrorMessage(err, "Could not delete capture."),
+            );
+        }
+    };
+
     return (
         <SessionsDashboard
             sessions={sessions}
             practiceSessions={practiceSessions}
             loading={loading}
             error={error}
+            captures={captures}
+            capturesLoading={capturesLoading}
+            capturesError={capturesError}
+            defaultTab={defaultTab}
             userLabel={user.displayName ?? user.email ?? "Unknown user"}
             onSignOut={signOut}
             onStartNewDrill={handleStartNewDrill}
             onDeleteSession={handleDeleteSession}
+            onDeleteCapture={handleDeleteCapture}
         />
     );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { FirebaseError } from "firebase/app";
 import {
     onAuthStateChanged,
     signInWithPopup,
@@ -9,6 +10,12 @@ import {
 } from "firebase/auth";
 
 import { auth, googleProvider } from "@/lib/firebase/client";
+
+const BENIGN_SIGNIN_ERROR_CODES = new Set([
+    "auth/cancelled-popup-request",
+    "auth/popup-closed-by-user",
+    "auth/user-cancelled",
+]);
 
 export function useAuthUser() {
     const [user, setUser] = useState<User | null>(null);
@@ -30,6 +37,12 @@ export function useAuthUser() {
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
+            if (
+                error instanceof FirebaseError &&
+                BENIGN_SIGNIN_ERROR_CODES.has(error.code)
+            ) {
+                return;
+            }
             console.error(error);
             setAuthError("Unable to sign in with Google right now.");
         }

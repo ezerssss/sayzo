@@ -40,7 +40,7 @@ export function useAllCaptures(uid?: string) {
                 setLoading(false);
             },
             () => {
-                setError("Could not load your real conversations.");
+                setError("Could not load your captures.");
                 setLoading(false);
             },
         );
