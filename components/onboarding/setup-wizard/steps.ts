@@ -1,12 +1,10 @@
 export type SetupWizardStep =
-    | "welcome"
     | "drill-intro"
     | "drill-workplace"
     | "drill-challenge"
     | "review";
 
 export const SETUP_WIZARD_STEP_ORDER: SetupWizardStep[] = [
-    "welcome",
     "drill-intro",
     "drill-workplace",
     "drill-challenge",

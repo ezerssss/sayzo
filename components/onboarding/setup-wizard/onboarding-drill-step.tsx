@@ -20,17 +20,10 @@ import {
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import type { OnboardingDrillConfig } from "@/components/onboarding/setup-wizard/steps";
-import { CoachingMomentsView } from "@/components/session/coaching-moments-view";
-import { FeedbackPanel } from "@/components/session/feedback-panel";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
-import type { SessionFeedbackType } from "@/types/sessions";
-
-type OnboardingFeedbackResponse = SessionFeedbackType & {
-    topCoachingKeys: string[];
-};
 
 export type OnboardingDrillResult = {
     transcript: string;
@@ -66,9 +59,6 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
     const [transcribeError, setTranscribeError] = useState<string | null>(null);
     const [drillResult, setDrillResult] =
         useState<OnboardingDrillResult | null>(null);
-    const [feedback, setFeedback] =
-        useState<OnboardingFeedbackResponse | null>(null);
-    const [feedbackLoading, setFeedbackLoading] = useState(false);
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const clearTick = useCallback(() => {
@@ -77,30 +67,6 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
             tickRef.current = null;
         }
     }, []);
-
-    const fetchFeedback = useCallback(
-        async (text: string) => {
-            setFeedbackLoading(true);
-            try {
-                const data = await ky
-                    .post("/api/onboarding/quick-feedback", {
-                        json: {
-                            transcript: text,
-                            drillType: drill.drillType,
-                            drillTitle: drill.title,
-                        },
-                        timeout: 120_000,
-                    })
-                    .json<OnboardingFeedbackResponse>();
-                setFeedback(data);
-            } catch {
-                // Non-critical — user can proceed without feedback
-            } finally {
-                setFeedbackLoading(false);
-            }
-        },
-        [drill.drillType, drill.title],
-    );
 
     const handleStop = useCallback(async () => {
         clearTick();
@@ -139,7 +105,6 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                 filename: `onboarding-${drill.drillType}.${ext}`,
             };
             setDrillResult(drillRes);
-            void fetchFeedback(text);
         } catch (e) {
             setTranscribeError(
                 await getKyErrorMessage(e, "Transcription failed."),
@@ -147,7 +112,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
         } finally {
             setIsTranscribing(false);
         }
-    }, [clearTick, stop, drill.drillType, fetchFeedback, user?.uid]);
+    }, [clearTick, stop, drill.drillType, user?.uid]);
 
     const stopRef = useRef(handleStop);
     useEffect(() => {
@@ -182,8 +147,6 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
 
     const handleReRecord = useCallback(async () => {
         setDrillResult(null);
-        setFeedback(null);
-        setFeedbackLoading(false);
         setTranscribeError(null);
         setSecondsLeft(drill.maxSeconds);
         await start();
@@ -198,7 +161,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
     return (
         <div className="space-y-5">
             <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
                     Drill {drillIndex + 1} of {totalDrills}
                 </p>
                 <h2 className="text-lg font-semibold tracking-tight">
@@ -323,46 +286,6 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                         />
                     </div>
 
-                    {/* Real feedback — same UI as the actual drills */}
-                    {feedbackLoading ? (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 rounded-xl border border-border p-4">
-                                <Loader2 className="size-4 animate-spin text-primary" />
-                                <p className="text-sm text-muted-foreground">
-                                    Analyzing your response…
-                                </p>
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {feedback ? (
-                        <div className="space-y-3">
-                            {/* Overview */}
-                            <FeedbackPanel
-                                feedback={feedback}
-                                variant="overview-only"
-                                showHeader={true}
-                            />
-
-                            {/* Top 2 coaching sections only */}
-                            {feedback.topCoachingKeys.length > 0 ? (
-                                <CoachingMomentsView
-                                    feedback={feedback}
-                                    visibleKeys={
-                                        feedback.topCoachingKeys as Array<
-                                            keyof SessionFeedbackType
-                                        >
-                                    }
-                                />
-                            ) : null}
-
-                            <p className="text-center text-xs text-muted-foreground">
-                                You&apos;ll get deeper feedback on all
-                                dimensions once you&apos;re in the platform.
-                            </p>
-                        </div>
-                    ) : null}
-
                     {recordingCount < MAX_RECORDINGS ? (
                         <div className="flex flex-col items-center gap-1">
                             <Button
@@ -382,16 +305,18 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
             )}
 
             <div className="flex gap-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={onBack}
-                    disabled={isRecording || isTranscribing}
-                >
-                    <ArrowLeft />
-                    Back
-                </Button>
+                {drillIndex > 0 ? (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={onBack}
+                        disabled={isRecording || isTranscribing}
+                    >
+                        <ArrowLeft />
+                        Back
+                    </Button>
+                ) : null}
                 <Button
                     type="button"
                     className="flex-1"

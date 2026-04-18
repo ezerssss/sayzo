@@ -16,7 +16,6 @@ import {
     SETUP_WIZARD_STEP_ORDER,
     type SetupWizardStep,
 } from "@/components/onboarding/setup-wizard/steps";
-import { WelcomeStep } from "@/components/onboarding/setup-wizard/welcome-step";
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { db } from "@/lib/firebase/client";
 import {
@@ -38,21 +37,19 @@ interface PropsInterface {
 
 /**
  * Compute the initial wizard step based on which drills are already saved.
- * If all 3 drills are done → review. If some → the next incomplete drill.
- * If none → welcome (or drill-intro if they've at least started).
+ * If all 3 drills are done → review. Otherwise → the next incomplete drill.
  */
 function computeResumeStep(
     saved: OnboardingDrillProgress[] | undefined,
 ): SetupWizardStep {
-    if (!saved || saved.length === 0) return "welcome";
-
-    const completedTypes = new Set(saved.map((d) => d.drillType));
+    const completedTypes = new Set(
+        saved?.map((d) => d.drillType) ?? [],
+    );
     for (const drill of ONBOARDING_DRILLS) {
         if (!completedTypes.has(drill.drillType)) {
             return drill.step;
         }
     }
-    // All drills completed → go to review
     return "review";
 }
 
@@ -313,8 +310,8 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
 
     if (shouldShowProcessing) {
         return (
-            <section className="w-full max-w-lg rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-                <div className="space-y-6 py-6">
+            <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
+                <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-10 sm:px-8">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Sparkles className="size-4 shrink-0 text-foreground/70" />
                         <span>Finalizing</span>
@@ -383,57 +380,57 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     }
 
     return (
-        <section className="w-full max-w-lg rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-            <div className="mb-6 flex items-center justify-between gap-3">
+        <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
+            <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-10 sm:px-8">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Sparkles className="size-4 shrink-0 text-foreground/70" />
                     <span>
                         Step {Math.max(1, stepIndex + 1)} of {totalSteps}
                     </span>
                 </div>
+
+                <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
+                    {ONBOARDING_DRILLS.map((drill, i) =>
+                        step === drill.step ? (
+                            <OnboardingDrillStep
+                                key={drill.step}
+                                drill={drill}
+                                drillIndex={i}
+                                totalDrills={ONBOARDING_DRILLS.length}
+                                onBack={goPrev}
+                                isLast={i === ONBOARDING_DRILLS.length - 1}
+                                onNext={(result) =>
+                                    handleDrillComplete(
+                                        drill.drillType,
+                                        result,
+                                        i === ONBOARDING_DRILLS.length - 1,
+                                    )
+                                }
+                            />
+                        ) : null,
+                    )}
+
+                    {step === "review" ? (
+                        <ReviewStep
+                            profile={extractedProfile}
+                            loading={extractLoading}
+                            error={extractError}
+                            onBack={goPrev}
+                            onFinish={(edited) => void finish(edited)}
+                            onRetry={() => void extractProfile()}
+                        />
+                    ) : null}
+                </div>
+
+                {createProfileError && step !== "review" ? (
+                    <p
+                        className="text-center text-sm text-destructive"
+                        role="alert"
+                    >
+                        {createProfileError}
+                    </p>
+                ) : null}
             </div>
-
-            {step === "welcome" ? <WelcomeStep onNext={goNext} /> : null}
-
-            {ONBOARDING_DRILLS.map((drill, i) =>
-                step === drill.step ? (
-                    <OnboardingDrillStep
-                        key={drill.step}
-                        drill={drill}
-                        drillIndex={i}
-                        totalDrills={ONBOARDING_DRILLS.length}
-                        onBack={goPrev}
-                        isLast={i === ONBOARDING_DRILLS.length - 1}
-                        onNext={(result) =>
-                            handleDrillComplete(
-                                drill.drillType,
-                                result,
-                                i === ONBOARDING_DRILLS.length - 1,
-                            )
-                        }
-                    />
-                ) : null,
-            )}
-
-            {step === "review" ? (
-                <ReviewStep
-                    profile={extractedProfile}
-                    loading={extractLoading}
-                    error={extractError}
-                    onBack={goPrev}
-                    onFinish={(edited) => void finish(edited)}
-                    onRetry={() => void extractProfile()}
-                />
-            ) : null}
-
-            {createProfileError && step !== "review" ? (
-                <p
-                    className="mt-3 text-center text-sm text-destructive"
-                    role="alert"
-                >
-                    {createProfileError}
-                </p>
-            ) : null}
         </section>
     );
 }
