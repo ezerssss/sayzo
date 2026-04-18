@@ -10,7 +10,6 @@ import {
     OnboardingDrillStep,
     type OnboardingDrillResult,
 } from "@/components/onboarding/setup-wizard/onboarding-drill-step";
-import { ReviewStep } from "@/components/onboarding/setup-wizard/review-step";
 import {
     ONBOARDING_DRILLS,
     SETUP_WIZARD_STEP_ORDER,
@@ -22,7 +21,6 @@ import {
     getKyErrorMessage,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
-import type { UserProfileFieldsFromAI } from "@/services/profile-context-builder";
 import type {
     OnboardingDrillProgress,
     UserProfileType,
@@ -37,20 +35,19 @@ interface PropsInterface {
 
 /**
  * Compute the initial wizard step based on which drills are already saved.
- * If all 3 drills are done → review. Otherwise → the next incomplete drill.
  */
 function computeResumeStep(
     saved: OnboardingDrillProgress[] | undefined,
 ): SetupWizardStep {
-    const completedTypes = new Set(
-        saved?.map((d) => d.drillType) ?? [],
-    );
+    const completedTypes = new Set(saved?.map((d) => d.drillType) ?? []);
     for (const drill of ONBOARDING_DRILLS) {
         if (!completedTypes.has(drill.drillType)) {
             return drill.step;
         }
     }
-    return "review";
+    // All drills complete — land on the last one; finish is one click away.
+    const last = ONBOARDING_DRILLS[ONBOARDING_DRILLS.length - 1];
+    return last!.step;
 }
 
 export function SetupWizard(props: Readonly<PropsInterface>) {
@@ -61,7 +58,6 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     const drillResults = useRef<Map<string, OnboardingDrillResult>>(new Map());
     const savedTranscripts = useRef<Map<string, string>>(new Map());
 
-    // Populate saved transcripts on mount for use in profile extraction
     useEffect(() => {
         if (savedDrills) {
             for (const d of savedDrills) {
@@ -69,12 +65,6 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             }
         }
     }, [savedDrills]);
-
-    // Review step state
-    const [extractedProfile, setExtractedProfile] =
-        useState<UserProfileFieldsFromAI | null>(null);
-    const [extractLoading, setExtractLoading] = useState(false);
-    const [extractError, setExtractError] = useState<string | null>(null);
 
     // Submission state
     const [isCreatingProfile, setIsCreatingProfile] = useState(false);
@@ -116,45 +106,11 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         }
     }, [step, onBack]);
 
-    /** Get the transcript for a drill — from current session results or saved progress. */
-    const getTranscript = useCallback(
-        (drillType: string): string => {
-            const result = drillResults.current.get(drillType);
-            if (result) return result.transcript.trim();
-            return savedTranscripts.current.get(drillType)?.trim() ?? "";
-        },
-        [],
-    );
-
-    const extractProfile = useCallback(async () => {
-        setExtractLoading(true);
-        setExtractError(null);
-        setExtractedProfile(null);
-
-        const drills = ONBOARDING_DRILLS.map((drill) => ({
-            drillType: drill.drillType,
-            transcript: getTranscript(drill.drillType),
-        }));
-
-        try {
-            const fields = await ky
-                .post("/api/onboarding/extract-profile", {
-                    json: { drills },
-                    timeout: 60_000,
-                })
-                .json<UserProfileFieldsFromAI>();
-            setExtractedProfile(fields);
-        } catch (e) {
-            setExtractError(
-                await getKyErrorMessage(
-                    e,
-                    "Could not extract your profile. You can try again or go back.",
-                ),
-            );
-        } finally {
-            setExtractLoading(false);
-        }
-    }, [getTranscript]);
+    const getTranscript = useCallback((drillType: string): string => {
+        const result = drillResults.current.get(drillType);
+        if (result) return result.transcript.trim();
+        return savedTranscripts.current.get(drillType)?.trim() ?? "";
+    }, []);
 
     const saveDrillToServer = useCallback(
         async (drillType: string, transcript: string) => {
@@ -164,76 +120,58 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                     timeout: 15_000,
                 });
             } catch {
-                // Non-critical — drill is still in memory for this session
                 console.warn(`Failed to persist drill ${drillType}`);
             }
         },
         [uid],
     );
 
-    const finish = useCallback(
-        async (profileOverrides: UserProfileFieldsFromAI) => {
-            // Need transcripts for all drills (from results or saved)
-            const hasAll = ONBOARDING_DRILLS.every(
-                (d) => getTranscript(d.drillType).length > 0,
-            );
-            if (!hasAll) return;
+    const finish = useCallback(async () => {
+        setCreateProfileError(null);
+        setLoadingStageIndex(0);
+        setIsCreatingProfile(true);
 
-            setCreateProfileError(null);
-            setLoadingStageIndex(0);
-            setIsCreatingProfile(true);
+        try {
+            const fd = new FormData();
 
-            try {
-                const fd = new FormData();
+            const drills = ONBOARDING_DRILLS.map((drill) => ({
+                drillType: drill.drillType,
+                transcript: getTranscript(drill.drillType),
+            }));
 
-                const drills = ONBOARDING_DRILLS.map((drill) => ({
-                    drillType: drill.drillType,
-                    transcript: getTranscript(drill.drillType),
-                }));
+            fd.append("payload", JSON.stringify({ uid, drills }));
 
+            for (const drill of ONBOARDING_DRILLS) {
+                const result = drillResults.current.get(drill.drillType);
+                if (!result) continue;
                 fd.append(
-                    "payload",
-                    JSON.stringify({
-                        uid,
-                        drills,
-                        profileOverrides,
+                    `audio_${drill.drillType}`,
+                    new File([result.audio.slice()], result.filename, {
+                        type: result.mimeType,
                     }),
                 );
-
-                // Attach audio files for drills completed in this session
-                for (const drill of ONBOARDING_DRILLS) {
-                    const result = drillResults.current.get(drill.drillType);
-                    if (!result) continue;
-                    fd.append(
-                        `audio_${drill.drillType}`,
-                        new File([result.audio.slice()], result.filename, {
-                            type: result.mimeType,
-                        }),
-                    );
-                }
-
-                await ky.post("/api/onboarding/complete", {
-                    body: fd,
-                    timeout: 330_000,
-                });
-            } catch (error) {
-                if (isKyTimeoutLikeError(error)) {
-                    setCreateProfileError(
-                        "Still processing in the background. Keep this page open.",
-                    );
-                    return;
-                }
-                setCreateProfileError(
-                    await getKyErrorMessage(
-                        error,
-                        "Could not create your profile right now.",
-                    ),
-                );
-                setIsCreatingProfile(false);
             }
-        },
-        [uid, getTranscript],
-    );
+
+            await ky.post("/api/onboarding/complete", {
+                body: fd,
+                timeout: 330_000,
+            });
+        } catch (error) {
+            if (isKyTimeoutLikeError(error)) {
+                setCreateProfileError(
+                    "Still processing in the background. Keep this page open.",
+                );
+                return;
+            }
+            setCreateProfileError(
+                await getKyErrorMessage(
+                    error,
+                    "Could not create your profile right now.",
+                ),
+            );
+            setIsCreatingProfile(false);
+        }
+    }, [uid, getTranscript]);
 
     const handleDrillComplete = useCallback(
         (
@@ -243,32 +181,31 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         ) => {
             drillResults.current.set(drillType, result);
             savedTranscripts.current.set(drillType, result.transcript);
-
-            // Persist to Firestore so user can resume later
             void saveDrillToServer(drillType, result.transcript);
 
             if (isLastDrill) {
-                goNext();
-                void extractProfile();
+                void finish();
             } else {
                 goNext();
             }
         },
-        [goNext, extractProfile, saveDrillToServer],
+        [goNext, finish, saveDrillToServer],
+    );
+
+    const handleDrillSkip = useCallback(
+        (isLastDrill: boolean) => {
+            if (isLastDrill) {
+                void finish();
+            } else {
+                goNext();
+            }
+        },
+        [goNext, finish],
     );
 
     const totalSteps = SETUP_WIZARD_STEP_ORDER.length;
     const shouldShowProcessing =
         isCreatingProfile || onboardingStatus === "processing";
-
-    // If we resumed directly to review, kick off extraction
-    useEffect(() => {
-        if (step === "review" && !extractedProfile && !extractLoading) {
-            void extractProfile();
-        }
-        // Only run on mount
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     useEffect(() => {
         if (!isCreatingProfile) return;
@@ -301,9 +238,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                     setIsCreatingProfile(true);
                 }
             },
-            () => {
-                // Keep current UI state on transient listener errors.
-            },
+            () => {},
         );
         return unsubscribe;
     }, [uid]);
@@ -382,8 +317,8 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     return (
         <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
             <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-10 sm:px-8">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Sparkles className="size-4 shrink-0 text-foreground/70" />
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
+                    <Sparkles className="size-4 shrink-0" />
                     <span>
                         Step {Math.max(1, stepIndex + 1)} of {totalSteps}
                     </span>
@@ -396,7 +331,6 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                                 key={drill.step}
                                 drill={drill}
                                 drillIndex={i}
-                                totalDrills={ONBOARDING_DRILLS.length}
                                 onBack={goPrev}
                                 isLast={i === ONBOARDING_DRILLS.length - 1}
                                 onNext={(result) =>
@@ -406,23 +340,17 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                                         i === ONBOARDING_DRILLS.length - 1,
                                     )
                                 }
+                                onSkip={() =>
+                                    handleDrillSkip(
+                                        i === ONBOARDING_DRILLS.length - 1,
+                                    )
+                                }
                             />
                         ) : null,
                     )}
-
-                    {step === "review" ? (
-                        <ReviewStep
-                            profile={extractedProfile}
-                            loading={extractLoading}
-                            error={extractError}
-                            onBack={goPrev}
-                            onFinish={(edited) => void finish(edited)}
-                            onRetry={() => void extractProfile()}
-                        />
-                    ) : null}
                 </div>
 
-                {createProfileError && step !== "review" ? (
+                {createProfileError ? (
                     <p
                         className="text-center text-sm text-destructive"
                         role="alert"

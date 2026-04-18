@@ -4,6 +4,7 @@ import { analyzeSession } from "@/services/analyzer";
 import { enrichCompanyContext } from "@/services/company-context-enricher";
 import { buildSessionFromPlan, planNextSession } from "@/services/planner";
 import {
+    buildUserProfileFieldsFromDrills,
     type OnboardingDrillTranscript,
     type UserProfileFieldsFromAI,
 } from "@/services/profile-context-builder";
@@ -15,11 +16,24 @@ import { NextResponse, type NextRequest } from "next/server";
 type CompleteOnboardingPayload = {
     uid: string;
     drills: OnboardingDrillTranscript[];
-    /** User-reviewed and possibly edited profile fields from the review step. */
-    profileOverrides?: UserProfileFieldsFromAI;
 };
 
 export const runtime = "nodejs";
+
+function emptyProfileFields(): UserProfileFieldsFromAI {
+    return {
+        role: "",
+        industry: "",
+        goals: [],
+        companyName: "",
+        companyDescription: "",
+        workplaceCommunicationContext: "",
+        motivation: "",
+        additionalContext: "",
+        employmentStatus: "employed",
+        wantsInterviewPractice: false,
+    };
+}
 
 export async function POST(request: NextRequest) {
     const formData = await request.formData();
@@ -47,28 +61,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Missing uid." }, { status: 400 });
     }
 
-    const drills = payload.drills;
-    if (!Array.isArray(drills) || drills.length === 0) {
-        return NextResponse.json(
-            { error: "Missing drill transcripts." },
-            { status: 400 },
-        );
-    }
+    const drills = Array.isArray(payload.drills) ? payload.drills : [];
 
-    // Combine all transcripts for baseline analysis
     const combinedTranscript = drills
         .map((d) => d.transcript.trim())
         .filter((t) => t.length > 0)
         .join("\n\n");
+    const hasAnyTranscript = combinedTranscript.length > 0;
 
-    if (!combinedTranscript) {
-        return NextResponse.json(
-            { error: "All drill transcripts are empty." },
-            { status: 400 },
-        );
-    }
-
-    // Get the self-introduction audio for Hume expression analysis
     const introAudio = formData.get("audio_self_introduction");
 
     try {
@@ -89,7 +89,6 @@ export async function POST(request: NextRequest) {
                 { merge: true },
             );
 
-        // Hume expression analysis on the intro audio
         let humeTrimmed = null;
         if (introAudio instanceof File && introAudio.size > 0) {
             const introTranscript =
@@ -114,11 +113,9 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Use user-reviewed profile overrides (already extracted in the review step)
-        const profileFields = payload.profileOverrides;
-        if (!profileFields) {
-            throw new Error("Missing profile fields from review step.");
-        }
+        const profileFields = hasAnyTranscript
+            ? await buildUserProfileFieldsFromDrills({ drills })
+            : emptyProfileFields();
 
         const profileNowIso = new Date().toISOString();
         const companyResearch = profileFields.companyName
@@ -165,63 +162,68 @@ export async function POST(request: NextRequest) {
             updatedAt: profileNowIso,
         };
 
-        // Analyze the combined transcript as a baseline
-        const introAnalysis = await analyzeSession({
-            userProfile: {
-                role: profile.role,
-                industry: profile.industry,
-                companyName: profile.companyName,
-                companyDescription: profile.companyDescription,
-                workplaceCommunicationContext:
-                    profile.workplaceCommunicationContext,
-                wantsInterviewPractice: profile.wantsInterviewPractice,
-                motivation: profile.motivation,
-                goals: profile.goals,
-                additionalContext: profile.additionalContext,
-                companyResearch: profile.companyResearch,
-            },
-            skillMemory: {
-                strengths: [],
-                weaknesses: [],
-                masteredFocus: [],
-                reinforcementFocus: [],
-            },
-            session: {
-                plan: {
-                    scenario: {
-                        title: "Onboarding speaking drills",
-                        situationContext:
-                            "Three onboarding drills: self-introduction, workplace scenario, and challenge moment.",
-                        givenContent: "",
-                        framework: "",
-                        category: "self_introduction",
-                    },
-                    skillTarget: "Baseline communication assessment",
-                    maxDurationSeconds: 240,
-                },
-                transcript: combinedTranscript,
-                humeContext: JSON.stringify(humeTrimmed),
-            },
-        });
+        let strengths: string[] = [];
+        let weaknesses: string[] = [];
 
-        const strengths = Array.from(
-            new Set(
-                introAnalysis.improvements
-                    .map((s) => s.trim())
-                    .filter((s) => s.length > 0),
-            ),
-        );
-        const weaknesses = Array.from(
-            new Set(
-                [
-                    introAnalysis.mainIssue,
-                    ...introAnalysis.secondaryIssues,
-                    ...introAnalysis.regressions,
-                ]
-                    .map((s) => s.trim())
-                    .filter((s) => s.length > 0),
-            ),
-        );
+        if (hasAnyTranscript) {
+            const introAnalysis = await analyzeSession({
+                userProfile: {
+                    role: profile.role,
+                    industry: profile.industry,
+                    companyName: profile.companyName,
+                    companyDescription: profile.companyDescription,
+                    workplaceCommunicationContext:
+                        profile.workplaceCommunicationContext,
+                    wantsInterviewPractice: profile.wantsInterviewPractice,
+                    motivation: profile.motivation,
+                    goals: profile.goals,
+                    additionalContext: profile.additionalContext,
+                    companyResearch: profile.companyResearch,
+                },
+                skillMemory: {
+                    strengths: [],
+                    weaknesses: [],
+                    masteredFocus: [],
+                    reinforcementFocus: [],
+                },
+                session: {
+                    plan: {
+                        scenario: {
+                            title: "Onboarding speaking drills",
+                            situationContext:
+                                "Three onboarding drills: self-introduction, workplace scenario, and challenge moment.",
+                            givenContent: "",
+                            framework: "",
+                            category: "self_introduction",
+                        },
+                        skillTarget: "Baseline communication assessment",
+                        maxDurationSeconds: 240,
+                    },
+                    transcript: combinedTranscript,
+                    humeContext: JSON.stringify(humeTrimmed),
+                },
+            });
+
+            strengths = Array.from(
+                new Set(
+                    introAnalysis.improvements
+                        .map((s) => s.trim())
+                        .filter((s) => s.length > 0),
+                ),
+            );
+            weaknesses = Array.from(
+                new Set(
+                    [
+                        introAnalysis.mainIssue,
+                        ...introAnalysis.secondaryIssues,
+                        ...introAnalysis.regressions,
+                    ]
+                        .map((s) => s.trim())
+                        .filter((s) => s.length > 0),
+                ),
+            );
+        }
+
         const skillMemory: SkillMemoryType = {
             uid,
             strengths,

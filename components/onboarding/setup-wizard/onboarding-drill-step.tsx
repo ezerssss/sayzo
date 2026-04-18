@@ -41,15 +41,15 @@ function extensionForMime(mime: string): string {
 interface PropsInterface {
     drill: OnboardingDrillConfig;
     drillIndex: number;
-    totalDrills: number;
     onBack: () => void;
     onNext: (result: OnboardingDrillResult) => void;
+    onSkip: () => void;
     /** For the last drill, show "Finish" instead of "Next drill" */
     isLast?: boolean;
 }
 
 export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
-    const { drill, drillIndex, totalDrills, onBack, onNext, isLast } = props;
+    const { drill, drillIndex, onBack, onNext, onSkip, isLast } = props;
     const { isRecording, stream, start, stop } = useVoiceRecorder();
     const { user } = useAuthUser();
     const MAX_RECORDINGS = 3;
@@ -161,9 +161,6 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
     return (
         <div className="space-y-5">
             <div className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
-                    Drill {drillIndex + 1} of {totalDrills}
-                </p>
                 <h2 className="text-lg font-semibold tracking-tight">
                     {drill.title}
                 </h2>
@@ -174,6 +171,11 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
 
             {!hasResult ? (
                 <>
+                    <p className="text-xs text-muted-foreground">
+                        Sharing more here means a better-tailored plan. You can
+                        skip — missing details fill in from your drills and
+                        captures over time.
+                    </p>
                     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 py-6">
                         <p
                             className="font-mono text-3xl font-semibold tabular-nums tracking-tight"
@@ -248,6 +250,19 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                             </Button>
                         )}
                     </div>
+                    {!isRecording && !isTranscribing ? (
+                        <div className="flex justify-center">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-muted-foreground hover:text-foreground"
+                                onClick={onSkip}
+                            >
+                                {isLast ? "Skip and finish" : "Skip this drill"}
+                            </Button>
+                        </div>
+                    ) : null}
                 </>
             ) : (
                 <div className="space-y-4">

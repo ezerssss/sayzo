@@ -45,19 +45,69 @@ export default function InstallPage() {
                         Install
                     </p>
                     <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                        Get the desktop companion running.
+                        Bring Sayzo into your real meetings.
                     </h1>
                     <p className="text-sm leading-relaxed text-muted-foreground">
-                        The companion runs quietly on your machine. It does the
-                        heavy processing locally, then hands only the moments
-                        worth coaching on back to Sayzo. Pick your platform and
-                        paste the one-liner.
+                        Drills in the browser show you what Sayzo feels like.
+                        The desktop companion is what turns it into a coach
+                        that knows your actual work — the standups you lead,
+                        the client calls you ran this week, the 1:1 that
+                        didn&apos;t go how you wanted.
                     </p>
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-8 rounded-2xl border border-border/70 bg-card p-5">
+                    <h2 className="text-sm font-semibold tracking-tight">
+                        What the companion gives you
+                    </h2>
+                    <ul className="mt-3 space-y-2.5 text-sm leading-relaxed text-muted-foreground">
+                        <li className="flex gap-2.5">
+                            <span
+                                aria-hidden
+                                className="mt-[0.55rem] size-1 shrink-0 rounded-full bg-foreground/60"
+                            />
+                            <span>
+                                <span className="text-foreground">
+                                    Drills tuned to your actual week.
+                                </span>{" "}
+                                Each new drill comes from the meetings you
+                                just had — not a generic curriculum.
+                            </span>
+                        </li>
+                        <li className="flex gap-2.5">
+                            <span
+                                aria-hidden
+                                className="mt-[0.55rem] size-1 shrink-0 rounded-full bg-foreground/60"
+                            />
+                            <span>
+                                <span className="text-foreground">
+                                    Coaching on the exact spots you got stuck.
+                                </span>{" "}
+                                The moment you hesitated, the point that
+                                didn&apos;t land, the answer you wish you had
+                                ready — surfaced while it&apos;s still fresh.
+                            </span>
+                        </li>
+                        <li className="flex gap-2.5">
+                            <span
+                                aria-hidden
+                                className="mt-[0.55rem] size-1 shrink-0 rounded-full bg-foreground/60"
+                            />
+                            <span>
+                                <span className="text-foreground">
+                                    Everything stays local until you choose.
+                                </span>{" "}
+                                Processing happens on your machine. Only the
+                                moments worth coaching on are sent to Sayzo,
+                                and you can review them first.
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div className="mt-6">
                     <InstallPanel
-                        headline="One command"
+                        headline="Install it"
                         subhead="Open a terminal and paste. The installer handles the rest."
                     />
                 </div>
@@ -103,9 +153,9 @@ export default function InstallPage() {
                         </h2>
                         <p className="mt-2">
                             You can use Sayzo&apos;s drills on the web without
-                            the companion. The companion just widens the loop
-                            — feeding real conversations into your coaching
-                            instead of only practice scenarios.{" "}
+                            the companion. You&apos;ll just be practicing with
+                            generated scenarios instead of the ones from your
+                            actual week.{" "}
                             <Link
                                 href="/app"
                                 className="text-foreground underline-offset-4 hover:underline"

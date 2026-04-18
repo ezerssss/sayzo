@@ -1,14 +1,12 @@
 export type SetupWizardStep =
     | "drill-intro"
     | "drill-workplace"
-    | "drill-challenge"
-    | "review";
+    | "drill-challenge";
 
 export const SETUP_WIZARD_STEP_ORDER: SetupWizardStep[] = [
     "drill-intro",
     "drill-workplace",
     "drill-challenge",
-    "review",
 ];
 
 export type OnboardingDrillConfig = {
