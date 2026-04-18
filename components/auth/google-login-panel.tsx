@@ -9,10 +9,13 @@ interface PropsInterface {
     loading: boolean;
     authError: string | null;
     onSignInWithGoogle: () => void;
+    buttonLabel?: string;
+    disabled?: boolean;
 }
 
 export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
-    const { loading, authError, onSignInWithGoogle } = props;
+    const { loading, authError, onSignInWithGoogle, buttonLabel, disabled } =
+        props;
 
     return (
         <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card px-8 py-12 shadow-sm">
@@ -39,9 +42,15 @@ export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
             </div>
 
             <div className="mt-8 flex flex-col gap-3">
-                <Button disabled={loading} onClick={onSignInWithGoogle}>
+                <Button
+                    disabled={disabled ?? loading}
+                    onClick={onSignInWithGoogle}
+                >
                     <LogIn />
-                    {loading ? "Checking session..." : "Continue with Google"}
+                    {buttonLabel ??
+                        (loading
+                            ? "Checking session..."
+                            : "Continue with Google")}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
                     By continuing you agree to our privacy-first handling of

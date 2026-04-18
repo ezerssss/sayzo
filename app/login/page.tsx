@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { signInWithPopup } from "firebase/auth";
-import { LogIn, Loader2 } from "lucide-react";
 
+import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
 import { auth, googleProvider } from "@/lib/firebase/client";
-import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
     const [loading, setLoading] = useState(false);
@@ -48,40 +47,21 @@ export default function LoginPage() {
         }
     }
 
+    const buttonLabel = done
+        ? "Redirecting..."
+        : loading
+          ? "Signing in..."
+          : "Continue with Google";
+
     return (
-        <main className="flex min-h-screen items-center justify-center p-4">
-            <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-                <div className="space-y-3">
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        Sayzo
-                    </h1>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                        Sign in to connect the Sayzo desktop companion to
-                        your account. You&apos;ll be sent back to the app
-                        automatically when you&apos;re done.
-                    </p>
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3">
-                    <Button
-                        disabled={loading || done}
-                        onClick={handleSignIn}
-                    >
-                        {loading ? <Loader2 className="animate-spin" /> : <LogIn />}
-                        {done
-                            ? "Redirecting..."
-                            : loading
-                              ? "Signing in..."
-                              : "Continue with Google"}
-                    </Button>
-
-                    {error ? (
-                        <p className="text-xs text-destructive" role="alert">
-                            {error}
-                        </p>
-                    ) : null}
-                </div>
-            </section>
+        <main className="flex min-h-screen w-full items-center justify-center p-6">
+            <GoogleLoginPanel
+                loading={loading}
+                authError={error}
+                onSignInWithGoogle={handleSignIn}
+                buttonLabel={buttonLabel}
+                disabled={loading || done}
+            />
         </main>
     );
 }
