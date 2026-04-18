@@ -9,13 +9,13 @@ export const REFLECTION_BEFORE_NEW_DRILL_PROBABILITY = 0.15;
 
 export const FALLBACK_PLAN: SessionPlanType = {
     scenario: {
-        title: "Practice Drill",
-        situationContext:
-            "You are giving a brief professional update to your team.",
-        givenContent:
-            "Summarize what changed, why it matters, and what you need from stakeholders.",
+        title: "Quick status update",
+        situationContext: "",
+        givenContent: "",
+        question:
+            "What are you working on this week, and where are you stuck?",
         framework:
-            "Use PREP: Point -> Reason -> Example -> Point. Keep it concise and confident.",
+            "PREP — Point (the headline), Reason (why it matters), Example (what you did), Point (what's next).",
         category: "status_update",
     },
     skillTarget: "Concise structure",

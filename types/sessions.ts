@@ -3,17 +3,14 @@
  * also emit new `snake_case` slugs when none of these fit.
  */
 export const RECOMMENDED_SPEAKING_DRILL_CATEGORIES = [
-    "presentation",
     "status_update",
-    "demo_walkthrough",
-    "meeting_contribution",
-    "impromptu",
-    "interview_behavioral",
-    "interview_situational",
+    "project_walkthrough",
+    "stakeholder_alignment",
+    "difficult_conversation",
     "self_introduction",
     "personal_reflection",
-    "difficult_conversation",
-    "stakeholder_alignment",
+    "interview_behavioral",
+    "interview_situational",
 ] as const;
 
 /** Normalize user/model text into a single stored slug (snake_case). */

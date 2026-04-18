@@ -166,13 +166,13 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
     );
 
     // Category may be garbled by smaller models — truncate to first valid
-    // slug-like portion, then normalize. Fall back to "impromptu" if
-    // nothing salvageable.
+    // slug-like portion, then normalize. Fall back to "status_update" if
+    // nothing salvageable (safest generic default for work conversations).
     let rawCategory = plan.scenario.category ?? "";
     // Strip anything after the first non-slug character (quotes, commas, etc.)
     const slugMatch = /^[a-zA-Z][a-zA-Z0-9_ ]*/.exec(rawCategory);
-    rawCategory = slugMatch ? slugMatch[0].trim() : "impromptu";
-    const category = toDrillCategorySlug(rawCategory) || "impromptu";
+    rawCategory = slugMatch ? slugMatch[0].trim() : "status_update";
+    const category = toDrillCategorySlug(rawCategory) || "status_update";
 
     return {
         scenario: {

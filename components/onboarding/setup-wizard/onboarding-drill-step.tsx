@@ -20,7 +20,7 @@ import {
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import type { OnboardingDrillConfig } from "@/components/onboarding/setup-wizard/steps";
-import { CoachingPanel } from "@/components/session/coaching-panel";
+import { CoachingMomentsView } from "@/components/session/coaching-moments-view";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
@@ -346,7 +346,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
 
                             {/* Top 2 coaching sections only */}
                             {feedback.topCoachingKeys.length > 0 ? (
-                                <CoachingPanel
+                                <CoachingMomentsView
                                     feedback={feedback}
                                     visibleKeys={
                                         feedback.topCoachingKeys as Array<

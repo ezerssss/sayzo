@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
 import { CreditGateProvider } from "@/components/credits/credit-gate-provider";
@@ -70,8 +72,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function LoadingCard({ children }: { children: ReactNode }) {
     return (
-        <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-            <p className="text-sm text-muted-foreground">{children}</p>
+        <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card px-8 py-12 shadow-sm">
+            <div className="flex flex-col items-center gap-6">
+                <Image
+                    src="/sayzo-logo.png"
+                    alt="Sayzo logo"
+                    width={96}
+                    height={96}
+                    priority
+                    className="rounded-xl"
+                />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    <span>{children}</span>
+                </div>
+            </div>
         </section>
     );
 }

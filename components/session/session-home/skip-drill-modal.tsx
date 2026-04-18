@@ -136,7 +136,7 @@ export function SkipDrillModal(props: Readonly<Props>) {
                             "outline-none",
                         )}
                         rows={3}
-                        placeholder="e.g. Not the right scenario for today, short on time, or this topic feels like a stretch."
+                        placeholder="e.g. Not the right prompt for today, short on time, or this topic feels like a stretch."
                         value={skipFeedbackText}
                         onChange={(e) =>
                             onSkipFeedbackTextChange(e.target.value)

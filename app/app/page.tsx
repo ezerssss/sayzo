@@ -26,8 +26,13 @@ export default function DashboardPage() {
 
     if (!user) return null;
 
-    const defaultTab =
-        searchParams.get("tab") === "captures" ? "captures" : "drills";
+    const tabParam = searchParams.get("tab");
+    const defaultTab: "drills" | "captures" | "focus" =
+        tabParam === "captures"
+            ? "captures"
+            : tabParam === "focus"
+              ? "focus"
+              : "drills";
 
     const handleStartNewDrill = async (category?: string) => {
         if (!creditGate.guard()) return;
@@ -78,6 +83,7 @@ export default function DashboardPage() {
 
     return (
         <SessionsDashboard
+            uid={user.uid}
             sessions={sessions}
             practiceSessions={practiceSessions}
             loading={loading}
@@ -86,7 +92,6 @@ export default function DashboardPage() {
             capturesLoading={capturesLoading}
             capturesError={capturesError}
             defaultTab={defaultTab}
-            userLabel={user.displayName ?? user.email ?? "Unknown user"}
             onSignOut={signOut}
             onStartNewDrill={handleStartNewDrill}
             onDeleteSession={handleDeleteSession}

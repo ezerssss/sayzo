@@ -19,6 +19,7 @@ import { CaptureStatusBadge } from "@/components/conversations/capture-status-ba
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { CreditsBanner } from "@/components/credits/credits-banner";
 import { CreditsIndicator } from "@/components/credits/credits-indicator";
+import { FocusDashboard } from "@/components/focus/focus-dashboard";
 import { InstallPanel } from "@/components/install/install-panel";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -30,12 +31,16 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StreakDashboard } from "@/components/session/streak-dashboard";
 import { cn } from "@/lib/utils";
 import { RECOMMENDED_SPEAKING_DRILL_CATEGORIES } from "@/types/sessions";
 import type { SessionType } from "@/types/sessions";
 import type { CaptureType } from "@/types/captures";
 
+type DashboardTab = "drills" | "captures" | "focus";
+
 type Props = {
+    uid: string | undefined;
     sessions: SessionType[];
     practiceSessions: SessionType[];
     loading: boolean;
@@ -43,8 +48,7 @@ type Props = {
     captures: CaptureType[];
     capturesLoading: boolean;
     capturesError: string | null;
-    userLabel: string;
-    defaultTab?: "drills" | "captures";
+    defaultTab?: DashboardTab;
     onSignOut: () => void;
     onStartNewDrill: (category?: string) => Promise<void>;
     onDeleteSession: (sessionId: string) => Promise<void>;
@@ -90,17 +94,15 @@ function drillHref(session: SessionType): string {
 }
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-    presentation: "Formal talk, pitch, or deck-backed explanation",
-    status_update: "Standup, sprint review, or progress report",
-    demo_walkthrough: "Live product or workflow walkthrough",
-    meeting_contribution: "Discussion, alignment, or advocating a view",
-    impromptu: "Little prep, thinking on your feet",
-    interview_behavioral: "\"Tell me about a time\" / STAR-style",
-    interview_situational: "Hypothetical or \"what would you do\" prompts",
-    self_introduction: "Elevator pitch or professional intro",
-    personal_reflection: "Strengths, values, career narrative",
-    difficult_conversation: "Feedback, pushback, or delicate alignment",
-    stakeholder_alignment: "Persuasion, buy-in, or executive summary",
+    status_update: "A quick update on what you're working on",
+    project_walkthrough: "Explain your project or product out loud",
+    stakeholder_alignment: "Make the case for something you care about",
+    difficult_conversation: "Practice a hard thing you need to say",
+    self_introduction: "Introduce yourself",
+    personal_reflection: "Talk through your values, motivations, and story",
+    interview_behavioral: "\"Tell me about a time you…\"",
+    interview_situational:
+        "\"What would you do if…\" or \"What do you think about…\"",
 };
 
 function StatusBadge({ status }: { status: SessionType["completionStatus"] }) {
@@ -138,6 +140,7 @@ function StatusBadge({ status }: { status: SessionType["completionStatus"] }) {
 
 export function SessionsDashboard(props: Readonly<Props>) {
     const {
+        uid,
         sessions,
         practiceSessions,
         loading,
@@ -145,7 +148,6 @@ export function SessionsDashboard(props: Readonly<Props>) {
         captures,
         capturesLoading,
         capturesError,
-        userLabel,
         defaultTab = "drills",
         onSignOut,
         onStartNewDrill,
@@ -155,6 +157,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
 
     const creditGate = useCreditGate();
     const outOfCredits = creditGate.isExhausted;
+    const [activeTab, setActiveTab] = useState<DashboardTab>(defaultTab);
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const [showCategoryGrid, setShowCategoryGrid] = useState(false);
     const [creatingDrill, setCreatingDrill] = useState(false);
@@ -219,6 +222,8 @@ export function SessionsDashboard(props: Readonly<Props>) {
     };
 
     const currentSession = sessions[0] ?? null;
+    const currentDrillIsPending =
+        currentSession?.completionStatus === "pending";
     const pastSessions = sessions.filter(
         (s) => s.completionStatus !== "pending" || s.id !== currentSession?.id,
     );
@@ -247,15 +252,35 @@ export function SessionsDashboard(props: Readonly<Props>) {
         <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
             <CreditsBanner />
 
-            <Tabs defaultValue={defaultTab} className="flex min-h-0 flex-1 flex-col">
+            <Tabs
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as DashboardTab)}
+                className="flex min-h-0 flex-1 flex-col"
+            >
                 {/* Top nav bar — full width */}
-                <div className="border-b border-border/50 bg-card/50 px-8 py-3">
-                    <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-                        <TabsList>
-                            <TabsTrigger value="drills">Drills</TabsTrigger>
-                            <TabsTrigger value="captures">Captures</TabsTrigger>
+                <div className="border-b border-border/50 bg-card/50 px-8">
+                    <div className="mx-auto flex max-w-4xl items-end justify-between gap-4">
+                        <TabsList className="-mb-px h-auto w-auto gap-6 rounded-none bg-transparent p-0">
+                            <TabsTrigger
+                                value="drills"
+                                className="rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-1 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                            >
+                                Drills
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="captures"
+                                className="rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-1 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                            >
+                                Captures
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="focus"
+                                className="rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-1 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                            >
+                                Focus
+                            </TabsTrigger>
                         </TabsList>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 py-3">
                             <CreditsIndicator />
                             <Link
                                 href="/install"
@@ -277,90 +302,165 @@ export function SessionsDashboard(props: Readonly<Props>) {
                 {/* ── Drills tab ── */}
                 <TabsContent value="drills" className="mt-0 flex-1">
                     <div className="mx-auto max-w-4xl space-y-6 px-8 py-8">
-                    {/* Drill header with new drill action */}
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h2 className="text-lg font-semibold tracking-tight">
-                                My Drills
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                                Rehearse a scenario on your own — pick a situation, talk through it, and get feedback on how you sounded.
-                            </p>
+                    {/* Hero — your next drill */}
+                    {!showCategoryPicker ? (
+                        currentDrillIsPending && currentSession ? (
+                            <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-8 shadow-sm">
+                                <div
+                                    aria-hidden
+                                    className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
+                                />
+                                <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+                                    <div className="flex-1 space-y-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                                            Pick up where you left off
+                                        </p>
+                                        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                                            {currentSession.plan.scenario.title}
+                                        </h2>
+                                        <p className="text-sm text-muted-foreground sm:text-base">
+                                            {currentSession.plan.skillTarget}
+                                        </p>
+                                    </div>
+                                    <Link
+                                        href={drillHref(currentSession)}
+                                        className={cn(
+                                            buttonVariants({ size: "lg" }),
+                                            "shrink-0",
+                                        )}
+                                    >
+                                        <ArrowRight className="h-4 w-4" />
+                                        Go to drill
+                                    </Link>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-8 shadow-sm">
+                                <div
+                                    aria-hidden
+                                    className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
+                                />
+                                <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+                                    <div className="flex-1 space-y-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                                            Ready for your next drill
+                                        </p>
+                                        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                                            {currentSession
+                                                ? "Start another round"
+                                                : "Let's get you warmed up"}
+                                        </h2>
+                                        <p className="text-sm text-muted-foreground sm:text-base">
+                                            Short, focused practice — and real feedback on how you sounded.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        onClick={() => {
+                                            if (!creditGate.guard()) return;
+                                            setShowCategoryPicker(true);
+                                            setCreateError(null);
+                                        }}
+                                        disabled={creatingDrill}
+                                        size="lg"
+                                        className={cn(
+                                            "shrink-0",
+                                            outOfCredits &&
+                                                "opacity-60 [&>svg:first-child]:hidden",
+                                        )}
+                                        title={
+                                            outOfCredits
+                                                ? "You're out of Sayzo credits"
+                                                : undefined
+                                        }
+                                    >
+                                        {outOfCredits ? (
+                                            <Lock className="h-4 w-4" />
+                                        ) : (
+                                            <Plus className="h-4 w-4" />
+                                        )}
+                                        Start a drill
+                                    </Button>
+                                </div>
+                            </div>
+                        )
+                    ) : null}
+
+                    {/* Quiet secondary action — start a different drill */}
+                    {!showCategoryPicker && currentDrillIsPending ? (
+                        <div className="-mt-2 flex justify-center">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!creditGate.guard()) return;
+                                    setShowCategoryPicker(true);
+                                    setCreateError(null);
+                                }}
+                                disabled={creatingDrill}
+                                className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                            >
+                                or start a different drill
+                            </button>
                         </div>
-                        <Button
-                            onClick={() => {
-                                if (!creditGate.guard()) return;
-                                setShowCategoryPicker((v) => !v);
-                                setCreateError(null);
-                            }}
-                            disabled={creatingDrill}
-                            size="sm"
-                            className={cn(
-                                outOfCredits &&
-                                    "opacity-60 [&>svg:first-child]:hidden",
-                            )}
-                            title={
-                                outOfCredits
-                                    ? "You're out of Sayzo credits"
-                                    : undefined
-                            }
-                        >
-                            {outOfCredits ? (
-                                <Lock className="h-4 w-4" />
-                            ) : (
-                                <Plus className="h-4 w-4" />
-                            )}
-                            New drill
-                        </Button>
-                    </div>
+                    ) : null}
 
                     {/* Quick-start drill panel */}
                     {showCategoryPicker ? (
-                        <div className="rounded-xl border border-border/70 bg-muted/30 p-4 space-y-3">
-                            {/* Primary action: start immediately */}
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <p className="text-sm font-medium">
-                                        Ready to practice?
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        We'll pick the best drill based on your progress
-                                    </p>
+                        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-8 shadow-sm">
+                            <div
+                                aria-hidden
+                                className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
+                            />
+                            <div className="relative space-y-6">
+                                {/* Primary action: start immediately */}
+                                <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+                                    <div className="flex-1 space-y-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                                            Ready to practice?
+                                        </p>
+                                        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                                            What do you want to work on?
+                                        </h2>
+                                        <p className="text-sm text-muted-foreground sm:text-base">
+                                            We&apos;ll pick the best drill based on your progress — or choose a category below.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        onClick={() => void handleStartDrill()}
+                                        disabled={creatingDrill}
+                                        size="lg"
+                                        className={cn(
+                                            "shrink-0",
+                                            selectedCategory === "__surprise__" &&
+                                                creatingDrill &&
+                                                "pointer-events-none",
+                                        )}
+                                    >
+                                        {selectedCategory === "__surprise__" && creatingDrill ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <ArrowRight className="h-4 w-4" />
+                                        )}
+                                        {selectedCategory === "__surprise__" && creatingDrill
+                                            ? "Building..."
+                                            : "Start a drill"}
+                                    </Button>
                                 </div>
-                                <Button
-                                    onClick={() => void handleStartDrill()}
-                                    disabled={creatingDrill}
-                                    className={cn(
-                                        selectedCategory === "__surprise__" && creatingDrill && "pointer-events-none",
-                                    )}
-                                >
-                                    {selectedCategory === "__surprise__" && creatingDrill ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <ArrowRight className="h-4 w-4" />
-                                    )}
-                                    {selectedCategory === "__surprise__" && creatingDrill
-                                        ? "Building..."
-                                        : "Start a drill"}
-                                </Button>
-                            </div>
 
-                            {/* Toggle to show categories */}
-                            {!showCategoryGrid ? (
-                                <button
-                                    type="button"
-                                    className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:border-border hover:bg-muted/50 hover:text-foreground"
-                                    onClick={() => setShowCategoryGrid(true)}
-                                >
-                                    Or pick a specific category...
-                                </button>
-                            ) : (
-                                <>
-                                    <div className="border-t border-border/50 pt-3">
-                                        <p className="text-xs font-medium text-muted-foreground mb-2">
+                                {/* Toggle to show categories */}
+                                {!showCategoryGrid ? (
+                                    <button
+                                        type="button"
+                                        className="w-full rounded-lg border border-sky-100 bg-white/60 px-4 py-3 text-left text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-sky-200 hover:bg-white/80 hover:text-foreground"
+                                        onClick={() => setShowCategoryGrid(true)}
+                                    >
+                                        Or pick a specific category...
+                                    </button>
+                                ) : (
+                                    <div className="border-t border-sky-100 pt-4">
+                                        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-sky-700">
                                             Pick a category
                                         </p>
-                                        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                             {RECOMMENDED_SPEAKING_DRILL_CATEGORIES.map(
                                                 (category) => {
                                                     const isSelected = selectedCategory === category;
@@ -369,11 +469,12 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                             key={category}
                                                             type="button"
                                                             disabled={creatingDrill}
-                                                            className={`rounded-lg border p-2.5 text-left transition-colors disabled:cursor-not-allowed ${
+                                                            className={cn(
+                                                                "rounded-lg border p-3 text-left transition-colors disabled:cursor-not-allowed",
                                                                 isSelected
-                                                                    ? "border-foreground/30 bg-muted"
-                                                                    : "border-border/50 bg-background hover:border-border hover:bg-muted/50 disabled:opacity-50"
-                                                            }`}
+                                                                    ? "border-sky-300 bg-sky-50"
+                                                                    : "border-sky-100 bg-white/60 backdrop-blur-sm hover:border-sky-200 hover:bg-white/80 disabled:opacity-50",
+                                                            )}
                                                             onClick={() =>
                                                                 void handleStartDrill(category)
                                                             }
@@ -397,48 +498,22 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                             )}
                                         </div>
                                     </div>
-                                </>
-                            )}
+                                )}
 
-                            {createError ? (
-                                <p
-                                    className="text-sm text-destructive"
-                                    role="alert"
-                                >
-                                    {createError}
-                                </p>
-                            ) : null}
+                                {createError ? (
+                                    <p
+                                        className="text-sm text-destructive"
+                                        role="alert"
+                                    >
+                                        {createError}
+                                    </p>
+                                ) : null}
+                            </div>
                         </div>
                     ) : null}
 
-                    {/* Current drill CTA */}
-                    {currentSession && !showCategoryPicker ? (
-                        <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                                        {currentSession.completionStatus === "pending"
-                                            ? "Current Drill"
-                                            : "Latest Drill"}
-                                    </p>
-                                    <h2 className="mt-1 text-lg font-semibold">
-                                        {currentSession.plan.scenario.title}
-                                    </h2>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        {currentSession.plan.skillTarget}
-                                    </p>
-                                </div>
-                                <Link
-                                    href={drillHref(currentSession)}
-                                    className={cn(buttonVariants())}
-                                >
-                                    <ArrowRight className="h-4 w-4" />
-                                    {currentSession.completionStatus === "pending"
-                                        ? "Go to drill"
-                                        : "Continue"}
-                                </Link>
-                            </div>
-                        </div>
+                    {!loading && !error ? (
+                        <StreakDashboard sessions={sessions} />
                     ) : null}
 
                     {loading ? (
@@ -448,12 +523,9 @@ export function SessionsDashboard(props: Readonly<Props>) {
                     ) : error ? (
                         <p className="text-sm text-destructive">{error}</p>
                     ) : pastSessions.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-border/70 p-6 text-center">
-                            <p className="text-sm text-muted-foreground">
-                                No past sessions yet. Complete your first drill to see
-                                it here!
-                            </p>
-                        </div>
+                        <p className="pt-2 text-center text-xs text-muted-foreground/70">
+                            No past sessions yet — finish your first drill and it&apos;ll show up here.
+                        </p>
                     ) : (
                         <div className="space-y-2">
                             <h3 className="text-sm font-medium text-muted-foreground">
@@ -736,6 +808,19 @@ export function SessionsDashboard(props: Readonly<Props>) {
                         </div>
                     )}
                     </div>
+                </TabsContent>
+
+                {/* ── Focus tab ── */}
+                <TabsContent value="focus" className="mt-0 flex-1">
+                    <FocusDashboard
+                        uid={uid}
+                        onStartDrill={() => {
+                            if (!creditGate.guard()) return;
+                            setActiveTab("drills");
+                            setShowCategoryPicker(true);
+                            setCreateError(null);
+                        }}
+                    />
                 </TabsContent>
             </Tabs>
 

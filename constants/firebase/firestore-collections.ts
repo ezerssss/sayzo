@@ -13,6 +13,9 @@ export const FirestoreCollections = {
     captures: {
         path: FirestoreCollectionName.CAPTURES,
     },
+    userFocusInsights: {
+        path: FirestoreCollectionName.USER_FOCUS_INSIGHTS,
+    },
     authSessions: {
         path: FirestoreCollectionName.AUTH_SESSIONS,
     },

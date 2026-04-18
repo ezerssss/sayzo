@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(npx --no-install tsc --noEmit -p .)",
+      "Bash(npx --no-install eslint components/session/sessions-dashboard.tsx app/app/_components/app-shell.tsx)",
+      "Bash(lsof -i :3000 -sTCP:LISTEN)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(npx eslint *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(echo \"TSC_EXIT=$?\")",
+      "Bash(echo \"LINT_EXIT=$?\")",
+      "WebSearch",
+      "Bash(npm run *)",
+      "Bash(awk NR==404 *)"
     ]
   }
 }

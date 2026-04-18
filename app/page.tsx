@@ -75,22 +75,32 @@ export default function LandingPage() {
                     width={120}
                     height={120}
                     priority
-                    className="mb-8"
+                    className="mb-6"
                 />
+                <div className="mb-4 inline-flex items-center rounded-full border border-border/70 bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+                    In early access · Launched March 2026
+                </div>
                 <p className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                    Communication coaching for global professionals.
+                    Coaching from your real meetings — not textbook scenarios.
                 </p>
                 <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-                    Be heard at work.
+                    Do your best work
                     <br />
-                    Not just understood.
+                    in English.
                 </h1>
                 <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                    For non-native English speakers building careers at
-                    global companies. The standup where you stayed quiet,
-                    the client call where your point didn&apos;t land, the
-                    interview answer you replayed the whole drive home.
-                    Drilled until your English works as hard as you do.
+                    For non-native English speakers at US, EU, and global
+                    companies. Sayzo learns from your real work meetings —
+                    the standup where you stayed quiet, the client call
+                    where your point didn&apos;t land, the interview you
+                    over-rehearsed — then drills the exact moments that
+                    cost you, before the next one.
+                </p>
+                <p className="mt-4 max-w-xl text-sm text-muted-foreground/80">
+                    Starting with remote professionals in the Philippines — engineers, VAs, ops, designers, and anyone on a global team.
+                </p>
+                <p className="mt-3 text-sm italic text-muted-foreground/70">
+                    Kaya mo &apos;yan — in English, too.
                 </p>
                 <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
                     <Link
@@ -100,14 +110,12 @@ export default function LandingPage() {
                             "px-5",
                         )}
                     >
-                        Open Sayzo
+                        {isSignedIn ? "Open Sayzo" : "Try your first drill"}
                         <ArrowRight />
                     </Link>
-                    {!isSignedIn && (
-                        <p className="text-xs text-muted-foreground">
-                            Sign in with Google to get started.
-                        </p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                        10 drills free. No credit card.
+                    </p>
                 </div>
             </section>
 
@@ -115,33 +123,33 @@ export default function LandingPage() {
             <section className="mx-auto w-full max-w-5xl px-6 pb-24">
                 <div className="mx-auto max-w-2xl text-center">
                     <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                        A coach that learns how you sound at work.
+                        A coach that hears what your manager hears.
                     </h2>
                     <p className="mt-4 text-base leading-relaxed text-muted-foreground">
                         Generic English apps hand you textbook scenarios.
-                        Sayzo starts from the meetings, messages, and
-                        moments your career actually turns on — and coaches
-                        you for the next one.
+                        Sayzo starts from your real work meetings — and
+                        coaches you on the exact spots where your point
+                        doesn&apos;t land, before the next one.
                     </p>
                 </div>
                 <div className="mt-12 grid gap-4 sm:grid-cols-3">
                     <StepCard
                         step="01"
                         icon={<Ear className="size-5" />}
-                        title="Connect in a minute"
-                        body="Sign in with Google, run a few quick drills, and Sayzo builds your profile from how you already sound at work. That's the setup."
+                        title="Start in the browser"
+                        body="Sign in with Google and run your first drill. No install, no setup — just a prompt, a mic, and coaching that shows you what a real session feels like."
                     />
                     <StepCard
                         step="02"
                         icon={<Wand2 className="size-5" />}
-                        title="Sayzo learns your patterns"
-                        body="From standups to client calls, Sayzo picks up on the spots where you hesitate, the words you lean on when you're not sure, and the moments your point gets lost in translation."
+                        title="Bring Sayzo to your real meetings"
+                        body="Install the desktop companion and Sayzo sits in on your real work meetings — standups, client calls, 1:1s — picking up the spots where you hesitate and the moments your point gets lost."
                     />
                     <StepCard
                         step="03"
                         icon={<Mic className="size-5" />}
-                        title="Drills built for your week"
-                        body="Short, targeted speaking drills aimed at the exact rooms you'll walk into — the 1:1 with your manager, the demo for stakeholders, the interview for the next role."
+                        title="Drills built from your week"
+                        body="Each new drill is tuned to what Sayzo heard in your actual meetings — not a generic curriculum. Practice the exact moments that cost you, before walking into the next one."
                     />
                 </div>
             </section>
@@ -164,31 +172,32 @@ export default function LandingPage() {
                     <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <DrillCard
                             icon={<Sparkles className="size-4" />}
-                            title="Structure & flow"
-                            body="Turn rambly answers into updates your manager and stakeholders can follow in real time."
+                            title="Standups & status updates"
+                            body="The update that actually lands. Clarity and structure so your work gets seen — in standups, all-hands, and the Slack thread your manager reads."
                         />
                         <DrillCard
                             icon={<Waves className="size-4" />}
-                            title="Clarity & word choice"
-                            body="Swap placeholder phrases for the specific, professional vocabulary your role runs on."
+                            title="Client calls & demos"
+                            body="Lead the conversation instead of reacting to it. Openers, pivots, and pushback that keep you driving the call."
                         />
                         <DrillCard
                             icon={<Gauge className="size-4" />}
-                            title="Fluency & pace"
-                            body="Fewer fillers, less hesitation, more confident pauses when it's your turn to speak."
+                            title="Interviews & promotions"
+                            body="Answers with a spine. Tell the stories about your work so they remember the experience — not the hesitation."
                         />
                         <DrillCard
                             icon={<Mic className="size-4" />}
-                            title="Voice & tone"
-                            body="Sound as senior as you are — especially in front of clients, execs, and interviewers."
+                            title="1:1s & hard conversations"
+                            body="Say what you actually think to your manager. Words for disagreement, pushback, and asking for what you want."
                         />
                     </div>
                     <div className="mt-10 flex flex-col items-center gap-3 text-center">
                         <p className="max-w-xl text-sm text-muted-foreground">
                             Every drill is generated for your role, your
-                            goals, and the patterns Sayzo notices — from
-                            standups to stakeholder pitches to interviews for
-                            the next step in your career.
+                            goals, and the patterns Sayzo notices in your
+                            actual meetings — from standups to stakeholder
+                            pitches to interviews for the next step in your
+                            career.
                         </p>
                     </div>
                 </div>
@@ -250,19 +259,54 @@ export default function LandingPage() {
                 </div>
                 <div className="mt-12 grid gap-4 sm:grid-cols-3">
                     <CompareCard
+                        versus="vs. meeting notetakers"
+                        title="Coaching, not archiving"
+                        body="Granola and Otter hand you a transcript of what happened. Sayzo hands you what to say better next time — drills tuned to the exact moments your point didn&apos;t land."
+                    />
+                    <CompareCard
                         versus="vs. gamified apps"
                         title="Standups, not streaks"
-                        body="Owl combos and flashcard decks won't prepare you for a status update or a stakeholder call. Sayzo drills the rooms you&apos;ll actually be in this week."
+                        body="Owl combos and flashcard decks won&apos;t prepare you for a status update or a stakeholder call. Sayzo drills the rooms you&apos;ll actually be in this week."
                     />
                     <CompareCard
-                        versus="vs. scheduled tutors"
-                        title="Available when you are"
-                        body="No calendar tetris across time zones, no hour-long sessions. A focused ten minutes between meetings, whenever your week has them."
+                        versus="vs. hiring a tutor"
+                        title="A fraction of the cost"
+                        body="A tutor is one hour a week at $50–100, built around a generic syllabus. Sayzo fits between meetings, drills the exact rooms your career turns on, and costs less than a single session."
                     />
-                    <CompareCard
-                        versus="vs. transcription tools"
-                        title="Coaching, not archiving"
-                        body="Otter hands you a transcript of what happened. Sayzo hands you what to say better next time."
+                </div>
+            </section>
+
+            {/* FAQ */}
+            <section className="mx-auto w-full max-w-5xl px-6 pb-24">
+                <div className="mx-auto max-w-2xl text-center">
+                    <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                        Questions you&apos;re probably asking.
+                    </h2>
+                </div>
+                <div className="mt-12 grid gap-4 sm:grid-cols-2">
+                    <FaqItem
+                        question="Is it free?"
+                        answer="Your first 10 drills are on us — no credit card. When you're ready for more, request full access and keep going."
+                    />
+                    <FaqItem
+                        question="How does a drill work?"
+                        answer="One workplace scenario, one prompt, one mic. Speak your response and Sayzo comes back with coaching, a cleaner version of what you meant, and one takeaway worth bringing to your next meeting."
+                    />
+                    <FaqItem
+                        question="Do I need to install anything?"
+                        answer="Drills run in your browser, so you can try Sayzo before installing anything. The desktop companion is what brings your real meetings into your coaching — that's where Sayzo stops being a practice app and becomes a coach that knows your actual work."
+                    />
+                    <FaqItem
+                        question="Is my audio private?"
+                        answer="Sayzo only works with what's worth coaching on. You can review anything before it becomes a drill, delete any recording, and sign out to stop contributing new data."
+                    />
+                    <FaqItem
+                        question="How is this different from hiring a tutor?"
+                        answer="A tutor is $50–100 an hour, once a week, built around a generic syllabus. Sayzo fits between meetings, drills the exact rooms your career runs on, and costs less than a single session. It also remembers your patterns between drills — tutors start from zero every week."
+                    />
+                    <FaqItem
+                        question="What if my English is already pretty good?"
+                        answer="Sayzo tunes to your level. It won't drill you on basics if your friction is elsewhere — in structure, pace, or the moment you need to push back on a stakeholder without sounding rude."
                     />
                 </div>
             </section>
@@ -270,11 +314,12 @@ export default function LandingPage() {
             {/* Final CTA */}
             <section className="mx-auto w-full max-w-3xl px-6 pb-24 text-center">
                 <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                    Speak like the professional you already are.
+                    Excel at work — in English.
                 </h2>
                 <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                    Start drilling today. In thirty days, hear the difference
-                    in your next meeting, your next demo, your next interview.
+                    Start with your first drill today. In thirty days, hear
+                    the difference — in your next standup, your next demo,
+                    your next interview.
                 </p>
                 <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                     <Link
@@ -284,11 +329,11 @@ export default function LandingPage() {
                             "px-5",
                         )}
                     >
-                        Open Sayzo
+                        {isSignedIn ? "Open Sayzo" : "Try your first drill"}
                         <ArrowRight />
                     </Link>
                     <p className="text-xs text-muted-foreground">
-                        Free to try. No credit card.
+                        10 drills free. No credit card.
                     </p>
                 </div>
             </section>
@@ -370,6 +415,25 @@ function DrillCard({
             </h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                 {body}
+            </p>
+        </div>
+    );
+}
+
+function FaqItem({
+    question,
+    answer,
+}: {
+    question: string;
+    answer: string;
+}) {
+    return (
+        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+            <h3 className="text-sm font-semibold tracking-tight">
+                {question}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {answer}
             </p>
         </div>
     );

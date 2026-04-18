@@ -1,6 +1,6 @@
-import { CoachingPanel } from "@/components/session/coaching-panel";
+import { CoachingMomentsView } from "@/components/session/coaching-moments-view";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
-import { NativeSpeakerPanel } from "@/components/session/native-speaker-panel";
+import { ImprovedVersionView } from "@/components/session/improved-version-view";
 import { TranscriptPanel } from "@/components/session/transcript-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionFeedbackType } from "@/types/sessions";
@@ -109,7 +109,7 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
             </TabsContent>
             <TabsContent value="coaching" className="mt-3">
                 {currentFeedback && coachingSectionKeys.length > 0 ? (
-                    <CoachingPanel
+                    <CoachingMomentsView
                         feedback={currentFeedback}
                         onSeekToSecond={onSeekToSecond}
                         sessionId={sessionId}
@@ -126,7 +126,7 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
             </TabsContent>
             <TabsContent value="native-speaker" className="mt-3">
                 {hasNativeSpeakerVersion && currentFeedback ? (
-                    <NativeSpeakerPanel
+                    <ImprovedVersionView
                         content={currentFeedback.nativeSpeakerVersion!}
                     />
                 ) : (

@@ -45,7 +45,7 @@ import type {
 export type { SessionHomeProps } from "./types";
 
 export function SessionHome(props: Readonly<SessionHomeProps>) {
-    const { uid, userLabel, onSignOut, authError, sessionId } = props;
+    const { uid, authError, sessionId } = props;
     const creditGate = useCreditGate();
     const [drillState, setDrillState] = useState<DrillState>("idle");
     const [seconds, setSeconds] = useState(DEFAULT_MAX_SECONDS);
@@ -658,14 +658,17 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     const isReviewView = view === "review";
 
     return (
-        <section className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
+        <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
+            <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
             <CreditsBanner />
-            <SessionHomeHeader userLabel={userLabel} onSignOut={onSignOut} />
+            <SessionHomeHeader />
 
             {isDrillView ? (
-                <>
+                <div className="mt-6 rounded-2xl border border-border/70 bg-card shadow-sm">
+                    <div className="p-6 sm:p-8">
                     <DrillBriefCard
                         plan={currentPlan}
+                        uid={uid}
                         shouldShowResults={shouldShowResults}
                         loadingSession={loadingSession}
                         isCreatingDrill={isCreatingDrill}
@@ -728,7 +731,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             </Button>
                         </div>
                     ) : null}
-                </>
+                    </div>
+                </div>
             ) : null}
 
             {isReviewView ? (
@@ -829,6 +833,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                     {authError}
                 </p>
             ) : null}
+            </div>
         </section>
     );
 }

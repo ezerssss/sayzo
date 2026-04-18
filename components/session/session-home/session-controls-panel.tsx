@@ -137,8 +137,8 @@ export function SessionControlsPanel(props: Readonly<Props>) {
                 </div>
                 {showSkipDrill && showRecordAction ? (
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                        Not a good time for this scenario? You can skip and
-                        we&apos;ll pick a different drill next.
+                        Not the right prompt right now? You can skip and
+                        we&apos;ll pick a different one next.
                     </p>
                 ) : null}
             </div>
