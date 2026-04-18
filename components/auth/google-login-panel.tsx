@@ -15,22 +15,19 @@ export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
     const { loading, authError, onSignInWithGoogle } = props;
 
     return (
-        <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-            <div className="space-y-3">
-                <div className="flex items-center gap-3">
+        <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card px-8 py-12 shadow-sm">
+            <div className="space-y-6">
+                <div className="flex justify-center">
                     <Image
                         src="/sayzo-logo.png"
                         alt="Sayzo logo"
-                        width={40}
-                        height={40}
+                        width={96}
+                        height={96}
                         priority
-                        className="rounded-lg"
+                        className="rounded-xl"
                     />
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        Sayzo
-                    </h1>
                 </div>
-                <div className="space-y-2 text-sm leading-relaxed text-muted-foreground">
+                <div className="space-y-3 text-center text-sm leading-relaxed text-muted-foreground">
                     <p>
                         Your English coach — tuned to how you actually speak.
                     </p>
@@ -41,12 +38,12 @@ export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
                 </div>
             </div>
 
-            <div className="mt-6 flex flex-col gap-3">
+            <div className="mt-8 flex flex-col gap-3">
                 <Button disabled={loading} onClick={onSignInWithGoogle}>
                     <LogIn />
                     {loading ? "Checking session..." : "Continue with Google"}
                 </Button>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-center text-xs text-muted-foreground">
                     By continuing you agree to our privacy-first handling of
                     your speaking data.
                 </p>
