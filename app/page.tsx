@@ -78,19 +78,19 @@ export default function LandingPage() {
                     className="mb-8"
                 />
                 <p className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                    An English coach, tuned to you.
+                    Communication coaching for global professionals.
                 </p>
                 <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-                    Practice the English
+                    Be heard at work.
                     <br />
-                    you actually speak.
+                    Not just understood.
                 </h1>
                 <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                    Coaching for the moments your English almost lands —
-                    the demo sentence that came out sideways, the interview
-                    answer you replayed the whole drive home, the point
-                    that didn&apos;t quite cut through in the meeting.
-                    Drilled until they do.
+                    For non-native English speakers building careers at
+                    global companies. The standup where you stayed quiet,
+                    the client call where your point didn&apos;t land, the
+                    interview answer you replayed the whole drive home.
+                    Drilled until your English works as hard as you do.
                 </p>
                 <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
                     <Link
@@ -115,13 +115,13 @@ export default function LandingPage() {
             <section className="mx-auto w-full max-w-5xl px-6 pb-24">
                 <div className="mx-auto max-w-2xl text-center">
                     <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                        A coach that learns from how you actually sound.
+                        A coach that learns how you sound at work.
                     </h2>
                     <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                        Most English apps hand you imagined scenarios. Sayzo
-                        starts from real ones. Your conversations shape your
-                        coaching — and your coaching reshapes your next
-                        conversation.
+                        Generic English apps hand you textbook scenarios.
+                        Sayzo starts from the meetings, messages, and
+                        moments your career actually turns on — and coaches
+                        you for the next one.
                     </p>
                 </div>
                 <div className="mt-12 grid gap-4 sm:grid-cols-3">
@@ -129,19 +129,19 @@ export default function LandingPage() {
                         step="01"
                         icon={<Ear className="size-5" />}
                         title="Connect in a minute"
-                        body="Sign in with Google, run a few quick drills, and Sayzo builds your profile from how you already sound. That's the setup."
+                        body="Sign in with Google, run a few quick drills, and Sayzo builds your profile from how you already sound at work. That's the setup."
                     />
                     <StepCard
                         step="02"
                         icon={<Wand2 className="size-5" />}
                         title="Sayzo learns your patterns"
-                        body="As you go about your work, Sayzo picks up on the spots where you hesitate, the words you lean on, the structures that get away from you, and the moments your tone shines."
+                        body="From standups to client calls, Sayzo picks up on the spots where you hesitate, the words you lean on when you're not sure, and the moments your point gets lost in translation."
                     />
                     <StepCard
                         step="03"
                         icon={<Mic className="size-5" />}
                         title="Drills built for your week"
-                        body="Short, targeted speaking drills aimed at the exact places you got stuck — in the scenarios you actually face, not the ones an app imagined."
+                        body="Short, targeted speaking drills aimed at the exact rooms you'll walk into — the 1:1 with your manager, the demo for stakeholders, the interview for the next role."
                     />
                 </div>
             </section>
@@ -151,43 +151,44 @@ export default function LandingPage() {
                 <div className="mx-auto w-full max-w-5xl px-6 py-20">
                     <div className="mx-auto max-w-2xl text-center">
                         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                            Drills tuned to the rooms you&apos;re in.
+                            Drills tuned to the rooms your career happens in.
                         </h2>
                         <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                            Each drill is a short scenario, a prompt, and a
-                            mic. Speak a response, and Sayzo comes back with
-                            coaching, a cleaner way to say what you meant,
-                            and one takeaway worth remembering.
+                            Each drill is a short workplace scenario, a
+                            prompt, and a mic. Speak a response, and Sayzo
+                            comes back with coaching, a cleaner way to say
+                            what you meant, and one takeaway worth bringing
+                            into your next meeting.
                         </p>
                     </div>
                     <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <DrillCard
                             icon={<Sparkles className="size-4" />}
                             title="Structure & flow"
-                            body="Turn rambly answers into something the room can follow in real time."
+                            body="Turn rambly answers into updates your manager and stakeholders can follow in real time."
                         />
                         <DrillCard
                             icon={<Waves className="size-4" />}
                             title="Clarity & word choice"
-                            body="Swap placeholder phrases for specific vocabulary that actually lands."
+                            body="Swap placeholder phrases for the specific, professional vocabulary your role runs on."
                         />
                         <DrillCard
                             icon={<Gauge className="size-4" />}
                             title="Fluency & pace"
-                            body="Fewer fillers, less hesitation, more confident pauses."
+                            body="Fewer fillers, less hesitation, more confident pauses when it's your turn to speak."
                         />
                         <DrillCard
                             icon={<Mic className="size-4" />}
                             title="Voice & tone"
-                            body="Sound like you mean it — especially when the stakes are real."
+                            body="Sound as senior as you are — especially in front of clients, execs, and interviewers."
                         />
                     </div>
                     <div className="mt-10 flex flex-col items-center gap-3 text-center">
                         <p className="max-w-xl text-sm text-muted-foreground">
                             Every drill is generated for your role, your
-                            goals, and the patterns Sayzo notices in your
-                            speaking — from standups to stakeholder pitches to
-                            small talk before a call starts.
+                            goals, and the patterns Sayzo notices — from
+                            standups to stakeholder pitches to interviews for
+                            the next step in your career.
                         </p>
                     </div>
                 </div>
@@ -242,25 +243,26 @@ export default function LandingPage() {
                         Not another phrase app.
                     </h2>
                     <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                        Most tools teach English in a vacuum. Sayzo coaches
-                        you inside the life you already live.
+                        Generic English tools teach the language in a
+                        vacuum. Sayzo coaches you inside the job you
+                        already have — and the one you&apos;re working toward.
                     </p>
                 </div>
                 <div className="mt-12 grid gap-4 sm:grid-cols-3">
                     <CompareCard
                         versus="vs. gamified apps"
-                        title="Real situations, not streaks"
-                        body="Owl combos and flashcard decks won't prepare you for a status update. Sayzo drills the moments you'll actually be in this week."
+                        title="Standups, not streaks"
+                        body="Owl combos and flashcard decks won't prepare you for a status update or a stakeholder call. Sayzo drills the rooms you&apos;ll actually be in this week."
                     />
                     <CompareCard
                         versus="vs. scheduled tutors"
                         title="Available when you are"
-                        body="No calendar tetris, no hour-long sessions. A focused thirty minutes, whenever you have them."
+                        body="No calendar tetris across time zones, no hour-long sessions. A focused ten minutes between meetings, whenever your week has them."
                     />
                     <CompareCard
                         versus="vs. transcription tools"
                         title="Coaching, not archiving"
-                        body="Otter hands you a transcript. Sayzo hands you what to do about it."
+                        body="Otter hands you a transcript of what happened. Sayzo hands you what to say better next time."
                     />
                 </div>
             </section>
@@ -268,11 +270,11 @@ export default function LandingPage() {
             {/* Final CTA */}
             <section className="mx-auto w-full max-w-3xl px-6 pb-24 text-center">
                 <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                    Speak better, one real conversation at a time.
+                    Speak like the professional you already are.
                 </h2>
                 <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                    Start with a few drills today. In thirty days, hear the
-                    difference.
+                    Start drilling today. In thirty days, hear the difference
+                    in your next meeting, your next demo, your next interview.
                 </p>
                 <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                     <Link
