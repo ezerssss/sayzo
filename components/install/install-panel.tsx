@@ -1,28 +1,54 @@
 "use client";
 
 import Link from "next/link";
-import { Apple, ArrowRight, Check, Copy, Monitor } from "lucide-react";
+import {
+    Apple,
+    ArrowRight,
+    Check,
+    Copy,
+    Download,
+    Monitor,
+    Terminal,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-type OS = "windows" | "macos";
+export type OS = "windows" | "macos";
 
-const COMMANDS: Record<OS, { label: string; shell: string; command: string }> = {
+// Bump when publishing a new agent release — download filenames are built from this.
+export const AGENT_VERSION = "0.1.0";
+
+type PlatformCopy = {
+    label: string;
+    shell: string;
+    command: string;
+    downloadUrl: string;
+    fileName: string;
+    minOS: string;
+};
+
+export const PLATFORMS: Record<OS, PlatformCopy> = {
     windows: {
         label: "Windows",
         shell: "PowerShell",
         command: "irm https://sayzo.app/releases/windows/install.ps1 | iex",
+        downloadUrl: `https://sayzo.app/releases/windows/sayzo-agent-setup-${AGENT_VERSION}.exe`,
+        fileName: `sayzo-agent-setup-${AGENT_VERSION}.exe`,
+        minOS: "Windows 10 or newer",
     },
     macos: {
         label: "macOS",
         shell: "Terminal",
         command: "curl -fsSL https://sayzo.app/releases/macos/install.sh | bash",
+        downloadUrl: `https://sayzo.app/releases/macos/Sayzo-Agent-${AGENT_VERSION}.dmg`,
+        fileName: `Sayzo-Agent-${AGENT_VERSION}.dmg`,
+        minOS: "macOS 14.4 or newer",
     },
 };
 
-function detectOS(): OS {
+export function detectOS(): OS {
     if (typeof navigator === "undefined") return "windows";
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes("mac") || ua.includes("iphone") || ua.includes("ipad")) {
@@ -31,24 +57,43 @@ function detectOS(): OS {
     return "windows";
 }
 
+export function otherOS(os: OS): OS {
+    return os === "windows" ? "macos" : "windows";
+}
+
 type Props = {
     showViewAllLink?: boolean;
     headline?: string;
     subhead?: string;
+    // When provided, OS is controlled by the parent (share state with siblings like InstallSteps).
+    os?: OS;
+    onOSChange?: (os: OS) => void;
 };
 
 export function InstallPanel(props: Readonly<Props>) {
     const {
         showViewAllLink,
         headline = "Install the Sayzo desktop companion",
-        subhead = "One terminal command. The companion runs locally and feeds your coaching loop the moments worth working on.",
+        subhead = "Download, double-click, done. Sayzo runs locally and feeds your coaching loop the moments worth working on.",
+        os: controlledOS,
+        onOSChange,
     } = props;
-    const [os, setOS] = useState<OS>("windows");
+    const isControlled = controlledOS !== undefined;
+    const [internalOS, setInternalOS] = useState<OS>("windows");
     const [copied, setCopied] = useState(false);
 
+    const os = isControlled ? controlledOS : internalOS;
+    const setOS = (next: OS) => {
+        if (onOSChange) onOSChange(next);
+        if (!isControlled) setInternalOS(next);
+    };
+
     useEffect(() => {
-        setOS(detectOS());
-    }, []);
+        if (isControlled) return;
+        // Client-only UA detection after hydration; SSR must render the default to match.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setInternalOS(detectOS());
+    }, [isControlled]);
 
     const handleCopy = async (command: string) => {
         try {
@@ -60,6 +105,15 @@ export function InstallPanel(props: Readonly<Props>) {
         }
     };
 
+    const switchOS = () => {
+        setOS(otherOS(os));
+        setCopied(false);
+    };
+
+    const active = PLATFORMS[os];
+    const other = PLATFORMS[otherOS(os)];
+    const OSIcon = os === "macos" ? Apple : Monitor;
+
     return (
         <div className="rounded-2xl border border-border/70 bg-muted/30 p-5">
             <div>
@@ -69,54 +123,67 @@ export function InstallPanel(props: Readonly<Props>) {
                 <p className="mt-1 text-sm text-muted-foreground">{subhead}</p>
             </div>
 
-            <Tabs
-                value={os}
-                onValueChange={(v) => {
-                    setOS(v as OS);
-                    setCopied(false);
-                }}
-                className="mt-4"
-            >
-                <TabsList>
-                    <TabsTrigger value="windows">
-                        <Monitor className="size-3.5" />
-                        Windows
-                    </TabsTrigger>
-                    <TabsTrigger value="macos">
-                        <Apple className="size-3.5" />
-                        macOS
-                    </TabsTrigger>
-                </TabsList>
+            <div className="mt-4">
+                <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                    <OSIcon className="size-3" />
+                    Detected {active.label}
+                </div>
 
-                {(Object.keys(COMMANDS) as OS[]).map((key) => {
-                    const { shell, command } = COMMANDS[key];
-                    return (
-                        <TabsContent key={key} value={key} className="mt-3">
-                            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                                {shell}
-                            </p>
-                            <div className="flex items-stretch gap-2">
-                                <code className="flex-1 overflow-x-auto rounded-lg border border-border/70 bg-background px-3 py-2 font-mono text-xs leading-relaxed">
-                                    {command}
-                                </code>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => void handleCopy(command)}
-                                    aria-label={`Copy ${shell} command`}
-                                >
-                                    {copied ? (
-                                        <Check className="size-3.5" />
-                                    ) : (
-                                        <Copy className="size-3.5" />
-                                    )}
-                                    {copied ? "Copied" : "Copy"}
-                                </Button>
-                            </div>
-                        </TabsContent>
-                    );
-                })}
-            </Tabs>
+                <a
+                    href={active.downloadUrl}
+                    download
+                    className={cn(buttonVariants({ size: "lg" }), "w-full")}
+                >
+                    <Download className="size-4" />
+                    Download for {active.label}
+                </a>
+                <p className="mt-2 text-xs text-muted-foreground">
+                    {active.fileName} · {active.minOS}
+                </p>
+
+                <button
+                    type="button"
+                    onClick={switchOS}
+                    className="mt-3 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                >
+                    Need {other.label} instead?
+                </button>
+            </div>
+
+            <details className="group mt-4 border-t border-border/50 pt-3">
+                <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                    <Terminal className="size-3" />
+                    <span className="group-open:hidden">
+                        Prefer the terminal?
+                    </span>
+                    <span className="hidden group-open:inline">
+                        Hide terminal one-liner
+                    </span>
+                </summary>
+                <div className="mt-3">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                        {active.shell}
+                    </p>
+                    <div className="flex items-stretch gap-2">
+                        <code className="flex-1 overflow-x-auto rounded-lg border border-border/70 bg-background px-3 py-2 font-mono text-xs leading-relaxed">
+                            {active.command}
+                        </code>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handleCopy(active.command)}
+                            aria-label={`Copy ${active.shell} command`}
+                        >
+                            {copied ? (
+                                <Check className="size-3.5" />
+                            ) : (
+                                <Copy className="size-3.5" />
+                            )}
+                            {copied ? "Copied" : "Copy"}
+                        </Button>
+                    </div>
+                </div>
+            </details>
 
             {showViewAllLink ? (
                 <div className="mt-4 flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">

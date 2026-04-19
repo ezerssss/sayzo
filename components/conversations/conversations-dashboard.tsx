@@ -145,7 +145,7 @@ export function ConversationsDashboard(props: Readonly<Props>) {
                 <div className="mt-6 space-y-4">
                     <InstallPanel
                         headline="Nothing here yet — install the companion to fill this up"
-                        subhead="The desktop companion runs quietly on your machine and surfaces the moments worth coaching on. One command to install."
+                        subhead="The desktop companion runs quietly on your machine and surfaces the moments worth coaching on. Pick your OS below to download the installer."
                         showViewAllLink
                     />
                 </div>

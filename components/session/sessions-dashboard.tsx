@@ -714,7 +714,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                         <div className="space-y-4">
                             <InstallPanel
                                 headline="Nothing here yet — install the companion to start capturing"
-                                subhead="The desktop companion runs quietly on your machine and captures the conversations worth coaching on. One command to install."
+                                subhead="The desktop companion runs quietly on your machine and captures the conversations worth coaching on. Pick your OS below to download the installer."
                                 showViewAllLink
                             />
                         </div>

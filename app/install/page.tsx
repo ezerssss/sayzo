@@ -3,12 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import { InstallPanel } from "@/components/install/install-panel";
+import { InstallFlow } from "@/components/install/install-flow";
 
 export const metadata: Metadata = {
     title: "Install the desktop companion — Sayzo",
     description:
-        "One terminal command to install the Sayzo desktop companion. Windows and macOS.",
+        "Download the Sayzo desktop companion for Windows or macOS. Clickable installer, no terminal required.",
 };
 
 export default function InstallPage() {
@@ -106,44 +106,22 @@ export default function InstallPage() {
                 </div>
 
                 <div className="mt-6">
-                    <InstallPanel
+                    <InstallFlow
                         headline="Install it"
-                        subhead="Open a terminal and paste. The installer handles the rest."
+                        subhead="Download the installer for your OS and follow the steps below. Takes a couple of minutes."
                     />
                 </div>
 
                 <div className="mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground">
                     <section>
                         <h2 className="text-base font-semibold tracking-tight text-foreground">
-                            What the installer does
-                        </h2>
-                        <ul className="mt-3 list-inside list-disc space-y-1.5">
-                            <li>
-                                Drops the Sayzo companion into your user
-                                directory — no admin prompts required.
-                            </li>
-                            <li>
-                                Sets it to launch on login, so it&apos;s ready
-                                whenever you are.
-                            </li>
-                            <li>
-                                Opens a browser window to finish pairing the
-                                companion with your Sayzo account.
-                            </li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h2 className="text-base font-semibold tracking-tight text-foreground">
                             Uninstalling
                         </h2>
                         <p className="mt-2">
-                            Stop the background service from your system tray
-                            (Windows) or menu bar (macOS), then delete the{" "}
-                            <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                                ~/.sayzo
-                            </code>{" "}
-                            directory. Nothing else is left behind.
+                            Remove it the same way you&apos;d remove any other
+                            app — through your apps list in Windows Settings,
+                            or by dragging it from Applications to the Trash on
+                            macOS.
                         </p>
                     </section>
 
