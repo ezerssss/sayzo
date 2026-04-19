@@ -3,7 +3,17 @@
 import ky from "ky";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Loader2, Lock, Play, Trash2 } from "lucide-react";
+import {
+    ArrowLeft,
+    ArrowRight,
+    FileText,
+    Lightbulb,
+    Loader2,
+    Lock,
+    Play,
+    Sparkles,
+    Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnalysisView } from "@/components/conversations/analysis-view";
@@ -326,17 +336,18 @@ export function ConversationDetailView(props: Readonly<Props>) {
 
             {/* Title block */}
             <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-4">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>{formatDate(capture.startedAt)}</span>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {formatDate(capture.startedAt)}
+                </p>
+                <h2 className="mt-1 text-lg font-semibold">{title}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{summary}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {duration && <span>{duration}</span>}
                     {duration && (
-                        <>
-                            <span className="text-muted-foreground/50">
-                                &middot;
-                            </span>
-                            <span>{duration}</span>
-                        </>
+                        <span className="text-muted-foreground/50">
+                            &middot;
+                        </span>
                     )}
-                    <span className="text-muted-foreground/50">&middot;</span>
                     <span>
                         {speakerCount}{" "}
                         {speakerCount === 1 ? "speaker" : "speakers"}
@@ -347,8 +358,6 @@ export function ConversationDetailView(props: Readonly<Props>) {
                         error={capture.error}
                     />
                 </div>
-                <h2 className="mt-1 text-lg font-semibold">{title}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{summary}</p>
             </div>
 
             {/* Audio player */}
@@ -370,13 +379,16 @@ export function ConversationDetailView(props: Readonly<Props>) {
                 <Tabs defaultValue="main" className="mt-6">
                     <TabsList className="w-full justify-start gap-1 overflow-x-auto">
                         <TabsTrigger value="main" className="shrink-0">
+                            <FileText className="size-3.5" />
                             Main
                         </TabsTrigger>
                         <TabsTrigger value="coaching" className="shrink-0">
+                            <Lightbulb className="size-3.5" />
                             Coaching
                         </TabsTrigger>
                         <TabsTrigger value="rewrites" className="shrink-0">
-                            Improved Versions
+                            <Sparkles className="size-3.5" />
+                            Improved Version
                         </TabsTrigger>
                     </TabsList>
 
@@ -390,18 +402,24 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             uid={uid}
                         />
                         {transcript.length > 0 && (
-                            <div className="rounded-xl border border-border/70 p-4">
-                                <p className="text-sm font-medium mb-3">
-                                    Transcript
-                                </p>
-                                <TranscriptView
-                                    transcript={transcript}
-                                    teachableMoments={analysis.teachableMoments}
-                                    nativeSpeakerRewrites={
-                                        analysis.nativeSpeakerRewrites
-                                    }
-                                    onSeekToSecond={seekToSecond}
-                                />
+                            <div className="rounded-xl border border-border/70">
+                                <div className="flex items-center justify-between p-4">
+                                    <span className="text-sm font-medium">
+                                        Transcript
+                                    </span>
+                                </div>
+                                <div className="border-t border-border/50 px-4 pb-4 pt-3">
+                                    <TranscriptView
+                                        transcript={transcript}
+                                        teachableMoments={
+                                            analysis.teachableMoments
+                                        }
+                                        nativeSpeakerRewrites={
+                                            analysis.nativeSpeakerRewrites
+                                        }
+                                        onSeekToSecond={seekToSecond}
+                                    />
+                                </div>
                             </div>
                         )}
                     </TabsContent>
@@ -423,7 +441,6 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             analysis={analysis}
                             onSeekToSecond={seekToSecond}
                             section="rewrites"
-                            transcript={transcript}
                             captureId={captureId}
                             uid={uid}
                         />

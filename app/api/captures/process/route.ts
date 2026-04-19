@@ -9,9 +9,7 @@ export async function POST(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET?.trim();
 
     if (!cronSecret) {
-        console.error(
-            "[api/captures/process] CRON_SECRET is not configured",
-        );
+        console.error("[api/captures/process] CRON_SECRET is not configured");
         return NextResponse.json(
             { error: "Server misconfiguration" },
             { status: 500 },
@@ -19,10 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json(
-            { error: "Unauthorized" },
-            { status: 401 },
-        );
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     try {
