@@ -20,18 +20,28 @@ const VERBATIM_PROMPT =
 // ---------------------------------------------------------------------------
 // Hallucination-filter thresholds
 // ---------------------------------------------------------------------------
+//
+// These default to conservative values because the cost of dropping real
+// speech is much worse than the cost of keeping an occasional Whisper
+// hallucination. The biggest learning from the first rollout: a low-gain
+// laptop mic produces quiet-but-real user speech that an absolute channel
+// floor treats as silence. All channel-energy checks are now RELATIVE to
+// the channel's own peak, so a user mic that's quiet overall is still
+// trusted when its segments are at "typical for this mic" levels.
 
-/** Whisper's own confidence the segment is non-speech. OpenAI's recommended drop threshold. */
+/** Whisper's own confidence the segment is non-speech (paired with logprob). */
 const NO_SPEECH_PROB_DROP = 0.6;
-/** Log-probability below which the segment was a low-confidence transcription. */
+/** Log-probability below which Whisper had low confidence (paired with no_speech). */
 const AVG_LOGPROB_DROP = -1.0;
-/** Repetitive gibberish ("thank you thank you thank you…") has very high text compression. */
+/** Repetitive gibberish ("thank you thank you thank you…") compression signal. */
 const COMPRESSION_RATIO_DROP = 2.4;
-/** If the segment's own channel is this quiet, Whisper is transcribing silence. */
-const CHANNEL_SILENCE_FLOOR_RMS = 0.01; // 1% full-scale
-/** If the entire channel is below this for the whole capture, skip the Whisper call. */
-const DEAD_CHANNEL_FLOOR_RMS = 0.005; // 0.5% full-scale
-/** Soft quality thresholds — paired with the phrase denylist to avoid false positives. */
+/** Channel is below this for the whole capture → system-audio tap failed; skip Whisper. */
+const DEAD_CHANNEL_FLOOR_RMS = 0.001; // 0.1% full-scale, -60 dBFS
+/** Extreme relative silence — segment RMS this far below channel peak is clearly non-speech for that mic, regardless of absolute level. */
+const EXTREME_RELATIVE_SILENCE = 0.03; // 3% of channel peak, ~30 dB down
+/** Fraction of the channel's capture-wide peak RMS below which a segment counts as "relatively silent" for the phrase-denylist soft gate. */
+const PHRASE_CHANNEL_RELATIVE_FLOOR = 0.1;
+/** Soft Whisper-signal thresholds paired with the phrase denylist. */
 const PHRASE_NO_SPEECH_SOFT = 0.3;
 const PHRASE_LOGPROB_SOFT = -0.5;
 
@@ -265,30 +275,60 @@ function shouldDropHallucination(
 ): DropDecision {
     if (!seg.text) return { drop: true, reason: "empty_text" };
 
-    if (seg.noSpeechProb > NO_SPEECH_PROB_DROP) {
-        return { drop: true, reason: "no_speech_prob" };
+    // OpenAI Whisper's own drop condition combines BOTH signals (AND, not OR):
+    // - no_speech_prob is inflated on mono/quiet channels even for real speech
+    // - avg_logprob alone dips on short utterances and heavy accents
+    // Only when both fire together is this a confident non-speech segment.
+    if (
+        seg.noSpeechProb > NO_SPEECH_PROB_DROP &&
+        seg.avgLogprob < AVG_LOGPROB_DROP
+    ) {
+        return { drop: true, reason: "no_speech_and_logprob" };
     }
-    if (seg.avgLogprob < AVG_LOGPROB_DROP) {
-        return { drop: true, reason: "avg_logprob" };
-    }
+
+    // Repetitive-gibberish mode ("thank you thank you thank you…") — standalone
+    // signal because real speech never compresses this hard.
     if (seg.compressionRatio > COMPRESSION_RATIO_DROP) {
         return { drop: true, reason: "compression_ratio" };
     }
 
+    // Extreme relative silence — the segment is >30 dB below the channel's own
+    // peak. This is clearly non-speech for THIS mic, regardless of whether
+    // the mic is high- or low-gain overall. Safe for quiet mics because the
+    // threshold scales with the mic's own level, not an absolute floor.
     if (energy) {
         const { left, right } = rmsOverWindow(energy, seg.start, seg.end);
         const chRms = channel === "user" ? left : right;
-        if (chRms < CHANNEL_SILENCE_FLOOR_RMS) {
-            return { drop: true, reason: "channel_silent" };
+        const chPeak =
+            channel === "user" ? energy.maxLeftRms : energy.maxRightRms;
+        if (chPeak > 0 && chRms < chPeak * EXTREME_RELATIVE_SILENCE) {
+            return { drop: true, reason: "extreme_relative_silence" };
         }
     }
 
-    if (
-        isHallucinationPhrase(seg.text) &&
-        (seg.noSpeechProb > PHRASE_NO_SPEECH_SOFT ||
-            seg.avgLogprob < PHRASE_LOGPROB_SOFT)
-    ) {
-        return { drop: true, reason: "phrase_denylist" };
+    // Known-hallucination phrase + at least one soft quality miss. Channel
+    // silence is now RELATIVE to the channel's own peak — a low-gain mic
+    // stays trusted on its own terms instead of being compared to an
+    // absolute floor that assumes pro-mic levels.
+    if (isHallucinationPhrase(seg.text)) {
+        let softMiss =
+            seg.noSpeechProb > PHRASE_NO_SPEECH_SOFT ||
+            seg.avgLogprob < PHRASE_LOGPROB_SOFT;
+        if (!softMiss && energy) {
+            const { left, right } = rmsOverWindow(energy, seg.start, seg.end);
+            const chRms = channel === "user" ? left : right;
+            const chPeak =
+                channel === "user" ? energy.maxLeftRms : energy.maxRightRms;
+            if (
+                chPeak > 0 &&
+                chRms < chPeak * PHRASE_CHANNEL_RELATIVE_FLOOR
+            ) {
+                softMiss = true;
+            }
+        }
+        if (softMiss) {
+            return { drop: true, reason: "phrase_denylist" };
+        }
     }
 
     return { drop: false, reason: "kept" };
