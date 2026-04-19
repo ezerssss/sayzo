@@ -1,6 +1,6 @@
 "use client";
 
-import { Apple, Monitor } from "lucide-react";
+import { Apple, Monitor, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -124,12 +124,16 @@ export function InstallFlow(props: Readonly<Props>) {
         <div className="space-y-6">
             <InstallPanel {...props} os={os} onOSChange={setOS} />
 
-            <div className="rounded-2xl border border-border/70 bg-card p-5">
-                <div className="flex items-center gap-2">
+            <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
+                    <Sparkles className="size-3.5" />
+                    Install guide
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                     <h2 className="text-sm font-semibold tracking-tight">
                         How to install on {active.label}
                     </h2>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-widest text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-widest text-sky-700 ring-1 ring-sky-200/70">
                         <OSIcon className="size-2.5" />
                         {active.label}
                     </span>
@@ -141,7 +145,7 @@ export function InstallFlow(props: Readonly<Props>) {
                 <ol className="mt-4 space-y-4">
                     {steps.map((step, idx) => (
                         <li key={idx} className="flex gap-3">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background">
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sky-600 text-xs font-semibold text-white ring-1 ring-sky-200/60">
                                 {idx + 1}
                             </span>
                             <div className="flex-1 pt-0.5">
