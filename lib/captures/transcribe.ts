@@ -5,8 +5,7 @@ import type { CaptureTranscriptLine } from "@/types/captures";
 import {
     type ChannelEnergy,
     computeChannelEnergy,
-    extractChannelAsMonoOpus,
-    rmsOverWindow,
+    extractChannelAsMonoOpusForWhisper,
 } from "./audio";
 
 const OPENAI_TRANSCRIPTIONS_URL =
@@ -18,63 +17,19 @@ const VERBATIM_PROMPT =
     "Do not rewrite, summarize, or correct grammar.";
 
 // ---------------------------------------------------------------------------
-// Hallucination-filter thresholds
+// Thresholds
 // ---------------------------------------------------------------------------
-//
-// These default to conservative values because the cost of dropping real
-// speech is much worse than the cost of keeping an occasional Whisper
-// hallucination. The biggest learning from the first rollout: a low-gain
-// laptop mic produces quiet-but-real user speech that an absolute channel
-// floor treats as silence. All channel-energy checks are now RELATIVE to
-// the channel's own peak, so a user mic that's quiet overall is still
-// trusted when its segments are at "typical for this mic" levels.
 
-/** Whisper's own confidence the segment is non-speech (paired with logprob). */
-const NO_SPEECH_PROB_DROP = 0.6;
-/** Log-probability below which Whisper had low confidence (paired with no_speech). */
-const AVG_LOGPROB_DROP = -1.0;
-/** Repetitive gibberish ("thank you thank you thank you…") compression signal. */
-const COMPRESSION_RATIO_DROP = 2.4;
-/** Channel is below this for the whole capture → system-audio tap failed; skip Whisper. */
+/** Channel is silent across the whole capture → skip Whisper entirely for it. */
 const DEAD_CHANNEL_FLOOR_RMS = 0.001; // 0.1% full-scale, -60 dBFS
-/** Extreme relative silence — segment RMS this far below channel peak is clearly non-speech for that mic, regardless of absolute level. */
-const EXTREME_RELATIVE_SILENCE = 0.03; // 3% of channel peak, ~30 dB down
-/** Fraction of the channel's capture-wide peak RMS below which a segment counts as "relatively silent" for the phrase-denylist soft gate. */
-const PHRASE_CHANNEL_RELATIVE_FLOOR = 0.1;
-/** Soft Whisper-signal thresholds paired with the phrase denylist. */
-const PHRASE_NO_SPEECH_SOFT = 0.3;
-const PHRASE_LOGPROB_SOFT = -0.5;
-
-/**
- * Phrases Whisper famously hallucinates on silence. Matched by equality
- * against the normalized segment text (lowercased, punctuation-stripped,
- * whitespace-collapsed) — NOT substring — so a user genuinely saying
- * "I want to thank you for this" isn't dropped. Combined with a soft
- * quality-signal check as a second gate.
- */
-const HALLUCINATION_PHRASES: readonly string[] = [
-    "thank you",
-    "thank you very much",
-    "thanks",
-    "thanks for watching",
-    "thank you for watching",
-    "please subscribe",
-    "like and subscribe",
-    "subscribe",
-    "subscribe to the channel",
-    "see you in the next video",
-    "see you next time",
-    "[music]",
-    "(music)",
-    "♪",
-    "subtitles by the amara.org community",
-    "subtitles by",
-    "subtitled by",
-    "transcribed by",
-    "bye",
-    "bye bye",
-    "you",
-];
+/** OpenAI combined drop condition — both signals must fire together. */
+const NO_SPEECH_PROB_DROP = 0.6;
+const AVG_LOGPROB_DROP = -1.0;
+/** Repetitive-gibberish mode — real speech never compresses this hard. */
+const COMPRESSION_RATIO_DROP = 2.4;
+/** Cross-segment repetition detector — phrases this long and repeated this many times on the same channel are loop hallucinations. */
+const REPEATED_PHRASE_MIN_LENGTH = 20;
+const REPEATED_PHRASE_MIN_COUNT = 3;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -94,40 +49,61 @@ type TranscriptionResult = {
     durationSecs: number;
 };
 
-const DEBUG_SPEAKER =
-    process.env.DEBUG?.includes("sayzo:speaker") ?? false;
+type ChannelTranscribeResult = {
+    segments: WhisperSegment[];
+    durationSecs: number;
+};
 
 // ---------------------------------------------------------------------------
-// Public entry point
+// Entry point
 // ---------------------------------------------------------------------------
 
 /**
- * Re-transcribe capture audio per-channel: run Whisper separately on the
- * user mic (left) and system audio (right) so each channel has ground-truth
- * speaker identity. Filters Whisper hallucinations (common on near-silent
- * channels) via a 6-rule defense stack, disambiguates `other_*` labels by
- * overlap against the agent transcript, and merges both sides by timestamp.
+ * Per-channel Whisper transcription with loudness normalization.
+ *
+ * Left channel = user mic (hardcoded convention), right = system audio.
+ * Each channel is isolated as mono, loudness-normalized (so quiet mics
+ * don't starve Whisper into hallucinating subtitle-style filler), and
+ * Whisper'd independently. Left-channel segments become `user` lines;
+ * right-channel segments get disambiguated into `other_1`/`other_2`/etc
+ * by overlap against the agent's `other_*` lines (the only place where
+ * the possibly-unsynced agent timestamps are used — and even then just
+ * for labeling among `other_*`, not for the user-vs-other distinction
+ * which is already ground truth from the channel).
+ *
+ * Defenses against Whisper silence hallucinations:
+ * - Loudness normalization before Whisper (upstream fix — better signal
+ *   → fewer hallucinations)
+ * - `temperature=0` pinned on Whisper (kills the retry-with-higher-temp
+ *   creative loop)
+ * - Cross-segment repetition detector per channel (catches loop
+ *   hallucinations like "if you have any questions, please post them in
+ *   the comments section below" repeating everywhere)
+ * - OpenAI's combined quality-signal drop (`no_speech_prob > 0.6` AND
+ *   `avg_logprob < -1.0`)
+ * - `compression_ratio > 2.4` (repetitive gibberish)
+ * - Short-phrase denylist (`"thank you"`, `"[music]"`, etc. when the
+ *   whole segment IS the phrase)
+ * - Dead-channel guard — skip Whisper for a channel that's silent the
+ *   whole capture
+ *
+ * On any Whisper failure the whole stage throws, and the caller's retry
+ * logic marks the capture `transcribe_failed`.
  */
 export async function retranscribeCapture(
     audioBuffer: Buffer,
     agentTranscript: CaptureTranscriptLine[],
 ): Promise<TranscriptionResult> {
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
-        throw new Error("Missing OPENAI_API_KEY");
-    }
-    const model =
-        process.env.CAPTURE_TRANSCRIBE_MODEL?.trim() || "whisper-1";
-
-    // Per-channel energy envelope feeds the channel-silence hallucination
-    // check and the dead-channel guard. If this fails we continue without
-    // it — quality-signal drops and the phrase denylist still work.
+    // Detect dead channels (system-audio tap failed, mic unplugged) so we
+    // don't spend Whisper dollars on silence. Fall back to running both
+    // channels if the energy check itself fails — we'd rather spend the
+    // extra Whisper call than silently drop a side.
     let energy: ChannelEnergy | null = null;
     try {
         energy = await computeChannelEnergy(audioBuffer);
     } catch (err) {
         console.warn(
-            "[captures/transcribe] channel-energy computation failed, continuing without channel-silence filter:",
+            "[captures/transcribe] channel-energy check failed, running Whisper on both channels anyway:",
             err,
         );
     }
@@ -136,6 +112,14 @@ export async function retranscribeCapture(
         !energy || energy.maxLeftRms >= DEAD_CHANNEL_FLOOR_RMS;
     const rightAlive =
         !energy || energy.maxRightRms >= DEAD_CHANNEL_FLOOR_RMS;
+
+    console.log("[captures/transcribe] channel energy", {
+        maxLeftRms: energy?.maxLeftRms,
+        maxRightRms: energy?.maxRightRms,
+        leftAlive,
+        rightAlive,
+    });
+
     if (energy && !leftAlive) {
         console.warn(
             "[captures/transcribe] left (user) channel silent across whole capture — skipping user transcription",
@@ -147,21 +131,13 @@ export async function retranscribeCapture(
         );
     }
 
-    // Extract each channel as mono OGG Opus and Whisper-transcribe in
-    // parallel. If either Whisper call fails, the whole stage throws and
-    // gets marked transcribe_failed by the caller's retry logic.
-    const emptyResult = { segments: [] as WhisperSegment[], durationSecs: 0 };
+    const empty: ChannelTranscribeResult = {
+        segments: [],
+        durationSecs: 0,
+    };
     const [leftResult, rightResult] = await Promise.all([
-        leftAlive
-            ? extractChannelAsMonoOpus(audioBuffer, "left").then((buf) =>
-                  transcribeMono(buf, apiKey, model),
-              )
-            : Promise.resolve(emptyResult),
-        rightAlive
-            ? extractChannelAsMonoOpus(audioBuffer, "right").then((buf) =>
-                  transcribeMono(buf, apiKey, model),
-              )
-            : Promise.resolve(emptyResult),
+        leftAlive ? transcribeChannel(audioBuffer, "left") : Promise.resolve(empty),
+        rightAlive ? transcribeChannel(audioBuffer, "right") : Promise.resolve(empty),
     ]);
 
     const durationSecs = Math.max(
@@ -169,31 +145,26 @@ export async function retranscribeCapture(
         rightResult.durationSecs,
     );
 
-    const userLines: CaptureTranscriptLine[] = [];
-    for (const seg of leftResult.segments) {
-        const drop = shouldDropHallucination(seg, "user", energy);
-        if (DEBUG_SPEAKER) logSegment("user", seg, drop);
-        if (drop.drop) continue;
-        userLines.push({
-            speaker: "user",
-            start: seg.start,
-            end: seg.end,
-            text: seg.text,
-        });
-    }
+    // Filter each channel independently. Cross-segment repetition is
+    // per-channel so a hallucination that loops through the user's side
+    // doesn't get masked by legitimate backchannels on the other side.
+    const userLines = filterAndTagChannel(
+        leftResult.segments,
+        "user",
+        agentTranscript,
+    );
+    const otherLines = filterAndTagChannel(
+        rightResult.segments,
+        "other",
+        agentTranscript,
+    );
 
-    const otherLines: CaptureTranscriptLine[] = [];
-    for (const seg of rightResult.segments) {
-        const drop = shouldDropHallucination(seg, "other", energy);
-        if (DEBUG_SPEAKER) logSegment("other", seg, drop);
-        if (drop.drop) continue;
-        otherLines.push({
-            speaker: disambiguateOther(seg.start, seg.end, agentTranscript),
-            start: seg.start,
-            end: seg.end,
-            text: seg.text,
-        });
-    }
+    console.log("[captures/transcribe] segment counts", {
+        leftWhisper: leftResult.segments.length,
+        rightWhisper: rightResult.segments.length,
+        userKept: userLines.length,
+        otherKept: otherLines.length,
+    });
 
     const serverTranscript = [...userLines, ...otherLines].sort(
         (a, b) => a.start - b.start,
@@ -203,14 +174,30 @@ export async function retranscribeCapture(
 }
 
 // ---------------------------------------------------------------------------
-// Whisper call
+// Per-channel Whisper call
 // ---------------------------------------------------------------------------
+
+async function transcribeChannel(
+    audioBuffer: Buffer,
+    channel: "left" | "right",
+): Promise<ChannelTranscribeResult> {
+    const monoOpusBuffer = await extractChannelAsMonoOpusForWhisper(
+        audioBuffer,
+        channel,
+    );
+    return transcribeMono(monoOpusBuffer);
+}
 
 async function transcribeMono(
     monoOggBuffer: Buffer,
-    apiKey: string,
-    model: string,
-): Promise<{ segments: WhisperSegment[]; durationSecs: number }> {
+): Promise<ChannelTranscribeResult> {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) {
+        throw new Error("Missing OPENAI_API_KEY");
+    }
+    const model =
+        process.env.CAPTURE_TRANSCRIBE_MODEL?.trim() || "whisper-1";
+
     const blob = new Blob([new Uint8Array(monoOggBuffer)], {
         type: "audio/ogg",
     });
@@ -219,8 +206,8 @@ async function transcribeMono(
     fd.append("file", blob, "audio.ogg");
     fd.append("response_format", "verbose_json");
     fd.append("timestamp_granularities[]", "segment");
-    // Pin temperature to 0 to disable Whisper's retry-with-higher-temperature
-    // loop, which is a major source of hallucinated text on silent stretches.
+    // Pin temperature to 0 — Whisper's temperature-fallback retry loop is
+    // the biggest creative-hallucination source on quiet audio.
     fd.append("temperature", "0");
     fd.append("prompt", VERBATIM_PROMPT);
 
@@ -263,99 +250,134 @@ async function transcribeMono(
 }
 
 // ---------------------------------------------------------------------------
-// Hallucination filter
+// Filter + tag
 // ---------------------------------------------------------------------------
 
-type DropDecision = { drop: boolean; reason: string };
-
-function shouldDropHallucination(
-    seg: WhisperSegment,
+function filterAndTagChannel(
+    segments: WhisperSegment[],
     channel: "user" | "other",
-    energy: ChannelEnergy | null,
-): DropDecision {
-    if (!seg.text) return { drop: true, reason: "empty_text" };
+    agentTranscript: CaptureTranscriptLine[],
+): CaptureTranscriptLine[] {
+    const repeated = detectRepeatedHallucinations(segments);
 
-    // OpenAI Whisper's own drop condition combines BOTH signals (AND, not OR):
-    // - no_speech_prob is inflated on mono/quiet channels even for real speech
-    // - avg_logprob alone dips on short utterances and heavy accents
-    // Only when both fire together is this a confident non-speech segment.
+    const kept: CaptureTranscriptLine[] = [];
+    let dropped = 0;
+    const dropSample: string[] = [];
+
+    for (const seg of segments) {
+        const drop = shouldDropSegment(seg, repeated);
+        if (drop) {
+            dropped++;
+            if (dropSample.length < 5) dropSample.push(`"${seg.text}"`);
+            continue;
+        }
+        const speaker =
+            channel === "user"
+                ? "user"
+                : disambiguateOther(seg.start, seg.end, agentTranscript);
+        kept.push({
+            speaker,
+            start: seg.start,
+            end: seg.end,
+            text: seg.text,
+        });
+    }
+
+    if (dropped > 0) {
+        console.log(`[captures/transcribe] dropped ${dropped} ${channel} segments`, {
+            examples: dropSample,
+        });
+    }
+
+    return kept;
+}
+
+function shouldDropSegment(
+    seg: WhisperSegment,
+    repeated: Set<string>,
+): boolean {
+    if (!seg.text) return true;
+
+    // Cross-segment repetition — catches "if you have any questions…"
+    // looping across the whole channel.
+    if (repeated.has(normalizeForMatch(seg.text))) return true;
+
+    // OpenAI combined drop condition — AND, not OR. Mono audio tends to
+    // have elevated no_speech_prob even on real speech, so a single
+    // signal alone isn't enough.
     if (
         seg.noSpeechProb > NO_SPEECH_PROB_DROP &&
         seg.avgLogprob < AVG_LOGPROB_DROP
     ) {
-        return { drop: true, reason: "no_speech_and_logprob" };
+        return true;
     }
 
-    // Repetitive-gibberish mode ("thank you thank you thank you…") — standalone
-    // signal because real speech never compresses this hard.
-    if (seg.compressionRatio > COMPRESSION_RATIO_DROP) {
-        return { drop: true, reason: "compression_ratio" };
-    }
+    // Repetitive gibberish within a single segment.
+    if (seg.compressionRatio > COMPRESSION_RATIO_DROP) return true;
 
-    // Extreme relative silence — the segment is >30 dB below the channel's own
-    // peak. This is clearly non-speech for THIS mic, regardless of whether
-    // the mic is high- or low-gain overall. Safe for quiet mics because the
-    // threshold scales with the mic's own level, not an absolute floor.
-    if (energy) {
-        const { left, right } = rmsOverWindow(energy, seg.start, seg.end);
-        const chRms = channel === "user" ? left : right;
-        const chPeak =
-            channel === "user" ? energy.maxLeftRms : energy.maxRightRms;
-        if (chPeak > 0 && chRms < chPeak * EXTREME_RELATIVE_SILENCE) {
-            return { drop: true, reason: "extreme_relative_silence" };
-        }
-    }
+    // Short canonical hallucinations — exact match only so "I want to
+    // thank you for this" isn't dropped.
+    if (isShortKnownHallucination(seg.text)) return true;
 
-    // Known-hallucination phrase + at least one soft quality miss. Channel
-    // silence is now RELATIVE to the channel's own peak — a low-gain mic
-    // stays trusted on its own terms instead of being compared to an
-    // absolute floor that assumes pro-mic levels.
-    if (isHallucinationPhrase(seg.text)) {
-        let softMiss =
-            seg.noSpeechProb > PHRASE_NO_SPEECH_SOFT ||
-            seg.avgLogprob < PHRASE_LOGPROB_SOFT;
-        if (!softMiss && energy) {
-            const { left, right } = rmsOverWindow(energy, seg.start, seg.end);
-            const chRms = channel === "user" ? left : right;
-            const chPeak =
-                channel === "user" ? energy.maxLeftRms : energy.maxRightRms;
-            if (
-                chPeak > 0 &&
-                chRms < chPeak * PHRASE_CHANNEL_RELATIVE_FLOOR
-            ) {
-                softMiss = true;
-            }
-        }
-        if (softMiss) {
-            return { drop: true, reason: "phrase_denylist" };
-        }
-    }
-
-    return { drop: false, reason: "kept" };
+    return false;
 }
 
-function isHallucinationPhrase(text: string): boolean {
-    const n = text
+// ---------------------------------------------------------------------------
+// Cross-segment repetition
+// ---------------------------------------------------------------------------
+
+function detectRepeatedHallucinations(
+    segments: WhisperSegment[],
+): Set<string> {
+    const counts = new Map<string, number>();
+    for (const seg of segments) {
+        const norm = normalizeForMatch(seg.text);
+        if (norm.length < REPEATED_PHRASE_MIN_LENGTH) continue;
+        counts.set(norm, (counts.get(norm) ?? 0) + 1);
+    }
+    const repeated = new Set<string>();
+    for (const [phrase, count] of counts) {
+        if (count >= REPEATED_PHRASE_MIN_COUNT) repeated.add(phrase);
+    }
+    return repeated;
+}
+
+function normalizeForMatch(text: string): string {
+    return text
         .toLowerCase()
-        .replace(/[.,!?;:"']/g, "")
+        .replace(/[.,!?;:"'()[\]]/g, "")
         .replace(/\s+/g, " ")
         .trim();
-    return HALLUCINATION_PHRASES.includes(n);
 }
 
 // ---------------------------------------------------------------------------
-// other_* label disambiguation
+// Short known-hallucination denylist (exact-match only)
 // ---------------------------------------------------------------------------
 
-/**
- * Assign an `other_*` label to a right-channel Whisper segment by finding
- * the agent transcript line with the greatest timestamp overlap, restricted
- * to `other_*` agent lines only. This is the sub-problem overlap matching
- * is actually good at — the agent distinguishes other_1 vs other_2 from
- * prosody/VAD clustering, and the channel signal has already confirmed
- * "not user" for us. Falls back to `other_1` if no agent `other_*` line
- * overlaps (e.g. agent didn't tag anything here).
- */
+const SHORT_HALLUCINATION_PHRASES: ReadonlySet<string> = new Set([
+    "thank you",
+    "thanks",
+    "thanks for watching",
+    "thank you for watching",
+    "please subscribe",
+    "subscribe",
+    "like and subscribe",
+    "[music]",
+    "(music)",
+    "♪",
+    "bye",
+    "bye bye",
+    "you",
+]);
+
+function isShortKnownHallucination(text: string): boolean {
+    return SHORT_HALLUCINATION_PHRASES.has(normalizeForMatch(text));
+}
+
+// ---------------------------------------------------------------------------
+// other_* disambiguation — overlap match against agent's other_* lines only
+// ---------------------------------------------------------------------------
+
 function disambiguateOther(
     start: number,
     end: number,
@@ -375,26 +397,4 @@ function disambiguateOther(
         }
     }
     return bestSpeaker;
-}
-
-// ---------------------------------------------------------------------------
-// Debug logging
-// ---------------------------------------------------------------------------
-
-function logSegment(
-    channel: "user" | "other",
-    seg: WhisperSegment,
-    decision: DropDecision,
-): void {
-    console.log("[sayzo:speaker]", {
-        channel,
-        start: seg.start,
-        end: seg.end,
-        text: seg.text,
-        noSpeechProb: seg.noSpeechProb,
-        avgLogprob: seg.avgLogprob,
-        compressionRatio: seg.compressionRatio,
-        kept: !decision.drop,
-        reason: decision.reason,
-    });
 }

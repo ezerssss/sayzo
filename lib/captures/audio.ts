@@ -103,19 +103,37 @@ export async function extractUserChannel(
 }
 
 /**
- * Extract a single channel as mono OGG Opus (not WAV).
+ * Extract a single channel as mono OGG Opus with loudness normalization
+ * applied. Used for per-channel Whisper transcription.
  *
- * Used for per-channel Whisper transcription: Whisper's request limit is
- * 25 MB, and mono 48 kHz 16-bit WAV is 5.76 MB/min — 60-min captures would
- * blow past the limit. Mono Opus at 48 kbps is voice-transparent and keeps
- * a 60-min channel at ~22 MB.
+ * Why normalization: when a channel is extracted to isolated mono, quiet
+ * stretches (e.g. a user mic recorded at low gain while the other side
+ * speaks via system audio) give Whisper very little signal to anchor to,
+ * and it defaults to YouTube-subtitle-style hallucinations ("if you have
+ * any questions, please post them in the comments section below"). A
+ * loudness-normalized mono track keeps real speech at a consistent level
+ * that Whisper can transcribe reliably.
+ *
+ * Filter chain:
+ * - `pan=mono|c0=cX` — select the channel
+ * - `highpass=f=80` — remove sub-speech rumble (HVAC, desk thumps)
+ * - `loudnorm=I=-16:LRA=11:TP=-1.5` — EBU R128 single-pass loudness
+ *   normalization to streaming target. Safer than `dynaudnorm` on silent
+ *   stretches because it targets integrated loudness, not local gain.
+ *
+ * Output: mono OGG Opus at 48 kbps — voice-transparent, fits 60 min in
+ * ~22 MB (well under Whisper's 25 MB request limit).
  */
-export async function extractChannelAsMonoOpus(
+export async function extractChannelAsMonoOpusForWhisper(
     stereoBuffer: Buffer,
     channel: "left" | "right",
 ): Promise<Buffer> {
     const ffmpegPath = getFfmpegPath();
     const channelIdx = channel === "left" ? "c0" : "c1";
+    const filterChain =
+        `pan=mono|c0=${channelIdx},` +
+        `highpass=f=80,` +
+        `loudnorm=I=-16:LRA=11:TP=-1.5`;
 
     return new Promise((resolve, reject) => {
         const ffmpeg = spawn(ffmpegPath, [
@@ -124,7 +142,7 @@ export async function extractChannelAsMonoOpus(
             "-i",
             "pipe:0",
             "-af",
-            `pan=mono|c0=${channelIdx}`,
+            filterChain,
             "-c:a",
             "libopus",
             "-b:a",
@@ -137,7 +155,6 @@ export async function extractChannelAsMonoOpus(
         const chunks: Buffer[] = [];
         let stderr = "";
         let settled = false;
-
         const settle = (fn: () => void) => {
             if (settled) return;
             settled = true;
@@ -183,33 +200,20 @@ export async function extractChannelAsMonoOpus(
 }
 
 /**
- * Per-channel RMS energy envelope for a stereo capture, used by the speaker
- * tagger to (a) detect a dead channel (system-audio tap failed → right side
- * silent the whole capture) and (b) cross-check Whisper hallucinations
- * against actual signal on the channel they were transcribed from.
+ * Per-channel RMS energy envelope — used by `retranscribeCapture` to
+ * detect dead channels (skip Whisper if the whole channel is silent).
  *
- * RMS values are 0..1 full-scale (int16 divided by 32768 after sqrt).
+ * Values are 0..1 full-scale. Streaming sample processing keeps peak
+ * memory at ~one chunk even for 60-min captures (230 MB of decoded PCM).
  */
 export type ChannelEnergy = {
-    binMs: number;
-    leftRms: Float32Array;
-    rightRms: Float32Array;
     totalMs: number;
     maxLeftRms: number;
     maxRightRms: number;
 };
 
 const ENERGY_SAMPLE_RATE = 16000;
-const ENERGY_BIN_MS = 50;
-const ENERGY_SAMPLES_PER_BIN =
-    (ENERGY_SAMPLE_RATE * ENERGY_BIN_MS) / 1000; // 800 per channel per bin
 
-/**
- * Decode the stereo capture to interleaved 16 kHz s16le PCM and build a
- * coarse (50 ms bin) RMS envelope per channel. Samples are processed in
- * streaming fashion — we never hold the whole decoded PCM in memory (a
- * 60-min stereo capture would be ~230 MB).
- */
 export async function computeChannelEnergy(
     stereoBuffer: Buffer,
 ): Promise<ChannelEnergy> {
@@ -230,13 +234,9 @@ export async function computeChannelEnergy(
             "pipe:1",
         ]);
 
-        const leftRmsValues: number[] = [];
-        const rightRmsValues: number[] = [];
-        let binSumSqL = 0;
-        let binSumSqR = 0;
-        let binSamples = 0;
         let maxLeft = 0;
         let maxRight = 0;
+        let sampleCount = 0;
         let residual = Buffer.alloc(0);
 
         let stderr = "";
@@ -247,23 +247,7 @@ export async function computeChannelEnergy(
             fn();
         };
 
-        const flushBin = () => {
-            if (binSamples === 0) return;
-            const rmsL = Math.sqrt(binSumSqL / binSamples) / 32768;
-            const rmsR = Math.sqrt(binSumSqR / binSamples) / 32768;
-            leftRmsValues.push(rmsL);
-            rightRmsValues.push(rmsR);
-            if (rmsL > maxLeft) maxLeft = rmsL;
-            if (rmsR > maxRight) maxRight = rmsR;
-            binSumSqL = 0;
-            binSumSqR = 0;
-            binSamples = 0;
-        };
-
         ffmpeg.stdout.on("data", (chunk: Buffer) => {
-            // A stereo s16le frame is 4 bytes (L int16 + R int16). Chunks may
-            // split mid-frame, so carry the incomplete tail into the next
-            // chunk via `residual`.
             const data =
                 residual.length > 0 ? Buffer.concat([residual, chunk]) : chunk;
             const fullLen = data.length - (data.length % 4);
@@ -273,14 +257,11 @@ export async function computeChannelEnergy(
                     : Buffer.alloc(0);
 
             for (let i = 0; i < fullLen; i += 4) {
-                const l = data.readInt16LE(i);
-                const r = data.readInt16LE(i + 2);
-                binSumSqL += l * l;
-                binSumSqR += r * r;
-                binSamples++;
-                if (binSamples >= ENERGY_SAMPLES_PER_BIN) {
-                    flushBin();
-                }
+                const l = Math.abs(data.readInt16LE(i)) / 32768;
+                const r = Math.abs(data.readInt16LE(i + 2)) / 32768;
+                if (l > maxLeft) maxLeft = l;
+                if (r > maxRight) maxRight = r;
+                sampleCount++;
             }
         });
 
@@ -291,14 +272,8 @@ export async function computeChannelEnergy(
         ffmpeg.on("close", (code) => {
             settle(() => {
                 if (code === 0) {
-                    flushBin(); // flush any partial bin at EOF
-                    const leftRms = Float32Array.from(leftRmsValues);
-                    const rightRms = Float32Array.from(rightRmsValues);
                     resolve({
-                        binMs: ENERGY_BIN_MS,
-                        leftRms,
-                        rightRms,
-                        totalMs: leftRms.length * ENERGY_BIN_MS,
+                        totalMs: (sampleCount / ENERGY_SAMPLE_RATE) * 1000,
                         maxLeftRms: maxLeft,
                         maxRightRms: maxRight,
                     });
@@ -331,39 +306,3 @@ export async function computeChannelEnergy(
     });
 }
 
-/**
- * Compute RMS over a time window by combining the per-bin RMS values stored
- * in the envelope. Uses the quadratic mean — `sqrt(mean(bin_rms^2))` — which
- * is the correct aggregation when all bins have the same sample count.
- */
-export function rmsOverWindow(
-    energy: ChannelEnergy,
-    startSecs: number,
-    endSecs: number,
-): { left: number; right: number } {
-    const startBin = Math.max(
-        0,
-        Math.floor((startSecs * 1000) / energy.binMs),
-    );
-    const endBin = Math.min(
-        energy.leftRms.length,
-        Math.max(startBin + 1, Math.ceil((endSecs * 1000) / energy.binMs)),
-    );
-    if (endBin <= startBin) {
-        return { left: 0, right: 0 };
-    }
-
-    let sumSqL = 0;
-    let sumSqR = 0;
-    for (let i = startBin; i < endBin; i++) {
-        const l = energy.leftRms[i] ?? 0;
-        const r = energy.rightRms[i] ?? 0;
-        sumSqL += l * l;
-        sumSqR += r * r;
-    }
-    const n = endBin - startBin;
-    return {
-        left: Math.sqrt(sumSqL / n),
-        right: Math.sqrt(sumSqR / n),
-    };
-}
