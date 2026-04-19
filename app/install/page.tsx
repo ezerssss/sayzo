@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 
 import { InstallFlow } from "@/components/install/install-flow";
 
@@ -41,7 +41,8 @@ export default function InstallPage() {
 
             <article className="mx-auto w-full max-w-2xl px-6 pt-6 pb-20">
                 <div className="space-y-3">
-                    <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
+                        <Download className="size-3.5" />
                         Install
                     </p>
                     <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -56,7 +57,7 @@ export default function InstallPage() {
                     </p>
                 </div>
 
-                <div className="mt-8 rounded-2xl border border-border/70 bg-card p-5">
+                <div className="mt-8 rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
                     <h2 className="text-sm font-semibold tracking-tight">
                         What the companion gives you
                     </h2>
@@ -64,7 +65,7 @@ export default function InstallPage() {
                         <li className="flex gap-2.5">
                             <span
                                 aria-hidden
-                                className="mt-[0.55rem] size-1 shrink-0 rounded-full bg-foreground/60"
+                                className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-sky-500"
                             />
                             <span>
                                 <span className="text-foreground">
@@ -77,7 +78,7 @@ export default function InstallPage() {
                         <li className="flex gap-2.5">
                             <span
                                 aria-hidden
-                                className="mt-[0.55rem] size-1 shrink-0 rounded-full bg-foreground/60"
+                                className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-sky-500"
                             />
                             <span>
                                 <span className="text-foreground">
@@ -91,7 +92,7 @@ export default function InstallPage() {
                         <li className="flex gap-2.5">
                             <span
                                 aria-hidden
-                                className="mt-[0.55rem] size-1 shrink-0 rounded-full bg-foreground/60"
+                                className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-sky-500"
                             />
                             <span>
                                 <span className="text-foreground">

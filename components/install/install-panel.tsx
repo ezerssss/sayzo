@@ -115,7 +115,7 @@ export function InstallPanel(props: Readonly<Props>) {
     const OSIcon = os === "macos" ? Apple : Monitor;
 
     return (
-        <div className="rounded-2xl border border-border/70 bg-muted/30 p-5">
+        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
             <div>
                 <h3 className="text-sm font-semibold tracking-tight">
                     {headline}
@@ -124,7 +124,7 @@ export function InstallPanel(props: Readonly<Props>) {
             </div>
 
             <div className="mt-4">
-                <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200/70">
                     <OSIcon className="size-3" />
                     Detected {active.label}
                 </div>
