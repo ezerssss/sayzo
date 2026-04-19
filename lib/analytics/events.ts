@@ -29,7 +29,6 @@ export type AnalyticsEventParams = {
     install_os_switched: { from: DesktopOS; to: DesktopOS };
     desktop_download_clicked: {
         os: DesktopOS;
-        agent_version: string;
         source: InstallPanelSource;
     };
     install_terminal_copied: { os: DesktopOS };

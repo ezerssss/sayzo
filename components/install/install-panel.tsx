@@ -21,9 +21,6 @@ const DOWNLOAD_TIMESTAMP_KEY = "sayzo.desktop.downloadedAt";
 
 export type OS = "windows" | "macos";
 
-// Bump when publishing a new agent release — download filenames are built from this.
-export const AGENT_VERSION = "0.1.0";
-
 type PlatformCopy = {
     label: string;
     shell: string;
@@ -38,16 +35,16 @@ export const PLATFORMS: Record<OS, PlatformCopy> = {
         label: "Windows",
         shell: "PowerShell",
         command: "irm https://sayzo.app/releases/windows/install.ps1 | iex",
-        downloadUrl: `https://sayzo.app/releases/windows/sayzo-agent-setup-${AGENT_VERSION}.exe`,
-        fileName: `sayzo-agent-setup-${AGENT_VERSION}.exe`,
+        downloadUrl: "https://sayzo.app/releases/windows/Sayzo-Agent-Setup.exe",
+        fileName: "Sayzo-Agent-Setup.exe",
         minOS: "Windows 10 or newer",
     },
     macos: {
         label: "macOS",
         shell: "Terminal",
         command: "curl -fsSL https://sayzo.app/releases/macos/install.sh | bash",
-        downloadUrl: `https://sayzo.app/releases/macos/Sayzo-Agent-${AGENT_VERSION}.dmg`,
-        fileName: `Sayzo-Agent-${AGENT_VERSION}.dmg`,
+        downloadUrl: "https://sayzo.app/releases/macos/Sayzo-Agent.dmg",
+        fileName: "Sayzo-Agent.dmg",
         minOS: "macOS 14.4 or newer",
     },
 };
@@ -123,7 +120,6 @@ export function InstallPanel(props: Readonly<Props>) {
     const handleDownloadClick = () => {
         track("desktop_download_clicked", {
             os,
-            agent_version: AGENT_VERSION,
             source: analyticsSource,
         });
         try {
