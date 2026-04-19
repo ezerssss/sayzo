@@ -35,8 +35,8 @@ export const PLATFORMS: Record<OS, PlatformCopy> = {
         label: "Windows",
         shell: "PowerShell",
         command: "irm https://sayzo.app/releases/windows/install.ps1 | iex",
-        downloadUrl: "https://sayzo.app/releases/windows/Sayzo-Agent-Setup.exe",
-        fileName: "Sayzo-Agent-Setup.exe",
+        downloadUrl: "https://sayzo.app/releases/windows/sayzo-agent-setup.exe",
+        fileName: "sayzo-agent-setup.exe",
         minOS: "Windows 10 or newer",
     },
     macos: {
