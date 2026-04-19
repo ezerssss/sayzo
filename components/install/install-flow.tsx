@@ -122,7 +122,12 @@ export function InstallFlow(props: Readonly<Props>) {
 
     return (
         <div className="space-y-6">
-            <InstallPanel {...props} os={os} onOSChange={setOS} />
+            <InstallPanel
+                {...props}
+                os={os}
+                onOSChange={setOS}
+                analyticsSource="install_page"
+            />
 
             <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">

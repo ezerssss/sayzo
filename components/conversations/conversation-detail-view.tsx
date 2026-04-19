@@ -25,6 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCapture } from "@/hooks/use-capture";
 import { usePracticeSessionForCapture } from "@/hooks/use-practice-session-for-capture";
+import { track } from "@/lib/analytics/client";
 import { cn } from "@/lib/utils";
 import { getKyErrorMessage, isKyHttpStatus } from "@/lib/ky-error-message";
 import type { CaptureStatus, CaptureType } from "@/types/captures";
@@ -109,6 +110,14 @@ export function ConversationDetailView(props: Readonly<Props>) {
         captureId,
     );
 
+    const captureOpenedFiredRef = useRef(false);
+    useEffect(() => {
+        if (captureOpenedFiredRef.current) return;
+        if (!capture) return;
+        captureOpenedFiredRef.current = true;
+        track("capture_opened", { source: "desktop" });
+    }, [capture]);
+
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [audioLoading, setAudioLoading] = useState(false);
@@ -191,7 +200,10 @@ export function ConversationDetailView(props: Readonly<Props>) {
     };
 
     const handlePractice = async () => {
-        if (!creditGate.guard()) return;
+        if (!creditGate.guard()) {
+            track("credit_limit_reached", { feature: "replay" });
+            return;
+        }
         setPracticing(true);
         setPracticeError(null);
         try {
@@ -201,9 +213,12 @@ export function ConversationDetailView(props: Readonly<Props>) {
                     timeout: 60_000,
                 })
                 .json<{ sessionId: string }>();
+            track("scenario_replay_started", {});
+            track("credit_consumed", { feature: "replay" });
             router.push(`/app/drills/${res.sessionId}`);
         } catch (err) {
             if (isKyHttpStatus(err, 402)) {
+                track("credit_limit_reached", { feature: "replay" });
                 creditGate.openLimitDialog();
                 return;
             }

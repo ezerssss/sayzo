@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { MarkdownBlock } from "@/components/session/markdown-block";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/analytics/client";
+import { bucketLength } from "@/lib/analytics/events";
 import type { SessionPlanType } from "@/types/sessions";
 
 type Props = {
@@ -184,8 +186,14 @@ export function DrillBriefCard(props: Readonly<Props>) {
 
             let blob: Blob | null = await readCachedAudio(narrationText);
             if (signal?.aborted) return;
+            const textLengthBucket = bucketLength(narrationText.length);
 
-            if (!blob) {
+            if (blob) {
+                track("tts_response_received", {
+                    cache_hit: true,
+                    text_length_bucket: textLengthBucket,
+                });
+            } else {
                 setPlaybackState("loading");
                 setPlaybackError(null);
                 try {
@@ -201,6 +209,10 @@ export function DrillBriefCard(props: Readonly<Props>) {
                     }
                     blob = await res.blob();
                     if (signal?.aborted) return;
+                    track("tts_response_received", {
+                        cache_hit: false,
+                        text_length_bucket: textLengthBucket,
+                    });
                     void writeCachedAudio(narrationText, blob);
                 } catch (err) {
                     if ((err as Error)?.name === "AbortError") return;
@@ -263,6 +275,7 @@ export function DrillBriefCard(props: Readonly<Props>) {
             return;
         }
 
+        track("tts_play_clicked", { context: "drill_prompt" });
         await loadAndPlay();
     }
 

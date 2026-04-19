@@ -13,7 +13,11 @@ import {
 import { useEffect, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { track } from "@/lib/analytics/client";
+import type { InstallPanelSource } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
+
+const DOWNLOAD_TIMESTAMP_KEY = "sayzo.desktop.downloadedAt";
 
 export type OS = "windows" | "macos";
 
@@ -68,6 +72,8 @@ type Props = {
     // When provided, OS is controlled by the parent (share state with siblings like InstallSteps).
     os?: OS;
     onOSChange?: (os: OS) => void;
+    // Where this panel is embedded — used to attribute download clicks in analytics.
+    analyticsSource?: InstallPanelSource;
 };
 
 export function InstallPanel(props: Readonly<Props>) {
@@ -77,6 +83,7 @@ export function InstallPanel(props: Readonly<Props>) {
         subhead = "Download, double-click, done. Sayzo runs locally and feeds your coaching loop the moments worth working on.",
         os: controlledOS,
         onOSChange,
+        analyticsSource = "landing_panel",
     } = props;
     const isControlled = controlledOS !== undefined;
     const [internalOS, setInternalOS] = useState<OS>("windows");
@@ -99,6 +106,7 @@ export function InstallPanel(props: Readonly<Props>) {
         try {
             await navigator.clipboard.writeText(command);
             setCopied(true);
+            track("install_terminal_copied", { os });
             setTimeout(() => setCopied(false), 1500);
         } catch {
             // Clipboard blocked — user can copy manually
@@ -106,8 +114,26 @@ export function InstallPanel(props: Readonly<Props>) {
     };
 
     const switchOS = () => {
-        setOS(otherOS(os));
+        const next = otherOS(os);
+        track("install_os_switched", { from: os, to: next });
+        setOS(next);
         setCopied(false);
+    };
+
+    const handleDownloadClick = () => {
+        track("desktop_download_clicked", {
+            os,
+            agent_version: AGENT_VERSION,
+            source: analyticsSource,
+        });
+        try {
+            window.localStorage.setItem(
+                DOWNLOAD_TIMESTAMP_KEY,
+                String(Date.now()),
+            );
+        } catch {
+            // localStorage may be unavailable (private mode) — best effort only.
+        }
     };
 
     const active = PLATFORMS[os];
@@ -132,6 +158,7 @@ export function InstallPanel(props: Readonly<Props>) {
                 <a
                     href={active.downloadUrl}
                     download
+                    onClick={handleDownloadClick}
                     className={cn(buttonVariants({ size: "lg" }), "w-full")}
                 >
                     <Download className="size-4" />

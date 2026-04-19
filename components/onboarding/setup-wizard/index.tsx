@@ -16,6 +16,7 @@ import {
     type SetupWizardStep,
 } from "@/components/onboarding/setup-wizard/steps";
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { track } from "@/lib/analytics/client";
 import { db } from "@/lib/firebase/client";
 import {
     getKyErrorMessage,
@@ -65,6 +66,16 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             }
         }
     }, [savedDrills]);
+
+    const onboardingStartFiredRef = useRef(false);
+    const onboardingStartedAtRef = useRef<number | null>(null);
+    const onboardingCompletedFiredRef = useRef(false);
+    useEffect(() => {
+        if (onboardingStartFiredRef.current) return;
+        onboardingStartFiredRef.current = true;
+        onboardingStartedAtRef.current = Date.now();
+        track("onboarding_started", {});
+    }, []);
 
     // Submission state
     const [isCreatingProfile, setIsCreatingProfile] = useState(false);
@@ -156,6 +167,21 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                 body: fd,
                 timeout: 330_000,
             });
+            if (!onboardingCompletedFiredRef.current) {
+                onboardingCompletedFiredRef.current = true;
+                const drillCount = drills.filter((d) =>
+                    d.transcript.trim(),
+                ).length;
+                const startedAt = onboardingStartedAtRef.current;
+                const totalDurationSec =
+                    startedAt === null
+                        ? null
+                        : Math.round((Date.now() - startedAt) / 1000);
+                track("onboarding_completed", {
+                    drill_count: drillCount,
+                    total_duration_sec: totalDurationSec,
+                });
+            }
         } catch (error) {
             if (isKyTimeoutLikeError(error)) {
                 setCreateProfileError(
@@ -182,6 +208,13 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             drillResults.current.set(drillType, result);
             savedTranscripts.current.set(drillType, result.transcript);
             void saveDrillToServer(drillType, result.transcript);
+
+            const drillIndex = ONBOARDING_DRILLS.findIndex(
+                (d) => d.drillType === drillType,
+            );
+            track("onboarding_drill_submitted", {
+                drill_index: drillIndex >= 0 ? drillIndex + 1 : 0,
+            });
 
             if (isLastDrill) {
                 void finish();

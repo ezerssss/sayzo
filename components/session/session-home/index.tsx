@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLatestSession } from "@/hooks/use-latest-session";
 import { useSession } from "@/hooks/use-session";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import { track } from "@/lib/analytics/client";
 import {
     getKyErrorMessage,
     isKyHttpStatus,
@@ -215,6 +216,17 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         }
     }, [shouldShowResults, isRecordingNow, drillState]);
 
+    // Fire drill_completed once per session when it first settles into a terminal status.
+    const completedSessionIdRef = useRef<string | null>(null);
+    useEffect(() => {
+        const id = session?.id;
+        const status = session?.completionStatus;
+        if (!id || !status || status === "pending") return;
+        if (completedSessionIdRef.current === id) return;
+        completedSessionIdRef.current = id;
+        track("drill_completed", { completion_status: status });
+    }, [session?.id, session?.completionStatus]);
+
     useEffect(() => {
         if (drillState !== "recording") {
             return;
@@ -309,6 +321,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         if (session?.completionStatus === "skipped") {
             return;
         }
+        const durationSec = Math.max(0, maxSeconds - seconds);
         setHasPendingAnalysisRequest(true);
         const result = await stop();
         if (result?.blob.size) {
@@ -337,6 +350,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                     type: result.mimeType,
                 }),
             );
+            track("drill_submitted", { duration_sec: durationSec });
             await ky.post("/api/sessions/complete", {
                 body: fd,
                 timeout: 330_000,
@@ -345,6 +359,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             setDrillState("complete");
         } catch (error) {
             if (isKyHttpStatus(error, 402)) {
+                track("credit_limit_reached", { feature: "drill" });
                 creditGate.openLimitDialog();
                 setHasPendingAnalysisRequest(false);
                 setDrillState("idle");
@@ -485,6 +500,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
 
     const createNewDrillRequest = async () => {
         if (!creditGate.guard()) {
+            track("credit_limit_reached", { feature: "drill" });
             setIsCreatingDrill(false);
             return;
         }
@@ -495,6 +511,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 json: { uid },
                 timeout: 330_000,
             });
+            track("drill_started", { skill_target: null, category: null });
+            track("credit_consumed", { feature: "drill" });
             setSeconds(maxSeconds);
             setDrillState("idle");
             setView("drill");
@@ -504,6 +522,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             }
         } catch (error) {
             if (isKyHttpStatus(error, 402)) {
+                track("credit_limit_reached", { feature: "drill" });
                 creditGate.openLimitDialog();
                 return;
             }

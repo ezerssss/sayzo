@@ -9,6 +9,7 @@ import {
     User,
 } from "firebase/auth";
 
+import { track } from "@/lib/analytics/client";
 import { auth, googleProvider } from "@/lib/firebase/client";
 
 const BENIGN_SIGNIN_ERROR_CODES = new Set([
@@ -52,6 +53,7 @@ export function useAuthUser() {
         setAuthError(null);
 
         try {
+            track("sign_out", {});
             await firebaseSignOut(auth);
         } catch (error) {
             console.error(error);

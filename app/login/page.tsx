@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { FirebaseError } from "firebase/app";
 import { signInWithPopup } from "firebase/auth";
 
 import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
+import { track } from "@/lib/analytics/client";
 import { auth, googleProvider } from "@/lib/firebase/client";
 
 export default function LoginPage() {
@@ -14,6 +16,7 @@ export default function LoginPage() {
     async function handleSignIn() {
         setLoading(true);
         setError(null);
+        track("sign_in_clicked", { source: "login_page" });
 
         try {
             const result = await signInWithPopup(auth, googleProvider);
@@ -27,10 +30,19 @@ export default function LoginPage() {
 
             if (!res.ok) {
                 const data = await res.json();
+                track("sign_in_failed", {
+                    code: typeof data.error === "string" ? data.error : "callback_error",
+                    stage: "callback",
+                });
                 throw new Error(data.error || "Authentication failed");
             }
 
             const { redirectUrl } = await res.json();
+            const meta = result.user.metadata;
+            const newUser =
+                Boolean(meta.creationTime) &&
+                meta.creationTime === meta.lastSignInTime;
+            track("sign_in_success", { new_user: newUser });
             setDone(true);
             window.location.href = redirectUrl;
         } catch (err) {
@@ -40,6 +52,9 @@ export default function LoginPage() {
                 err.message.includes("popup-closed-by-user")
             ) {
                 return;
+            }
+            if (err instanceof FirebaseError) {
+                track("sign_in_failed", { code: err.code, stage: "popup" });
             }
             setError(
                 err instanceof Error ? err.message : "Something went wrong",

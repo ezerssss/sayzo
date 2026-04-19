@@ -13,6 +13,7 @@ import { CreditLimitDialog } from "@/components/credits/credit-limit-dialog";
 import { RequestAccessDialog } from "@/components/credits/request-access-dialog";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useUserCredits } from "@/hooks/use-user-credits";
+import { track } from "@/lib/analytics/client";
 
 type CreditGateState = {
     remaining: number;
@@ -48,12 +49,16 @@ export function CreditGateProvider({ children }: { children: ReactNode }) {
     const isExhausted =
         !credits.hasFullAccess && credits.remaining <= 0 && !credits.loading;
 
-    const openLimitDialog = useCallback(() => setOpenDialog("limit"), []);
+    const openLimitDialog = useCallback(() => {
+        track("upgrade_dialog_opened", { trigger: "limit_hit" });
+        setOpenDialog("limit");
+    }, []);
     const openRequestDialog = useCallback(() => setOpenDialog("request"), []);
     const closeAll = useCallback(() => setOpenDialog("none"), []);
 
     const guard = useCallback(() => {
         if (isExhausted) {
+            track("upgrade_dialog_opened", { trigger: "guard" });
             setOpenDialog("limit");
             return false;
         }

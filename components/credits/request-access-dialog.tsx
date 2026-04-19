@@ -14,6 +14,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { track } from "@/lib/analytics/client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 
 interface PropsInterface {
@@ -52,6 +53,7 @@ export function RequestAccessDialog(props: Readonly<PropsInterface>) {
                     timeout: 20_000,
                 })
                 .json();
+            track("full_access_requested", {});
             setSubmitted(true);
         } catch (err) {
             setError(

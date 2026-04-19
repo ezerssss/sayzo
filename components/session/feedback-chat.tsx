@@ -25,6 +25,8 @@ import ReactMarkdown from "react-markdown";
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import { track } from "@/lib/analytics/client";
+import { bucketLength } from "@/lib/analytics/events";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import { cn } from "@/lib/utils";
 
@@ -213,6 +215,11 @@ export function FeedbackChat({
         const text = input.trim();
         if (!text || isBusy) return;
         setInput("");
+        track("feedback_chat_message_sent", {
+            source,
+            length_bucket: bucketLength(text.length),
+            via: "text",
+        });
         sendMessage({ text });
     };
 
@@ -243,6 +250,11 @@ export function FeedbackChat({
                     .json<{ text?: string }>();
                 const text = data.text?.trim() ?? "";
                 if (text) {
+                    track("feedback_chat_message_sent", {
+                        source,
+                        length_bucket: bucketLength(text.length),
+                        via: "voice",
+                    });
                     sendMessage({ text });
                 } else {
                     setVoiceError(
@@ -274,7 +286,10 @@ export function FeedbackChat({
         return (
             <button
                 type="button"
-                onClick={() => setIsOpen(true)}
+                onClick={() => {
+                    track("feedback_chat_opened", { source });
+                    setIsOpen(true);
+                }}
                 className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
                 <MessageCircle className="size-3.5" />

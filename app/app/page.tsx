@@ -8,6 +8,7 @@ import { SessionsDashboard } from "@/components/session/sessions-dashboard";
 import { useAllCaptures } from "@/hooks/use-all-captures";
 import { useAllSessions } from "@/hooks/use-all-sessions";
 import { useAuthUser } from "@/hooks/use-auth-user";
+import { track } from "@/lib/analytics/client";
 import { getKyErrorMessage, isKyHttpStatus } from "@/lib/ky-error-message";
 
 export default function DashboardPage() {
@@ -35,7 +36,10 @@ export default function DashboardPage() {
               : "drills";
 
     const handleStartNewDrill = async (category?: string) => {
-        if (!creditGate.guard()) return;
+        if (!creditGate.guard()) {
+            track("credit_limit_reached", { feature: "drill" });
+            return;
+        }
         const json: Record<string, string> = { uid: user.uid };
         if (category) json.category = category;
         try {
@@ -43,9 +47,15 @@ export default function DashboardPage() {
                 json,
                 timeout: 330_000,
             });
+            track("drill_started", {
+                skill_target: null,
+                category: category ?? null,
+            });
+            track("credit_consumed", { feature: "drill" });
             router.push("/app/drills/latest");
         } catch (err) {
             if (isKyHttpStatus(err, 402)) {
+                track("credit_limit_reached", { feature: "drill" });
                 creditGate.openLimitDialog();
                 return;
             }
