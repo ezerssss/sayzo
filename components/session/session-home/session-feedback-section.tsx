@@ -1,3 +1,5 @@
+import { FileText, Lightbulb, Sparkles } from "lucide-react";
+
 import { CoachingMomentsView } from "@/components/session/coaching-moments-view";
 import { FeedbackPanel } from "@/components/session/feedback-panel";
 import { ImprovedVersionView } from "@/components/session/improved-version-view";
@@ -65,12 +67,15 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
         <Tabs defaultValue="main" className="mt-6">
             <TabsList className="w-full justify-start gap-1 overflow-x-auto">
                 <TabsTrigger value="main" className="shrink-0">
+                    <FileText className="size-3.5" />
                     Main
                 </TabsTrigger>
                 <TabsTrigger value="coaching" className="shrink-0">
+                    <Lightbulb className="size-3.5" />
                     Coaching
                 </TabsTrigger>
                 <TabsTrigger value="native-speaker" className="shrink-0">
+                    <Sparkles className="size-3.5" />
                     Improved Version
                 </TabsTrigger>
             </TabsList>

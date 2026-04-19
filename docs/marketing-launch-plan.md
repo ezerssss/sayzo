@@ -1,21 +1,25 @@
-# Sayzo Launch Plan — 30-Day Paid Video Test
+# Sayzo Launch Plan — 3-Week Paid Video Test
 
-A 30-day paid short-form video test on TikTok and Instagram Reels to find out whether paid video is a viable acquisition channel for Sayzo. You'll post 10 videos (5 concepts × 2 variants), one every 3 days, each boosted for 3 days on both platforms at equal spend. Every video is a 15-second relatable workplace moment (meme-flavored) ending with a 3-second Sayzo brand card. By day 31 you'll have a clean yes/no on whether to scale, iterate, or kill this channel.
+A 3-week paid short-form video test on TikTok and Instagram Reels to find out whether paid video is a viable acquisition channel for Sayzo. The sprint is structured as three one-week passes with a weekend checkpoint between each — so you can read the data, pivot, and reinvest before committing the next chunk of budget. Total budget is PHP 15,000 across 8 videos plus a PHP 3,000 reserve for reallocation to the winning concept. Every video is a 15-second relatable workplace moment (meme-flavored) ending with a 3-second Sayzo brand card. By day 22 you'll have a clean call on whether to scale, iterate, or kill this channel.
 
-This is your sprint — own the prep, the execution, the reporting, and the final call.
+This is your sprint — own the prep, the execution, the weekly reviews, and the final call.
 
 ---
 
 ## Prep work — do this before day 1
 
-- [ ] **Fill in the economics table** in the *Decision rule* section. The day-31 call is meaningless without real numbers here.
-- [ ] **Build the 4 landing pages** (one per angle: standup, meetings, clients, career). Each echoes the angle's pain, then hands off to the main sayzo.com pitch. UTMs must parse and flow into signup records.
-- [ ] **Wire retention tracking** so every signup records: first-drill timestamp, second-drill-in-≤14-days, desktop companion install, paid conversion. Without this, CAC is vanity.
+- [ ] **Build the 4 landing pages**, one per angle, each mapped to the concepts below. Each echoes the angle's pain, then hands off to the main sayzo.com pitch. UTMs must parse and flow into signup records.
+    - `/standup` — Concept 1 (Standup Freeze)
+    - `/meetings` — Concept 2 (Mute Button Regret)
+    - `/clients` — Concept 3 (3 AM Client Call)
+    - `/career` — Concepts 4 & 5 (Over-Rehearsed Answer, Performance Review Undersell)
+- [ ] **Wire retention tracking** so every signup records: first-drill timestamp, second session in ≤14 days (≥24h after the first), desktop companion install, 10-drill cap hit. These are the validation signals — without them the readout is vanity.
+- [ ] **Decide the "someone wants to pay" path.** Sayzo has no productized checkout yet, so if a user hits the 10-drill cap and asks for more, handle it manually (email + Stripe link, or manual entitlement grant). Write the one-sentence playbook before day 1 so no one is improvising on a live signup.
 - [ ] **Stand up the tracking sheet** (columns in the *Tracking* section below).
 - [ ] **Set up ad accounts** on TikTok and Meta, with daily caps.
 - [ ] **Subscribe to Kling and ElevenLabs.** See *Tools*.
 - [ ] **Spend 20 minutes using Sayzo yourself** — run two drills, install the desktop companion, watch a drill generated from a real meeting. You can't market it without feeling it.
-- [ ] **Pre-produce V1a end-to-end** before day 1. The first video reveals what the production workflow really is — lock it before you're on the clock.
+- [ ] **Pre-produce the week 1 videos end-to-end** before day 1. The first videos reveal what the production workflow really is — lock it before you're on the clock.
 
 ---
 
@@ -34,13 +38,28 @@ Free tier: 10 drills, no credit card.
 
 ---
 
+## Why this sprint exists
+
+This experiment exists to gate a bigger decision: **should we invest the engineering and business time to integrate a payment provider?** Onboarding with Stripe (or PayMongo, or similar) is real work — setup, compliance paperwork, webhook plumbing, an ongoing relationship — and it's the wrong thing to sink time into for a product that hasn't shown any pull.
+
+So rather than approach a payment provider on a hunch and risk building checkout for a dead idea, we use this sprint as the signal:
+
+- **Engagement shows up** (users return, install the companion, hit the 10-drill cap) → green light. Start the payment-provider integration for sprint 2.
+- **Engagement doesn't show up** → don't approach a provider yet. The bottleneck isn't checkout, it's fit or activation. Fix those first.
+
+The PHP 15K here is the cost of *not* guessing.
+
+---
+
 ## The one question this test answers
 
-**Does paid short-form video acquire trials from Filipinos working remote for US/EU companies at a CAC that's viable for Sayzo?**
+**Does paid short-form video acquire genuinely engaged trials from Filipinos working remote for US/EU companies — at a cost that makes sense for Sayzo?**
 
-Secondary questions (useful but not decision-weight): which angle pulls hardest, TikTok vs Instagram at equal spend, does meme-format work for this audience.
+"Genuinely engaged" means *second session ≥24h after the first* at minimum, and ideally *companion install* or *10-drill cap hit*. A signup that does one drill and never returns doesn't count as validation of anything except that the video got a click.
 
-Don't let "we learned a lot" substitute for a clear yes/no at day 31. The whole point is to make a real decision.
+Secondary questions (useful but not decision-weight): which angle pulls hardest, TikTok vs Instagram at equal spend, does meme-format work for this audience, does execution matter more than concept.
+
+Don't let "we learned a lot" substitute for a clear call at day 22. The whole point is to make a real decision.
 
 ---
 
@@ -66,48 +85,57 @@ Don't let "we learned a lot" substitute for a clear yes/no at day 31. The whole 
 - **Total ad spend**: PHP 15,000 (~USD 260)
 - **Per video**: PHP 1,500 = PHP 750 TikTok + PHP 750 Instagram
 - **Boost window**: 3 days per video
-- **Structure**: 5 concepts × 2 variants = 10 videos
+- **Structure**: 2 + 3 + 3 = 8 videos across 3 weeks, plus PHP 3,000 reserve
+- **Week 1**: PHP 3,000 (2 videos) — diagnostic
+- **Week 2**: PHP 4,500 (3 videos) — breadth
+- **Week 3**: PHP 4,500 (3 videos) + PHP 3,000 winner reallocation
 - Tool subscriptions (Kling, ElevenLabs) are separate from ad spend.
 
 ---
 
 ## Tools
 
-**Kling** for video generation. **ElevenLabs** for voiceover (neutral Filipino-accented English voice). Use any editor you like for stitching clips, laying voice, adding subtitles, and appending the CTA end-card. The first video will show you what the workflow needs to look like.
+**Kling** for video generation. **ElevenLabs** for voiceover (neutral Filipino-accented English voice). Use any editor you like for stitching clips, laying voice, adding subtitles, and appending the CTA end-card. The first videos will show you what the workflow needs to look like.
 
 ---
 
 ## Posting schedule
 
-Pass 1 runs variant A of all 5 concepts (days 1–15). Pass 2 runs variant B (days 16–30). Variants of the same concept never compete head-to-head.
+The sprint is three weekly passes. Each week ends with a weekend checkpoint before the next week's spend is committed. Week 1 tests two different angles to confirm the funnel works end-to-end. Week 2 covers the remaining three angles. Week 3 doubles down on the winners with execution variants, and the PHP 3K reserve is reallocated to the best-performing video.
 
 | Day | Action |
 |-----|--------|
+| **Week 1 — diagnostic** | |
 | 1 | Post V1a · Standup Freeze · boost 1–3 |
-| 4 | Post V2a · Mute Button Regret · boost 4–6 |
-| 7 | Post V3a · 3 AM Client Call · boost 7–9 |
+| 4 | Post V3a · 3 AM Client Call · boost 4–6 |
+| 7 | **Weekend 1 checkpoint** — go/no-go on funnel |
+| **Week 2 — breadth** | |
+| 8 | Post V2a · Mute Button Regret · boost 8–10 |
 | 10 | Post V4a · Over-Rehearsed Answer · boost 10–12 |
-| 13 | Post V5a · Performance Review Undersell · boost 13–15 |
-| 16 | Post V1b · boost 16–18 · **MIDPOINT CHECKPOINT** |
-| 19 | Post V2b · boost 19–21 |
-| 22 | Post V3b · boost 22–24 |
-| 25 | Post V4b · boost 25–27 |
-| 28 | Post V5b · boost 28–30 |
-| 31 | Readout |
+| 12 | Post V5a · Performance Review Undersell · boost 12–14 |
+| 14 | **Weekend 2 checkpoint** — identify winning angle/concept |
+| **Week 3 — scale winners** | |
+| 15 | Post V_b · variant B of week 2's top concept · boost 15–17 |
+| 17 | Post V_c · a second execution of the winner (new actor/setting) · boost 17–19 |
+| 19 | Post V_wildcard · variant B of a runner-up OR a new hook on the winner · boost 19–21 |
+| 19–21 | Reallocate the PHP 3K reserve to the best-performing week-3 video |
+| 22 | **Final readout** |
 
 **Post time**: 7 PM Philippines Time. Same file goes to both TikTok and Instagram Reels.
+
+Week-3 video selection is deliberately left open — it depends on what week 2 reveals. The plan is *variants of the winning concept*, not three fresh ideas. If everything ties, default to variant B of the concept with the most signups.
 
 ---
 
 ## The 5 concepts (with prompts)
 
-Each concept has a variant A (the prompt as written) and a variant B (same script, regenerated with a small twist in actor or setting). Variants test execution within a concept — not two different concepts.
+Each concept has a variant A (the prompt as written) and a variant B (same script, regenerated with a small twist in actor or setting). Variants test execution within a concept — not two different concepts. Not every concept gets both variants in this sprint; variant B usage depends on week 2 findings.
 
 Every video is 15 seconds: ~12 seconds of scene + 3-second CTA end-card.
 
 ---
 
-### Concept 1 — "The Standup Freeze" · angle: standup
+### Concept 1 — "The Standup Freeze" · angle: standup · landing: /standup
 
 **Hook**: Boss calls on you in standup. Brain goes blank. You mumble filler.
 
@@ -118,7 +146,7 @@ Every video is 15 seconds: ~12 seconds of scene + 3-second CTA end-card.
 
 ---
 
-### Concept 2 — "The Mute Button Regret" · angle: meetings
+### Concept 2 — "The Mute Button Regret" · angle: meetings · landing: /meetings
 
 **Hook**: You had the perfect response. You were muted. Conversation moves on.
 
@@ -129,7 +157,7 @@ Every video is 15 seconds: ~12 seconds of scene + 3-second CTA end-card.
 
 ---
 
-### Concept 3 — "The 3 AM Client Call" · angle: clients
+### Concept 3 — "The 3 AM Client Call" · angle: clients · landing: /clients
 
 **Hook**: You're in pajamas, 3 AM, coffee in hand. About to join a call with fresh, loud Americans.
 
@@ -140,7 +168,7 @@ Every video is 15 seconds: ~12 seconds of scene + 3-second CTA end-card.
 
 ---
 
-### Concept 4 — "The Over-Rehearsed Answer" · angle: interviews
+### Concept 4 — "The Over-Rehearsed Answer" · angle: interviews · landing: /career
 
 **Hook**: You practiced the answer 50 times. You open your mouth. It falls apart.
 
@@ -151,7 +179,7 @@ Every video is 15 seconds: ~12 seconds of scene + 3-second CTA end-card.
 
 ---
 
-### Concept 5 — "The Performance Review Undersell" · angle: promotion
+### Concept 5 — "The Performance Review Undersell" · angle: promotion · landing: /career
 
 **Hook**: Manager asks about your year. You list five huge wins in one breath. Cut to an American coworker spinning one task into a saga.
 
@@ -162,15 +190,21 @@ Every video is 15 seconds: ~12 seconds of scene + 3-second CTA end-card.
 
 ---
 
+## Gap worth acknowledging
+
+The landing page surfaces four drill categories, including **1:1s & hard conversations**. This sprint does **not** test that angle — it's reserved for a follow-up sprint so the concept-vs-execution reads here stay clean. If weeks 1–3 show meme-format works at all, 1:1s is the natural first addition for sprint 2.
+
+---
+
 ## Per-video cadence
 
-Every 3 days: produce the next video from the schedule, post to TikTok and Instagram Reels at 7 PM PHT with a caption, boost PHP 750 per platform for 3 days with correct UTMs, log the post in the tracking sheet. Update the sheet daily while boosts are running.
+On each posting day: produce the scheduled video, post to TikTok and Instagram Reels at 7 PM PHT with a caption, boost PHP 750 per platform for 3 days with correct UTMs, log the post in the tracking sheet. Update the sheet daily while boosts are running.
 
 ### UTM format (don't deviate — attribution depends on this)
 
-`sayzo.com/s/{landing}?utm_source={tiktok|instagram}&utm_medium=paid-video&utm_campaign={angle}&utm_content={video-id}`
+`sayzo.com/{landing}?utm_source={tiktok|instagram}&utm_medium=paid-video&utm_campaign={angle}&utm_content={video-id}`
 
-Example for V1a on TikTok: `...?utm_source=tiktok&utm_medium=paid-video&utm_campaign=standup&utm_content=v1a`
+Example for V1a on TikTok: `sayzo.com/standup?utm_source=tiktok&utm_medium=paid-video&utm_campaign=standup&utm_content=v1a`
 
 ### Caption bank (pick one, add URL)
 
@@ -187,52 +221,72 @@ Example for V1a on TikTok: `...?utm_source=tiktok&utm_medium=paid-video&utm_camp
 **Tab 1 — Daily performance** (one row per video per platform per day of boost):
 `Date · Video ID · Concept · Variant · Platform · Daily Spend · Views · Clicks · Signups · First drill completed`
 
-**Tab 2 — Retention** (one row per signup; update on days 15 and 30):
-`Signup date · Source video · utm_campaign · utm_content · First drill completed date · Second drill in ≤14 days? · Desktop companion installed? · Paid conversion?`
+**Tab 2 — Engagement** (one row per signup; update continuously, snapshot at each checkpoint):
+`Signup date · Source video · utm_campaign · utm_content · First drill completed date · Second session in ≤14 days (≥24h gap)? · Desktop companion installed? · 10-drill cap hit? · Manual paid upgrade requested?`
 
-Tab 2 is what turns CAC from vanity into a real signal. Don't skip it.
+Tab 2 is what turns clicks from vanity into a real signal. Don't skip it.
 
 ---
 
 ## Keeping the team in the loop
 
-Weekly status update to the team channel — what shipped, current spend/signups/returners, any blocker. Short. The tracking sheet has the detail.
+Post a short status update to the team channel after each weekend checkpoint — what shipped, current spend/signups/returners, any blocker. The tracking sheet has the detail.
 
-Day 16 midpoint note + day 31 readout are shared with the team (spec in *Checkpoints*).
+Weekend checkpoint notes and the day-22 readout are shared with the team (spec in *Checkpoints*).
 
 ---
 
 ## Checkpoints
 
-**Day 16 — midpoint** (all variant A done; variant B pass starting):
-- **One platform clearly outperforming** at equal spend (3× clicks or more)? Reallocate remaining budget to a single-platform boost (PHP 1,500 on the winner per video for V2b–V5b).
-- **One concept looks dead** across both platforms (0 signups from V_a)? Keep V_b anyway — the whole point of variants is distinguishing concept from execution.
-- **Zero signups across *all* V_a videos?** Stop. Something is broken upstream — landing pages, targeting, or tracking. Diagnose before spending more.
+**Weekend 1 (day 7) — funnel diagnostic.** Two videos, ~PHP 3K spent. Looking for *proof of life*:
 
-**Day 31 — final readout** (1 page, shared with the team):
-- Total spend, total trials, total week-2 returners, total companion installs, paid conversions.
-- CAC per trial · CAC per week-2 returner · CAC per install.
-- Winning concept (rank by CAC per returner, not CAC per signup — that's vanity).
+- **Zero signups across both V1a and V3a?** Stop. Something is broken upstream — landing pages, targeting, tracking, or the offer itself. Do not commit week 2's PHP 4.5K until the break is fixed.
+- **At least one signup, first-drill completed?** Funnel is alive. Proceed to week 2.
+- **Strong pull on one angle already?** Note it, but don't over-index on n=2. Week 2 will tell you if it's the angle or the execution.
+
+**Weekend 2 (day 14) — pick the winner.** Five videos in the can, all variant A, one per angle. Looking for *which angle to double down on*:
+
+- **Rank by signups × second-session rate**, not raw views.
+- **Clearest winner?** Week 3 runs variants B/C of that concept.
+- **Two angles tied?** Do variant B of each in week 3 — that's one execution variant per angle instead of two per one concept. Less statistical power, but honest about the data.
+- **One platform clearly outperforming at equal spend** (3× clicks or more on the winner)? Route week 3's spend to a single-platform boost.
+
+**Day 22 — final readout** (1 page, shared with the team):
+- Total spend, total signups, total second-session returners, total companion installs, total 10-drill cap hits, any manual paid upgrades.
+- Effective cost per engaged trial (second-session returner) · cost per companion install · cost per cap hit.
+- Winning concept (rank by cost per engaged trial, not by signups alone).
 - Winning platform.
-- Within each concept, did variant A vs B vary wildly? (High variance = execution matters; low variance = concept matters.)
+- Within the winner, did variant A vs B/C vary wildly? (High variance = execution matters; low variance = concept matters.)
 - Decision: scale / iterate / kill.
 
 ---
 
-## Decision rule (day 31)
+## Decision rule (day 22)
 
-### Economics (fill in during prep)
+Since there's no productized checkout, engagement is the validation signal — not paid CAC. The rule is tiered by how strong the engagement signal is.
 
-| Field | Value |
-|-------|-------|
-| Sayzo LTV (estimate, 12-month) | PHP _______ |
-| Trial → paid conversion rate | _______ % |
-| Target LTV:CAC ratio | 3:1 (default — adjust if desired) |
-| **Max viable CAC per paying user** | = LTV ÷ ratio → PHP _______ |
-| **Max viable CAC per trial** | = max-CAC-per-paying × trial-to-paid rate → PHP _______ |
+### Strong validation → scale
 
-### Rule
+- **≥1 user hits the 10-drill cap AND installs the desktop companion**, OR
+- **≥5 users have a second session in ≤14 days** (≥24h after the first), AND **cost per engaged trial ≤ PHP 500**.
 
-- **CAC per trial ≤ (max viable CAC per trial)** AND **≥ 20% of trials complete a second drill within 14 days** → **scale**: 3× spend on the winning concept for 2 more weeks.
-- **CAC within ~1.5× max** OR **retention 10–20%** → **iterate**: same budget, 10 more videos in the winning concept's style, AND fix second-drill onboarding before scaling.
-- **CAC > 2× max** OR **retention < 10%** → **kill the channel for now**: the problem isn't acquisition, it's activation/retention. Fix those before more ad spend.
+→ **Scale**: 3× spend on the winning concept for 2 more weeks. Ship checkout before this phase so paid conversion becomes measurable.
+
+### Mixed validation → iterate
+
+- **1–4 second-session returners**, OR
+- **Cost per engaged trial PHP 500–1,000**, OR
+- **Signups are landing but no second sessions**.
+
+→ **Iterate**: same budget, another 8 videos in the winning concept's style — AND fix the activation gap (why isn't anyone returning?) before scaling. The problem is likely first-drill payoff, not the ads.
+
+### No validation → kill this channel for now
+
+- **Zero second-session returners across the full sprint**, OR
+- **Cost per engaged trial > PHP 1,000**.
+
+→ **Kill the channel**: paid short-form video isn't the acquisition problem right now. The issue is either activation (what happens after signup) or fundamental fit. Fix those before more ad spend.
+
+### Note on paid CAC
+
+Paid conversion is intentionally excluded from this rule because there's no checkout — any "paid" number would be noise. If a user manually requests a paid upgrade during the sprint, that's a strong qualitative signal worth flagging in the readout, but don't try to compute a CAC from it. Build the checkout before sprint 2.

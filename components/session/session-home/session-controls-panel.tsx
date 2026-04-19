@@ -1,4 +1,4 @@
-import { Loader2, Lock, Mic, Play, RotateCcw, SkipForward, Square } from "lucide-react";
+import { Loader2, Lock, Mic, Play, RotateCcw, SkipForward, Square, X } from "lucide-react";
 import type { RefObject } from "react";
 
 import { AudioPlayer } from "@/components/session/audio-player";
@@ -23,6 +23,8 @@ type Props = {
     hasPendingAnalysisRequest: boolean;
     shouldShowResults: boolean;
     shouldShowAnalyzingState: boolean;
+    processingAppearsStuck: boolean;
+    cancelSubmitting: boolean;
     playbackSrc: string | null;
     audioRef: RefObject<HTMLAudioElement | null>;
     outOfCredits: boolean;
@@ -30,6 +32,7 @@ type Props = {
     onStopRecording: () => void;
     onOpenSkipModal: () => void;
     onRedoDrill: () => void;
+    onCancelStuckDrill: () => void;
 };
 
 export function SessionControlsPanel(props: Readonly<Props>) {
@@ -49,6 +52,8 @@ export function SessionControlsPanel(props: Readonly<Props>) {
         hasPendingAnalysisRequest,
         shouldShowResults,
         shouldShowAnalyzingState,
+        processingAppearsStuck,
+        cancelSubmitting,
         playbackSrc,
         audioRef,
         outOfCredits,
@@ -56,6 +61,7 @@ export function SessionControlsPanel(props: Readonly<Props>) {
         onStopRecording,
         onOpenSkipModal,
         onRedoDrill,
+        onCancelStuckDrill,
     } = props;
 
     return (
@@ -155,6 +161,30 @@ export function SessionControlsPanel(props: Readonly<Props>) {
                 <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
                     {stateLabel}
+                </div>
+            ) : null}
+            {shouldShowAnalyzingState && processingAppearsStuck ? (
+                <div className="mt-4 rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-900">
+                    <p className="font-medium">This is taking longer than expected.</p>
+                    <p className="mt-1 text-amber-800">
+                        Analysis hasn&apos;t made progress for a while. You can
+                        cancel it and start a new drill.
+                    </p>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        disabled={cancelSubmitting}
+                        onClick={() => void onCancelStuckDrill()}
+                    >
+                        {cancelSubmitting ? (
+                            <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                            <X />
+                        )}
+                        {cancelSubmitting ? "Cancelling…" : "Cancel stuck drill"}
+                    </Button>
                 </div>
             ) : null}
         </div>

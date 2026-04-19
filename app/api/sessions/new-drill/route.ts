@@ -1,4 +1,5 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { isStaleProcessing } from "@/constants/session-processing";
 import {
     consumeCreditOrThrow,
     CreditLimitReachedError,
@@ -237,14 +238,35 @@ export async function POST(request: NextRequest) {
         }
 
         if (latestRegularSession?.processingStatus === "processing") {
-            return NextResponse.json(
-                {
-                    error:
-                        "Your last drill is still processing. Wait for it to finish.",
-                    code: "DRILL_STILL_PROCESSING",
-                },
-                { status: 409 },
-            );
+            // Auto-heal a stuck session rather than blocking forever. The
+            // complete handler refreshes processingUpdatedAt at every stage,
+            // so a stale timestamp is a reliable signal the backend died
+            // mid-request (crash, redeploy, OOM, etc.).
+            if (isStaleProcessing(latestRegularSession.processingUpdatedAt)) {
+                await db
+                    .collection(FirestoreCollections.sessions.path)
+                    .doc(latestRegularSession.id)
+                    .set(
+                        {
+                            processingStatus: "failed",
+                            processingStage: null,
+                            processingJobId: null,
+                            processingError:
+                                "Processing stalled and was auto-recovered so you could continue.",
+                            processingUpdatedAt: new Date().toISOString(),
+                        },
+                        { merge: true },
+                    );
+            } else {
+                return NextResponse.json(
+                    {
+                        error:
+                            "Your last drill is still processing. Wait for it to finish.",
+                        code: "DRILL_STILL_PROCESSING",
+                    },
+                    { status: 409 },
+                );
+            }
         }
 
         const hydratedSkillMemory = hydrateSkillMemory(uid, skillDoc.data());
