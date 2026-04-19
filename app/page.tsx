@@ -77,9 +77,6 @@ export default function LandingPage() {
                     priority
                     className="mb-6"
                 />
-                <div className="mb-4 inline-flex items-center rounded-full border border-border/70 bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-                    In early access · Launched March 2026
-                </div>
                 <p className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                     Coaching from your real meetings — not textbook scenarios.
                 </p>
@@ -98,9 +95,6 @@ export default function LandingPage() {
                 </p>
                 <p className="mt-4 max-w-xl text-sm text-muted-foreground/80">
                     Starting with remote professionals in the Philippines — engineers, VAs, ops, designers, and anyone on a global team.
-                </p>
-                <p className="mt-3 text-sm italic text-muted-foreground/70">
-                    Kaya mo &apos;yan — in English, too.
                 </p>
                 <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
                     <Link
