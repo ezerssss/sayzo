@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import ky from "ky";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { STALE_PROCESSING_MS } from "@/constants/session-processing";
 import { useLatestSession } from "@/hooks/use-latest-session";
 import { useSession } from "@/hooks/use-session";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
@@ -73,6 +74,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     >(null);
     const [preNewDrillReflection, setPreNewDrillReflection] =
         useState<PreNewDrillReflectionState | null>(null);
+    const [cancelSubmitting, setCancelSubmitting] = useState(false);
+    const [nowTick, setNowTick] = useState(() => Date.now());
     const [view, setView] = useState<SessionView>("drill");
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const { isRecording, stream, start, stop } = useVoiceRecorder();
@@ -158,6 +161,16 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         (isServerProcessing ||
             drillState === "analyzing" ||
             hasPendingAnalysisRequest);
+    const processingUpdatedAtMs = useMemo(() => {
+        const raw = session?.processingUpdatedAt;
+        if (!raw) return null;
+        const t = Date.parse(raw);
+        return Number.isFinite(t) ? t : null;
+    }, [session?.processingUpdatedAt]);
+    const processingAppearsStuck =
+        isServerProcessing &&
+        processingUpdatedAtMs !== null &&
+        nowTick - processingUpdatedAtMs > STALE_PROCESSING_MS;
 
     const mm = Math.floor(seconds / 60);
     const ss = seconds % 60;
@@ -214,6 +227,13 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             setView("review");
         }
     }, [shouldShowResults, isRecordingNow, drillState]);
+
+    useEffect(() => {
+        if (!isServerProcessing) return;
+        setNowTick(Date.now());
+        const id = setInterval(() => setNowTick(Date.now()), 5000);
+        return () => clearInterval(id);
+    }, [isServerProcessing]);
 
     useEffect(() => {
         if (drillState !== "recording") {
@@ -625,6 +645,33 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         }
     };
 
+    const cancelStuckDrill = async () => {
+        if (!session?.id || cancelSubmitting) return;
+        setCancelSubmitting(true);
+        setDrillError(null);
+        try {
+            await ky.post("/api/sessions/cancel", {
+                json: { uid, sessionId: session.id },
+                timeout: 30_000,
+            });
+            setHasPendingAnalysisRequest(false);
+            setDrillState("idle");
+        } catch (error) {
+            console.error(
+                "[components/session/session-home] cancelStuckDrill failed",
+                error,
+            );
+            setDrillError(
+                await getKyErrorMessage(
+                    error,
+                    "Could not cancel this drill.",
+                ),
+            );
+        } finally {
+            setCancelSubmitting(false);
+        }
+    };
+
     const startAnotherDrill = async () => {
         setDrillError(null);
         setHasPendingAnalysisRequest(false);
@@ -706,6 +753,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                         hasPendingAnalysisRequest={hasPendingAnalysisRequest}
                         shouldShowResults={shouldShowResults}
                         shouldShowAnalyzingState={shouldShowAnalyzingState}
+                        processingAppearsStuck={processingAppearsStuck}
+                        cancelSubmitting={cancelSubmitting}
                         playbackSrc={playbackSrc}
                         audioRef={audioRef}
                         outOfCredits={creditGate.isExhausted}
@@ -718,6 +767,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             setSkipModalOpen(true);
                         }}
                         onRedoDrill={() => void startRecording()}
+                        onCancelStuckDrill={() => void cancelStuckDrill()}
                     />
 
                     {shouldShowResults && !isSkipped ? (

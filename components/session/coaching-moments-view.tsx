@@ -105,32 +105,47 @@ function TopFixesCard({
     moments: CoachingMoment[];
     onSeekToSecond?: (seconds: number) => void;
 }) {
+    const [open, setOpen] = useState(true);
     return (
-        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-5">
-            <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-sm font-semibold tracking-tight">
+        <div className="rounded-2xl border border-border/70 bg-background">
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="flex w-full items-center justify-between gap-3 p-5"
+            >
+                <span className="text-sm font-semibold tracking-tight">
                     Fix these first
-                </h3>
-                <span className="text-xs text-muted-foreground">
-                    {moments.length === 1
-                        ? "1 priority"
-                        : `${moments.length} priorities`}
                 </span>
-            </div>
-            <ol className="mt-4 space-y-4">
-                {moments.map((moment, index) => (
-                    <li
-                        key={moment.id}
-                        className="rounded-xl border border-border/70 bg-background p-4"
-                    >
-                        <TopFixContent
-                            index={index + 1}
-                            moment={moment}
-                            onSeekToSecond={onSeekToSecond}
-                        />
-                    </li>
-                ))}
-            </ol>
+                <span className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                        {moments.length === 1
+                            ? "1 priority"
+                            : `${moments.length} priorities`}
+                    </span>
+                    <ChevronDown
+                        className={cn(
+                            "size-4 text-muted-foreground transition-transform",
+                            open && "rotate-180",
+                        )}
+                    />
+                </span>
+            </button>
+            {open ? (
+                <ol className="space-y-4 border-t border-border/50 p-5">
+                    {moments.map((moment, index) => (
+                        <li
+                            key={moment.id}
+                            className="rounded-xl border border-border/70 bg-background p-4"
+                        >
+                            <TopFixContent
+                                index={index + 1}
+                                moment={moment}
+                                onSeekToSecond={onSeekToSecond}
+                            />
+                        </li>
+                    ))}
+                </ol>
+            ) : null}
         </div>
     );
 }
@@ -147,7 +162,7 @@ function TopFixContent({
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2">
-                <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground text-[11px] font-medium text-background">
+                <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-sky-600 text-[11px] font-medium text-white">
                     {index}
                 </span>
                 {moment.timestampSeconds != null ? (

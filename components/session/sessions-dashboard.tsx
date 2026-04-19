@@ -302,6 +302,14 @@ export function SessionsDashboard(props: Readonly<Props>) {
                 {/* ── Drills tab ── */}
                 <TabsContent value="drills" className="mt-0 flex-1">
                     <div className="mx-auto max-w-4xl space-y-6 px-8 py-8">
+                    <div>
+                        <h2 className="text-lg font-semibold tracking-tight">
+                            Drills
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            Short speaking practice you can run anytime. Build specific skills through deliberate repetition, with feedback after every session.
+                        </p>
+                    </div>
                     {/* Hero — your next drill */}
                     {!showCategoryPicker ? (
                         currentDrillIsPending && currentSession ? (
