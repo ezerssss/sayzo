@@ -39,11 +39,27 @@ const teachableMomentSchema = coachingMomentSchema.extend({
     transcriptIdx: z.number(),
 });
 
-const nativeSpeakerRewriteSchema = z.object({
+const rewriteVerdictSchema = z.enum([
+    "keep",
+    "tighten",
+    "sharpen",
+    "reframe",
+    "reorder",
+]);
+
+const turnRewriteSchema = z.object({
     transcriptIdx: z.number(),
     original: z.string(),
     rewrite: z.string(),
-    note: z.string(),
+    verdict: rewriteVerdictSchema,
+    note: z.string().nullable(),
+    suggestedBeforeIdx: z.number().nullable(),
+});
+
+const structuralObservationSchema = z.object({
+    observation: z.string(),
+    explanation: z.string(),
+    affectedTurnIdxs: z.array(z.number()),
 });
 
 const dimensionalAnalysisSchema = z.object({
@@ -114,9 +130,8 @@ const captureAnalysisSchema = z.object({
         turnTaking: z.enum(["balanced", "passive", "dominant"]),
     }),
 
-    nativeSpeakerRewrites: z.array(nativeSpeakerRewriteSchema),
-
-    nativeSpeakerVersion: z.string().nullable(),
+    turnRewrites: z.array(turnRewriteSchema),
+    structuralObservations: z.array(structuralObservationSchema),
 });
 
 type AnalysisResult = {
@@ -263,8 +278,8 @@ ${humePayload}`;
             fillerWords: result.output.fillerWords,
             fluency: result.output.fluency,
             communicationStyle: result.output.communicationStyle,
-            nativeSpeakerRewrites: result.output.nativeSpeakerRewrites,
-            nativeSpeakerVersion: result.output.nativeSpeakerVersion,
+            turnRewrites: result.output.turnRewrites,
+            structuralObservations: result.output.structuralObservations,
         },
     };
 }

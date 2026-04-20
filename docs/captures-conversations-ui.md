@@ -115,25 +115,11 @@ All from existing Firestore collections written by the captures pipeline:
 
 ---
 
-## Native speaker rewrites — backend done, UI pending
+## Turn-based rewrites — implemented
 
-`CaptureAnalysis.nativeSpeakerRewrites` is **already implemented** in the backend. It's an array of `{ transcriptIdx, original, rewrite, note }` items produced by the deep-analysis stage for the user's 5-10 most coachable turns. The analyzer prompt mirrors the drill side's `nativeSpeakerVersion` quality bar — same improvement categories (structure, word choice, transitions, conciseness, flow, confident phrasing), same "notes are the main learning tool" framing, same specific note style, but adapted from a single-block rewrite to per-turn rewrites because captures are multi-turn organic conversations.
+`CaptureAnalysis.turnRewrites` is implemented end-to-end. One entry per user turn in transcript order — `{ transcriptIdx, original, rewrite, verdict, note, suggestedBeforeIdx? }`. `verdict` is one of `keep | tighten | sharpen | reframe | reorder`; `keep` turns carry no required changes (rewrite may equal original). Cross-turn sequencing points live in `CaptureAnalysis.structuralObservations` (`{ observation, explanation, affectedTurnIdxs }`). No separate prose rewrite field exists — the "read straight through" view is derived in the UI by `stitchTurnRewrites()` in `lib/captures/rewrites.ts`.
 
-**What the UI needs to display:**
-
-In the transcript view, when a user turn has a corresponding `nativeSpeakerRewrite` (matched by `transcriptIdx`):
-- Show the original turn as usual (the user's actual words)
-- Below or beside it, show the rewrite with a clear visual treatment that says "how a fluent speaker would say it"
-- Below the rewrite, show the `note` explaining what changed and why
-- Possible layouts:
-  - **Inline** — original turn → rewrite indented or in a different background → note in italic. Compact but mixes the literal transcript with coaching content.
-  - **Expandable** — original turn shows a small icon/badge "✨ rewrite available" that expands to reveal the rewrite + note. Cleaner default view, opt-in to coaching.
-  - **Side-by-side** — original on the left, rewrite on the right with the note below. Good on wide screens, doesn't work well on mobile.
-- Recommendation: **expandable** as default, with a "Show all rewrites" toggle at the top of the transcript view.
-
-The rewrites should also be summarized somewhere in the analysis section so users can see them without scrolling the whole transcript:
-- A "Native speaker rewrites" card showing all rewrites in order, each as a small card with original / rewrite / note
-- Click any card to jump to that transcript line
+UI: the Rewrites tab has a view toggle (Turn-by-turn | Read straight through), with a collapsed "N turns already strong" row for 3+ consecutive `keep`s, and a structural notes panel at the bottom. Inline in the transcript, each user turn shows a "See improvement" / "Already strong" expander that opens a `TurnRewriteCard`.
 
 ---
 

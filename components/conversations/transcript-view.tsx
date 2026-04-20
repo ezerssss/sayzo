@@ -3,18 +3,19 @@
 import { ChevronDown, Flag, Play, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { TurnRewriteCard } from "@/components/conversations/turn-rewrite-card";
 import { InlineMarkdown } from "@/components/session/inline-markdown";
 import { cn } from "@/lib/utils";
 import type {
     CaptureTranscriptLine,
-    NativeSpeakerRewrite,
     TeachableMoment,
+    TurnRewrite,
 } from "@/types/captures";
 
 type Props = {
     transcript: CaptureTranscriptLine[];
     teachableMoments?: TeachableMoment[];
-    nativeSpeakerRewrites?: NativeSpeakerRewrite[];
+    turnRewrites?: TurnRewrite[];
     onSeekToSecond?: (seconds: number) => void;
 };
 
@@ -33,7 +34,12 @@ function speakerLabel(speaker: string): string {
 }
 
 export function TranscriptView(props: Readonly<Props>) {
-    const { transcript, teachableMoments = [], nativeSpeakerRewrites = [], onSeekToSecond } = props;
+    const {
+        transcript,
+        teachableMoments = [],
+        turnRewrites = [],
+        onSeekToSecond,
+    } = props;
 
     const teachableByIdx = useMemo(() => {
         const map = new Map<number, TeachableMoment[]>();
@@ -46,12 +52,17 @@ export function TranscriptView(props: Readonly<Props>) {
     }, [teachableMoments]);
 
     const rewriteByIdx = useMemo(() => {
-        const map = new Map<number, NativeSpeakerRewrite>();
-        for (const r of nativeSpeakerRewrites) {
+        const map = new Map<number, TurnRewrite>();
+        for (const r of turnRewrites) {
             map.set(r.transcriptIdx, r);
         }
         return map;
-    }, [nativeSpeakerRewrites]);
+    }, [turnRewrites]);
+
+    const seekToTurn = (transcriptIdx: number) => {
+        const line = transcript[transcriptIdx];
+        if (line && onSeekToSecond) onSeekToSecond(line.start);
+    };
 
     const [expandedRewrites, setExpandedRewrites] = useState<Set<number>>(
         new Set(),
@@ -167,13 +178,20 @@ export function TranscriptView(props: Readonly<Props>) {
                                         {hasRewrite && (
                                             <button
                                                 type="button"
-                                                className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-xs font-medium text-foreground/80 hover:bg-muted/80"
+                                                className={cn(
+                                                    "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-muted/80",
+                                                    rewrite!.verdict === "keep"
+                                                        ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
+                                                        : "border-border/60 bg-muted/50 text-foreground/80",
+                                                )}
                                                 onClick={() =>
                                                     toggleRewrite(idx)
                                                 }
                                             >
                                                 <Sparkles className="size-3" />
-                                                Rewrite available
+                                                {rewrite!.verdict === "keep"
+                                                    ? "Already strong"
+                                                    : "See improvement"}
                                                 <ChevronDown
                                                     className={cn(
                                                         "size-3 transition-transform",
@@ -265,29 +283,14 @@ export function TranscriptView(props: Readonly<Props>) {
                                     </div>
                                 )}
 
-                                {/* Expanded native speaker rewrite */}
+                                {/* Expanded turn rewrite */}
                                 {isRewriteExpanded && rewrite && (
-                                    <div className="mt-2 rounded-xl border border-border/60 bg-background p-4">
-                                        <div className="flex items-center gap-2">
-                                            <Sparkles className="size-3.5 text-foreground" />
-                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                How a fluent speaker would say
-                                                it
-                                            </p>
-                                        </div>
-                                        <p className="mt-2 text-sm leading-relaxed text-foreground">
-                                            {rewrite.rewrite}
-                                        </p>
-                                        {rewrite.note && (
-                                            <div className="mt-3 rounded-lg bg-muted/40 p-3">
-                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                    What changed
-                                                </p>
-                                                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                                    {rewrite.note}
-                                                </p>
-                                            </div>
-                                        )}
+                                    <div className="mt-2">
+                                        <TurnRewriteCard
+                                            rewrite={rewrite}
+                                            variant="embedded"
+                                            onSuggestedIdxClick={seekToTurn}
+                                        />
                                     </div>
                                 )}
                             </div>

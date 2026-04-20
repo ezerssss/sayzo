@@ -3,19 +3,30 @@
 import { ChevronDown, Play, Sparkles } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
+import {
+    TurnRewriteCard,
+    VerdictPill,
+} from "@/components/conversations/turn-rewrite-card";
 import { FeedbackChat } from "@/components/session/feedback-chat";
 import { InlineMarkdown } from "@/components/session/inline-markdown";
+import { stitchTurnRewrites } from "@/lib/captures/rewrites";
 import { cn } from "@/lib/utils";
 import type {
     CaptureAnalysis,
+    CaptureTranscriptLine,
     CoachingMoment,
     DimensionalAnalysis,
+    StructuralObservation,
     TeachableMoment,
     TeachableMomentSeverity,
+    TurnRewrite,
 } from "@/types/captures";
 
 type Props = {
     analysis: CaptureAnalysis;
+    /** Speaker-tagged transcript; used by the Rewrites section to resolve
+     *  per-turn timestamps and "Turn N" numbering. */
+    transcript?: CaptureTranscriptLine[];
     onSeekToSecond?: (seconds: number) => void;
     /** When set, only render the specified section. When absent, render all. */
     section?: "overview" | "coaching" | "rewrites";
@@ -161,20 +172,30 @@ function getMoreMoments(analysis: CaptureAnalysis): TeachableMoment[] {
 
 function rewritesToText(analysis: CaptureAnalysis): string {
     const parts: string[] = [];
-    if (analysis.nativeSpeakerVersion?.trim()) {
+    const changed = analysis.turnRewrites.filter((t) => t.verdict !== "keep");
+    if (changed.length > 0) {
         parts.push(
-            `**Full native-speaker rewrite:**\n${analysis.nativeSpeakerVersion.trim()}`,
-        );
-    }
-    if (analysis.nativeSpeakerRewrites.length > 0) {
-        parts.push(
-            `**Per-turn rewrites:**\n${analysis.nativeSpeakerRewrites
+            `**Per-turn rewrites:**\n${changed
                 .map(
                     (r) =>
-                        `- Original: "${r.original}"\n  - Rewrite: "${r.rewrite}"\n  - Note: ${r.note}`,
+                        `- [${r.verdict}] Original: "${r.original}"\n  - Rewrite: "${r.rewrite}"\n  - Note: ${r.note ?? ""}`,
                 )
                 .join("\n")}`,
         );
+    }
+    if (analysis.structuralObservations.length > 0) {
+        parts.push(
+            `**Structural observations:**\n${analysis.structuralObservations
+                .map(
+                    (o) =>
+                        `- ${o.observation}\n  - ${o.explanation}\n  - Turns: ${o.affectedTurnIdxs.join(", ")}`,
+                )
+                .join("\n")}`,
+        );
+    }
+    const stitched = stitchTurnRewrites(analysis.turnRewrites).trim();
+    if (stitched) {
+        parts.push(`**Full rewrite (stitched):**\n${stitched}`);
     }
     return parts.join("\n\n");
 }
@@ -634,8 +655,373 @@ function BigPicturePanel({
     );
 }
 
+/** Runs of consecutive `keep` turns are folded into a single expandable row. */
+type TurnGroup =
+    | { kind: "single"; turn: TurnRewrite }
+    | { kind: "keep-run"; turns: TurnRewrite[] };
+
+function groupTurnRewrites(turns: TurnRewrite[]): TurnGroup[] {
+    const groups: TurnGroup[] = [];
+    let run: TurnRewrite[] = [];
+    const flushRun = () => {
+        if (run.length === 0) return;
+        if (run.length >= 3) {
+            groups.push({ kind: "keep-run", turns: run });
+        } else {
+            for (const t of run) groups.push({ kind: "single", turn: t });
+        }
+        run = [];
+    };
+    for (const t of turns) {
+        if (t.verdict === "keep") {
+            run.push(t);
+        } else {
+            flushRun();
+            groups.push({ kind: "single", turn: t });
+        }
+    }
+    flushRun();
+    return groups;
+}
+
+/** Find the user-turn ordinal (1-based) for a given `transcriptIdx`. */
+function userTurnNumber(
+    turnRewrites: TurnRewrite[],
+    transcriptIdx: number,
+): number | null {
+    const idx = turnRewrites.findIndex(
+        (t) => t.transcriptIdx === transcriptIdx,
+    );
+    return idx === -1 ? null : idx + 1;
+}
+
+function StructuralNotesPanel({
+    observations,
+    turnRewrites,
+    transcript,
+    onSeekToSecond,
+}: {
+    observations: StructuralObservation[];
+    turnRewrites: TurnRewrite[];
+    transcript?: CaptureTranscriptLine[];
+    onSeekToSecond?: (seconds: number) => void;
+}) {
+    return (
+        <div className="rounded-xl border border-border/70 bg-background p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Structural notes
+            </p>
+            <ol className="mt-3 space-y-4">
+                {observations.map((obs, i) => (
+                    <li key={i} className="space-y-2">
+                        <p className="text-sm font-medium text-foreground">
+                            {obs.observation}
+                        </p>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                            {obs.explanation}
+                        </p>
+                        {obs.affectedTurnIdxs.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {obs.affectedTurnIdxs.map((tIdx) => {
+                                    const turnNo = userTurnNumber(
+                                        turnRewrites,
+                                        tIdx,
+                                    );
+                                    const line = transcript?.[tIdx];
+                                    const label = turnNo
+                                        ? `Turn ${turnNo}`
+                                        : `#${tIdx}`;
+                                    const canSeek =
+                                        line && onSeekToSecond !== undefined;
+                                    if (canSeek) {
+                                        return (
+                                            <button
+                                                key={tIdx}
+                                                type="button"
+                                                onClick={() =>
+                                                    onSeekToSecond!(line.start)
+                                                }
+                                                className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/80"
+                                            >
+                                                <Play className="size-3" />
+                                                {label}
+                                            </button>
+                                        );
+                                    }
+                                    return (
+                                        <span
+                                            key={tIdx}
+                                            className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] text-foreground"
+                                        >
+                                            {label}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </li>
+                ))}
+            </ol>
+        </div>
+    );
+}
+
+function RewritesSection({
+    analysis,
+    transcript,
+    onSeekToSecond,
+    renderChat,
+}: {
+    analysis: CaptureAnalysis;
+    transcript?: CaptureTranscriptLine[];
+    onSeekToSecond?: (seconds: number) => void;
+    renderChat: (
+        key: string,
+        title: string,
+        content: string,
+    ) => ReactNode | null;
+}) {
+    const [view, setView] = useState<"turns" | "prose">("turns");
+    const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
+
+    const hasRewrites = analysis.turnRewrites.length > 0;
+    const hasStructural = analysis.structuralObservations.length > 0;
+
+    if (!hasRewrites && !hasStructural) {
+        return (
+            <div className="rounded-xl border border-border/70 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="size-4" />
+                    Improved version
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    No improved version was generated for this conversation.
+                    This usually means your delivery was already strong.
+                </p>
+            </div>
+        );
+    }
+
+    const groups = groupTurnRewrites(analysis.turnRewrites);
+    const stitched = stitchTurnRewrites(analysis.turnRewrites);
+    const rewriteContent = rewritesToText(analysis);
+
+    const toggleRun = (runKey: number) => {
+        setExpandedRuns((prev) => {
+            const next = new Set(prev);
+            if (next.has(runKey)) next.delete(runKey);
+            else next.add(runKey);
+            return next;
+        });
+    };
+
+    const seekToTurn = (transcriptIdx: number) => {
+        const line = transcript?.[transcriptIdx];
+        if (line && onSeekToSecond) onSeekToSecond(line.start);
+    };
+
+    return (
+        <div className="space-y-4">
+            {/* Header */}
+            <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-5">
+                <div className="flex items-center gap-2">
+                    <Sparkles className="size-4 text-foreground" />
+                    <h3 className="text-sm font-semibold tracking-tight">
+                        How it could sound
+                    </h3>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    Every turn you took, side by side with how a confident
+                    speaker would land it. Turns already working well are
+                    flagged strong.
+                </p>
+            </div>
+
+            {/* View toggle */}
+            {hasRewrites && (
+                <div className="inline-flex rounded-lg border border-border/70 bg-background p-0.5 text-xs">
+                    <button
+                        type="button"
+                        onClick={() => setView("turns")}
+                        className={cn(
+                            "rounded-md px-3 py-1.5 font-medium transition-colors",
+                            view === "turns"
+                                ? "bg-foreground text-background"
+                                : "text-muted-foreground hover:text-foreground",
+                        )}
+                    >
+                        Turn-by-turn
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setView("prose")}
+                        className={cn(
+                            "rounded-md px-3 py-1.5 font-medium transition-colors",
+                            view === "prose"
+                                ? "bg-foreground text-background"
+                                : "text-muted-foreground hover:text-foreground",
+                        )}
+                    >
+                        Read straight through
+                    </button>
+                </div>
+            )}
+
+            {/* Turn-by-turn view */}
+            {hasRewrites && view === "turns" && (
+                <ol className="space-y-3">
+                    {groups.map((group, gIdx) => {
+                        if (group.kind === "keep-run") {
+                            const isOpen = expandedRuns.has(gIdx);
+                            return (
+                                <li
+                                    key={`run-${gIdx}`}
+                                    className="rounded-xl border border-border/70 bg-background"
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleRun(gIdx)}
+                                        className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <VerdictPill verdict="keep" />
+                                            <span className="text-xs text-muted-foreground">
+                                                {group.turns.length} turns
+                                                already strong
+                                            </span>
+                                        </span>
+                                        <ChevronDown
+                                            className={cn(
+                                                "size-4 text-muted-foreground transition-transform",
+                                                isOpen && "rotate-180",
+                                            )}
+                                        />
+                                    </button>
+                                    {isOpen && (
+                                        <ol className="space-y-2 border-t border-border/50 p-3">
+                                            {group.turns.map((t) => {
+                                                const turnNo = userTurnNumber(
+                                                    analysis.turnRewrites,
+                                                    t.transcriptIdx,
+                                                );
+                                                const line =
+                                                    transcript?.[
+                                                        t.transcriptIdx
+                                                    ];
+                                                return (
+                                                    <li
+                                                        key={t.transcriptIdx}
+                                                        className="flex items-start gap-3 rounded-lg bg-muted/30 p-2"
+                                                    >
+                                                        {line &&
+                                                        onSeekToSecond ? (
+                                                            <TimestampChip
+                                                                seconds={
+                                                                    line.start
+                                                                }
+                                                                onSeek={
+                                                                    onSeekToSecond
+                                                                }
+                                                            />
+                                                        ) : null}
+                                                        <div className="flex-1 space-y-1">
+                                                            {turnNo && (
+                                                                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                                                    Turn {turnNo}
+                                                                </p>
+                                                            )}
+                                                            <p className="text-xs leading-relaxed text-foreground">
+                                                                {t.original}
+                                                            </p>
+                                                            {t.note && (
+                                                                <p className="text-[11px] italic leading-relaxed text-muted-foreground">
+                                                                    {t.note}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ol>
+                                    )}
+                                </li>
+                            );
+                        }
+
+                        const turn = group.turn;
+                        const turnNo = userTurnNumber(
+                            analysis.turnRewrites,
+                            turn.transcriptIdx,
+                        );
+                        const line = transcript?.[turn.transcriptIdx];
+                        return (
+                            <li
+                                key={turn.transcriptIdx}
+                                className="rounded-xl border border-border/70 bg-background p-4"
+                            >
+                                <div className="flex items-center gap-2">
+                                    {line && onSeekToSecond ? (
+                                        <TimestampChip
+                                            seconds={line.start}
+                                            onSeek={onSeekToSecond}
+                                        />
+                                    ) : null}
+                                    {turnNo && (
+                                        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                                            Turn {turnNo}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="mt-3">
+                                    <TurnRewriteCard
+                                        rewrite={turn}
+                                        variant="standalone"
+                                        onSuggestedIdxClick={seekToTurn}
+                                    />
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ol>
+            )}
+
+            {/* Read straight through view */}
+            {hasRewrites && view === "prose" && (
+                <div className="rounded-xl border border-border/70 bg-background p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Read straight through
+                    </p>
+                    <p className="mt-2 text-[11px] text-muted-foreground italic">
+                        Stitched from your turns — rewrite used where a better
+                        version exists, original used otherwise. Skipped lines
+                        from other speakers.
+                    </p>
+                    <div className="mt-3 space-y-3 text-sm leading-relaxed text-foreground">
+                        {stitched.split("\n\n").map((para, i) => (
+                            <p key={i}>{para}</p>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Structural observations */}
+            {hasStructural && (
+                <StructuralNotesPanel
+                    observations={analysis.structuralObservations}
+                    turnRewrites={analysis.turnRewrites}
+                    transcript={transcript}
+                    onSeekToSecond={onSeekToSecond}
+                />
+            )}
+
+            {renderChat("rewrites", "Improved version", rewriteContent)}
+        </div>
+    );
+}
+
 export function AnalysisView(props: Readonly<Props>) {
-    const { analysis, onSeekToSecond, section, captureId, uid } = props;
+    const { analysis, transcript, onSeekToSecond, section, captureId, uid } =
+        props;
     const chatEnabled = Boolean(captureId && uid);
 
     const renderChat = (
@@ -841,118 +1227,13 @@ export function AnalysisView(props: Readonly<Props>) {
 
     // ── Rewrites section (Improved Versions tab) ─────────────────────
     if (section === "rewrites") {
-        const hasFullRewrite = Boolean(analysis.nativeSpeakerVersion?.trim());
-        const hasPerTurnRewrites = analysis.nativeSpeakerRewrites.length > 0;
-
-        if (!hasFullRewrite && !hasPerTurnRewrites) {
-            return (
-                <div className="rounded-xl border border-border/70 p-4">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                        <Sparkles className="size-4" />
-                        Improved version
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        No improved version was generated for this conversation.
-                        This usually means your delivery was already strong.
-                    </p>
-                </div>
-            );
-        }
-
-        const rewriteContent = rewritesToText(analysis);
-
         return (
-            <div className="space-y-4">
-                {/* Header card — matches ImprovedVersionView */}
-                <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-5">
-                    <div className="flex items-center gap-2">
-                        <Sparkles className="size-4 text-foreground" />
-                        <h3 className="text-sm font-semibold tracking-tight">
-                            How it could sound
-                        </h3>
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Your conversation, rewritten the way a confident
-                        speaker would deliver it.
-                    </p>
-                </div>
-
-                {/* Full cohesive rewrite */}
-                {hasFullRewrite && (
-                    <div className="rounded-xl border border-border/70 bg-background p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Full rewrite
-                        </p>
-                        <div className="prose prose-sm mt-3 max-w-none text-sm leading-relaxed [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3 [&_blockquote]:text-xs [&_blockquote]:text-muted-foreground">
-                            {analysis.nativeSpeakerVersion!
-                                .split("\n")
-                                .map((line, i) => {
-                                    const trimmed = line.trim();
-                                    if (!trimmed) return <br key={i} />;
-                                    if (trimmed.startsWith("> ")) {
-                                        return (
-                                            <blockquote key={i}>
-                                                {trimmed.slice(2)}
-                                            </blockquote>
-                                        );
-                                    }
-                                    return <p key={i}>{trimmed}</p>;
-                                })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Per-turn rewrites — secondary reference */}
-                {hasPerTurnRewrites && (
-                    <CollapsibleCard
-                        title="Per-turn rewrites"
-                        subtitle={
-                            analysis.nativeSpeakerRewrites.length === 1
-                                ? "1 rewrite"
-                                : `${analysis.nativeSpeakerRewrites.length} rewrites`
-                        }
-                    >
-                        <ol className="space-y-3">
-                            {analysis.nativeSpeakerRewrites.map((r, i) => (
-                                <li
-                                    key={i}
-                                    className="rounded-xl border border-border/70 bg-background p-4"
-                                >
-                                    <div className="flex gap-3">
-                                        <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
-                                            {i + 1}
-                                        </span>
-                                        <div className="flex-1 space-y-3">
-                                            <p className="text-xs leading-relaxed text-muted-foreground line-through">
-                                                {r.original}
-                                            </p>
-                                            <p className="text-[15px] leading-relaxed text-foreground">
-                                                {r.rewrite}
-                                            </p>
-                                            {r.note && (
-                                                <div className="rounded-lg bg-muted/40 p-3">
-                                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                        What changed
-                                                    </p>
-                                                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                                        {r.note}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </li>
-                            ))}
-                        </ol>
-                    </CollapsibleCard>
-                )}
-
-                {renderChat(
-                    "nativeSpeakerVersion",
-                    "Improved version",
-                    rewriteContent,
-                )}
-            </div>
+            <RewritesSection
+                analysis={analysis}
+                transcript={transcript}
+                onSeekToSecond={onSeekToSecond}
+                renderChat={renderChat}
+            />
         );
     }
 

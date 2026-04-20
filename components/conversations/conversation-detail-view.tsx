@@ -447,8 +447,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                             teachableMoments={
                                                 analysis.teachableMoments
                                             }
-                                            nativeSpeakerRewrites={
-                                                analysis.nativeSpeakerRewrites
+                                            turnRewrites={
+                                                analysis.turnRewrites
                                             }
                                             onSeekToSecond={seekToSecond}
                                         />
@@ -472,6 +472,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                         <TabsContent value="rewrites" className="mt-3">
                             <AnalysisView
                                 analysis={analysis}
+                                transcript={transcript}
                                 onSeekToSecond={seekToSecond}
                                 section="rewrites"
                                 captureId={captureId}

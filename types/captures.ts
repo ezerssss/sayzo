@@ -134,22 +134,58 @@ export type DimensionalAnalysis = {
 };
 
 /**
- * Per-turn rewrite of one of the user's most coachable contributions to the
- * conversation. Mirrors the spirit of the drill `nativeSpeakerVersion` field
- * but adapted for multi-turn captures: rather than rewriting one continuous
- * response, we pick the user's most-coachable turns and show side-by-side
- * how a fluent native speaker would have phrased the same message in the
- * same context.
+ * Model's verdict for one user turn. Drives UI rendering and tells the learner
+ * at a glance whether a turn already worked or needs attention.
+ *
+ * - `keep`:    already strong; `rewrite` may equal `original`
+ * - `tighten`: same intent, fewer or cleaner words
+ * - `sharpen`: same intent, stronger word choice / phrasing
+ * - `reframe`: meaningfully different structure within the turn
+ * - `reorder`: this turn belonged elsewhere in the conversation
  */
-export type NativeSpeakerRewrite = {
+export type RewriteVerdict =
+    | "keep"
+    | "tighten"
+    | "sharpen"
+    | "reframe"
+    | "reorder";
+
+/**
+ * How a fluent native speaker would have said one user turn. Unlike the drill
+ * side's single prose `nativeSpeakerVersion`, captures are turn-indexed:
+ * every user turn gets its own entry (even `keep` ones) so there are never
+ * unexplained gaps and the per-turn view is the single source of truth. The
+ * "read straight through" experience is derived in the UI by stitching these
+ * entries together — no separate prose field exists.
+ */
+export type TurnRewrite = {
     /** Index in `serverTranscript` (or `agentTranscript` fallback) — must point at a user-tagged line. */
     transcriptIdx: number;
-    /** The user's exact words, quoted from the transcript. */
+    /** The user's exact words from that turn, denormalized so the UI doesn't re-resolve against the transcript. */
     original: string;
-    /** How a fluent native English speaker would phrase the same message in the same conversational context. */
+    /** How a fluent native English speaker would have phrased the same message in the same conversational context. When `verdict === "keep"`, may equal `original`. */
     rewrite: string;
-    /** 1-2 sentences explaining what changed and why it works better. */
-    note: string;
+    /** One-word verdict that drives the pill + layout in the UI. */
+    verdict: RewriteVerdict;
+    /** 1-2 sentences: what changed and why it works better. Null only when `verdict === "keep"` and no coaching insight applies; `keep` turns may still carry a short note like "good concrete example — no change needed". */
+    note: string | null;
+    /** Only meaningful when `verdict === "reorder"`: the `transcriptIdx` this turn would logically have preceded. `null` for every other verdict. Lets the UI draw an anchor chip. */
+    suggestedBeforeIdx: number | null;
+};
+
+/**
+ * Cross-turn observation about how the conversation could have been sequenced
+ * or framed. Captures the "reorganization" value the old prose rewrite tried
+ * (and failed) to carry inline — now it's structured, anchored to specific
+ * turns, and rendered as its own panel.
+ */
+export type StructuralObservation = {
+    /** One-sentence headline, e.g. "You answered before framing." */
+    observation: string;
+    /** 1-3 sentences with reasoning. */
+    explanation: string;
+    /** Which user turns this observation touches; renders as clickable chips. */
+    affectedTurnIdxs: number[];
 };
 
 /**
@@ -212,22 +248,25 @@ export type CaptureAnalysis = {
     communicationStyle: CommunicationStyle;
 
     /**
-     * Side-by-side rewrites of the user's most coachable turns. Mirrors the
-     * drill `SessionFeedbackType.nativeSpeakerVersion` but adapted for
-     * multi-turn captures. Empty array when no turns warrant a rewrite.
+     * One entry per user turn, in transcript order. Length equals the count
+     * of `speaker === "user"` lines in the transcript. Turns that already
+     * worked use `verdict: "keep"` rather than being omitted — the UI shows
+     * them as compact "already strong" rows so coverage is visible.
+     *
+     * Replaces the old `nativeSpeakerRewrites` (curated 5-10 turns) and
+     * `nativeSpeakerVersion` (single prose block) fields. The "read straight
+     * through" view is derived in the UI from this array — there is no
+     * separate prose rewrite.
      */
-    nativeSpeakerRewrites: NativeSpeakerRewrite[];
+    turnRewrites: TurnRewrite[];
 
     /**
-     * A complete rewrite of everything the user said across the conversation,
-     * written as one cohesive piece — how a fluent native speaker would have
-     * delivered the same content with better structure, word choice,
-     * transitions, and flow. Mirrors the drill `nativeSpeakerVersion` but
-     * adapted for multi-turn captures. Includes inline notes explaining what
-     * changed and why. Null when user speech is too thin for a meaningful
-     * rewrite.
+     * Up to four cross-turn observations about how the conversation could
+     * have been sequenced or framed. Replaces the reorganization value the
+     * old prose rewrite tried to carry ("you could have led with X").
+     * Empty array is valid.
      */
-    nativeSpeakerVersion: string | null;
+    structuralObservations: StructuralObservation[];
 };
 
 export type CaptureType = {
