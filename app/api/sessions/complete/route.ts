@@ -8,6 +8,7 @@ import {
     type ReplayContext,
 } from "@/services/analyzer";
 import type { CaptureType } from "@/types/captures";
+import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
@@ -19,13 +20,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-
-const OPENAI_TRANSCRIPTIONS_URL =
-    "https://api.openai.com/v1/audio/transcriptions";
-const DEFAULT_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe";
-const TIMESTAMP_FALLBACK_MODEL = "whisper-1";
-const VERBATIM_PROMPT =
-    "Transcribe verbatim. Preserve disfluencies and speech artifacts (e.g., 'uh', 'um', 'ah', stutters, false starts, repetitions). Do not rewrite, summarize, or correct grammar. Keep the original wording and pacing cues as text.";
 
 type TranscriptionSegment = {
     start?: number;
@@ -281,91 +275,38 @@ export async function POST(request: NextRequest) {
                   updatedAt: new Date().toISOString(),
               };
 
-        // 1) Transcribe (verbatim prompt)
-        const apiKey = process.env.OPENAI_API_KEY?.trim();
-        if (!apiKey) {
+        // 1) Transcribe via Deepgram Nova-3 batch. utterances=true gives
+        // segment boundaries that buildTimestampedTranscript turns into
+        // [MM:SS] text lines for the analyzer + feedback prompts.
+        const audioBytes = new Uint8Array(await audio.arrayBuffer());
+
+        let deepgramResult: Awaited<
+            ReturnType<typeof transcribeAudioFileWithUtterances>
+        >;
+        try {
+            deepgramResult = await transcribeAudioFileWithUtterances(audio);
+        } catch (transcribeError) {
+            console.error(
+                "[app/api/sessions/complete] transcription failed",
+                transcribeError,
+            );
             return NextResponse.json(
-                { error: "Missing OPENAI_API_KEY." },
+                {
+                    error:
+                        transcribeError instanceof Error
+                            ? transcribeError.message
+                            : "Transcription failed.",
+                },
                 { status: 500 },
             );
         }
 
-        const audioBytes = new Uint8Array(await audio.arrayBuffer());
-        const configuredModel =
-            process.env.TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL;
-
-        const buildUpstream = (
-            model: string,
-            responseFormat: "verbose_json" | "json",
-        ) => {
-            const fd = new FormData();
-            fd.append("model", model);
-            fd.append("file", audio);
-            fd.append("prompt", VERBATIM_PROMPT);
-            fd.append("response_format", responseFormat);
-            if (responseFormat === "verbose_json") {
-                fd.append("timestamp_granularities[]", "segment");
-            }
-            return fd;
-        };
-
-        const sendTranscriptionRequest = async (
-            model: string,
-            responseFormat: "verbose_json" | "json",
-        ) => {
-            return fetch(OPENAI_TRANSCRIPTIONS_URL, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${apiKey}` },
-                body: buildUpstream(model, responseFormat),
-            });
-        };
-
-        let res = await sendTranscriptionRequest(
-            configuredModel,
-            "verbose_json",
-        );
-        if (!res.ok) {
-            const detail = await res.text();
-            const incompatibleVerboseJson =
-                detail.includes("response_format") &&
-                detail.includes("not compatible");
-
-            if (incompatibleVerboseJson) {
-                // Fallback to whisper-1 for timestamp support.
-                res = await sendTranscriptionRequest(
-                    TIMESTAMP_FALLBACK_MODEL,
-                    "verbose_json",
-                );
-                if (!res.ok) {
-                    // Final fallback: compatible plain json transcript.
-                    res = await sendTranscriptionRequest(
-                        configuredModel,
-                        "json",
-                    );
-                }
-            } else {
-                return NextResponse.json(
-                    { error: "Transcription failed.", detail },
-                    { status: res.status },
-                );
-            }
-        }
-
-        if (!res.ok) {
-            const detail = await res.text();
-            return NextResponse.json(
-                { error: "Transcription failed.", detail },
-                { status: res.status },
-            );
-        }
-
-        const body = (await res.json()) as {
-            text?: string;
-            segments?: TranscriptionSegment[];
-        };
         const transcript = buildTimestampedTranscript(
-            body.segments,
-            (body.text ?? "").trim(),
+            deepgramResult.utterances.map((u) => ({
+                start: u.start,
+                text: u.transcript,
+            })),
+            deepgramResult.text,
         ).trim();
         if (!transcript) {
             return NextResponse.json(
