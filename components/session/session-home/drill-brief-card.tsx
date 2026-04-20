@@ -5,11 +5,11 @@ import { MarkdownBlock } from "@/components/session/markdown-block";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics/client";
 import { bucketLength } from "@/lib/analytics/events";
+import { api } from "@/lib/api-client";
 import type { SessionPlanType } from "@/types/sessions";
 
 type Props = {
     plan: SessionPlanType;
-    uid: string;
     shouldShowResults: boolean;
     loadingSession: boolean;
     isCreatingDrill: boolean;
@@ -102,7 +102,6 @@ function normalizeMarkdownList(md: string): string {
 export function DrillBriefCard(props: Readonly<Props>) {
     const {
         plan,
-        uid,
         shouldShowResults,
         loadingSession,
         isCreatingDrill,
@@ -197,17 +196,13 @@ export function DrillBriefCard(props: Readonly<Props>) {
                 setPlaybackState("loading");
                 setPlaybackError(null);
                 try {
-                    const res = await fetch("/api/tts", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: narrationText, uid }),
-                        signal,
-                    });
-                    if (signal?.aborted) return;
-                    if (!res.ok) {
-                        throw new Error(`Request failed (${res.status})`);
-                    }
-                    blob = await res.blob();
+                    blob = await api
+                        .post("/api/tts", {
+                            json: { text: narrationText },
+                            signal,
+                            timeout: 60_000,
+                        })
+                        .blob();
                     if (signal?.aborted) return;
                     track("tts_response_received", {
                         cache_hit: false,
@@ -246,7 +241,7 @@ export function DrillBriefCard(props: Readonly<Props>) {
                 setPlaybackState("idle");
             }
         },
-        [narrationText, uid],
+        [narrationText],
     );
 
     // Auto-play once per drill when the pref is on. The AbortController

@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import ky from "ky";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { STALE_PROCESSING_MS } from "@/constants/session-processing";
@@ -9,6 +8,7 @@ import { useLatestSession } from "@/hooks/use-latest-session";
 import { useSession } from "@/hooks/use-session";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { track } from "@/lib/analytics/client";
+import { api } from "@/lib/api-client";
 import {
     getKyErrorMessage,
     isKyHttpStatus,
@@ -362,7 +362,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
 
         try {
             const fd = new FormData();
-            fd.append("uid", uid);
             fd.append("sessionId", session.id);
             fd.append(
                 "audio",
@@ -371,7 +370,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 }),
             );
             track("drill_submitted", { duration_sec: durationSec });
-            await ky.post("/api/sessions/complete", {
+            await api.post("/api/sessions/complete", {
                 body: fd,
                 timeout: 330_000,
             });
@@ -429,14 +428,13 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 setSkipTranscribing(true);
                 try {
                     const fd = new FormData();
-                    fd.append("uid", uid);
                     fd.append(
                         "file",
                         new File([result.blob], "skip-note.webm", {
                             type: result.mimeType,
                         }),
                     );
-                    const data = await ky
+                    const data = await api
                         .post("/api/transcribe", {
                             body: fd,
                             timeout: 180_000,
@@ -478,14 +476,13 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 setReflectionTranscribing(true);
                 try {
                     const fd = new FormData();
-                    fd.append("uid", uid);
                     fd.append(
                         "file",
                         new File([result.blob], "reflection-note.webm", {
                             type: result.mimeType,
                         }),
                     );
-                    const data = await ky
+                    const data = await api
                         .post("/api/transcribe", {
                             body: fd,
                             timeout: 180_000,
@@ -527,8 +524,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         setIsCreatingDrill(true);
         setDrillError(null);
         try {
-            await ky.post("/api/sessions/new-drill", {
-                json: { uid },
+            await api.post("/api/sessions/new-drill", {
+                json: {},
                 timeout: 330_000,
             });
             track("drill_started", { skill_target: null, category: null });
@@ -567,7 +564,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 await modalRecorder.stop();
             }
             const fd = new FormData();
-            fd.append("uid", uid);
             fd.append("sessionId", session.id);
             if (opts.withoutSharing) {
                 fd.append("skipWithoutFeedback", "1");
@@ -581,7 +577,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 }
                 fd.append("feedbackText", text);
             }
-            await ky.post("/api/sessions/skip", {
+            await api.post("/api/sessions/skip", {
                 body: fd,
                 timeout: 120_000,
             });
@@ -626,7 +622,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             }
 
             const fd = new FormData();
-            fd.append("uid", uid);
             fd.append("priorSessionId", ctx.priorSessionId);
             if (opts.mode === "decline") {
                 fd.append("dismissWithoutSharing", "1");
@@ -640,7 +635,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 }
                 fd.append("feedbackText", text);
             }
-            await ky.post("/api/sessions/reflection", {
+            await api.post("/api/sessions/reflection", {
                 body: fd,
                 timeout: 120_000,
             });
@@ -669,8 +664,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         setCancelSubmitting(true);
         setDrillError(null);
         try {
-            await ky.post("/api/sessions/cancel", {
-                json: { uid, sessionId: session.id },
+            await api.post("/api/sessions/cancel", {
+                json: { sessionId: session.id },
                 timeout: 30_000,
             });
             setHasPendingAnalysisRequest(false);
@@ -734,7 +729,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                     <div className="p-6 sm:p-8">
                     <DrillBriefCard
                         plan={currentPlan}
-                        uid={uid}
                         shouldShowResults={shouldShowResults}
                         loadingSession={loadingSession}
                         isCreatingDrill={isCreatingDrill}

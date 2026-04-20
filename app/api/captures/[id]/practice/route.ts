@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     consumeCreditOrThrow,
     CreditLimitReachedError,
@@ -18,31 +19,15 @@ import type { UserProfileType } from "@/types/user";
 
 export const runtime = "nodejs";
 
-type PracticePayload = { uid: string };
-
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> },
 ) {
     const { id: captureId } = await params;
 
-    let payload: PracticePayload;
-    try {
-        payload = (await request.json()) as PracticePayload;
-    } catch {
-        return NextResponse.json(
-            { error: "Invalid JSON body." },
-            { status: 400 },
-        );
-    }
-
-    const uid = payload.uid?.trim();
-    if (!uid) {
-        return NextResponse.json(
-            { error: "Missing uid." },
-            { status: 400 },
-        );
-    }
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
 
     try {
         const db = getAdminFirestore();

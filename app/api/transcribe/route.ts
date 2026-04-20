@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     assertHasCredit,
     CreditLimitReachedError,
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     let formData: FormData;
     try {
         formData = await request.formData();
@@ -32,12 +37,6 @@ export async function POST(request: NextRequest) {
             { error: "Expected multipart form data." },
             { status: 400 },
         );
-    }
-
-    const uidRaw = formData.get("uid");
-    const uid = typeof uidRaw === "string" ? uidRaw.trim() : "";
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
     }
 
     // assertHasCredit treats a missing user doc as "0 used" which is the

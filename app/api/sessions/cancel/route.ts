@@ -2,14 +2,19 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { isStaleProcessing } from "@/constants/session-processing";
+import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import type { SessionType } from "@/types/sessions";
 
 export const runtime = "nodejs";
 
-type CancelPayload = { uid: string; sessionId: string };
+type CancelPayload = { sessionId: string };
 
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     let payload: CancelPayload;
     try {
         payload = (await request.json()) as CancelPayload;
@@ -20,11 +25,10 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const uid = payload.uid?.trim();
     const sessionId = payload.sessionId?.trim();
-    if (!uid || !sessionId) {
+    if (!sessionId) {
         return NextResponse.json(
-            { error: "Missing uid or sessionId." },
+            { error: "Missing sessionId." },
             { status: 400 },
         );
     }

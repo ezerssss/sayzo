@@ -1,13 +1,12 @@
 "use client";
 
-import ky from "ky";
 import { Loader2, Mic, Square } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
-import { useAuthUser } from "@/hooks/use-auth-user";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +37,6 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
         stop,
         clearError,
     } = useVoiceRecorder();
-    const { user } = useAuthUser();
     const [transcribeError, setTranscribeError] = useState<string | null>(null);
     const [isTranscribing, setIsTranscribing] = useState(false);
 
@@ -48,12 +46,11 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
             setIsTranscribing(true);
             try {
                 const fd = new FormData();
-                if (user?.uid) fd.append("uid", user.uid);
                 fd.append(
                     "file",
                     new File([blob], "voice-input.webm", { type: mimeType }),
                 );
-                const data = await ky
+                const data = await api
                     .post("/api/transcribe", {
                         body: fd,
                         timeout: 180_000,
@@ -75,7 +72,7 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
                 setIsTranscribing(false);
             }
         },
-        [onChange, user?.uid],
+        [onChange],
     );
 
     const onToggleRecording = useCallback(async () => {

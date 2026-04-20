@@ -219,7 +219,6 @@ export function CoachingPanel({
                                     <FeedbackChat
                                         source="session"
                                         sourceId={sessionId}
-                                        uid={uid}
                                         sectionKey={section.key}
                                         sectionTitle={section.title}
                                         feedbackContent={content}

@@ -1,15 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import { getFirebaseAdminApp, getAdminFirestore } from "@/lib/firebase/admin";
 import type { UserProfileType } from "@/types/user";
 import { getAuth } from "firebase-admin/auth";
 
 export const runtime = "nodejs";
 
-type AccessRequestPayload = { uid: string; note?: string };
+type AccessRequestPayload = { note?: string };
 
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid, email: authedEmail } = auth;
+
     let payload: AccessRequestPayload;
     try {
         payload = (await request.json()) as AccessRequestPayload;
@@ -18,11 +23,6 @@ export async function POST(request: NextRequest) {
             { error: "Invalid JSON body." },
             { status: 400 },
         );
-    }
-
-    const uid = payload.uid?.trim();
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
     }
 
     const note =
@@ -46,12 +46,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ alreadyRequested: true });
         }
 
-        let email = "";
-        try {
-            const authRecord = await getAuth(getFirebaseAdminApp()).getUser(uid);
-            email = authRecord.email ?? "";
-        } catch {
-            // continue without email
+        let email = authedEmail;
+        if (!email) {
+            try {
+                const authRecord = await getAuth(getFirebaseAdminApp()).getUser(uid);
+                email = authRecord.email ?? "";
+            } catch {
+                // continue without email
+            }
         }
 
         const nowIso = new Date().toISOString();

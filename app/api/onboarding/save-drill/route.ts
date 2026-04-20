@@ -1,10 +1,10 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import type { OnboardingDrillProgress } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";
 
 type SaveDrillPayload = {
-    uid: string;
     drillType: OnboardingDrillProgress["drillType"];
     transcript: string;
 };
@@ -12,12 +12,11 @@ type SaveDrillPayload = {
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-    const body = (await request.json()) as SaveDrillPayload;
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
 
-    const uid = body.uid?.trim();
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
-    }
+    const body = (await request.json()) as SaveDrillPayload;
 
     const drillType = body.drillType;
     const validTypes = [

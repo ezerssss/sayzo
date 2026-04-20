@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     getAdminFirestore,
     getAdminStorageBucket,
@@ -15,23 +16,9 @@ export async function DELETE(
 ) {
     const { id: captureId } = await params;
 
-    let payload: { uid: string };
-    try {
-        payload = (await request.json()) as { uid: string };
-    } catch {
-        return NextResponse.json(
-            { error: "Invalid JSON body." },
-            { status: 400 },
-        );
-    }
-
-    const uid = payload.uid?.trim();
-    if (!uid) {
-        return NextResponse.json(
-            { error: "Missing uid." },
-            { status: 400 },
-        );
-    }
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
 
     try {
         const db = getAdminFirestore();

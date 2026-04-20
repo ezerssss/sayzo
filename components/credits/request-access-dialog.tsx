@@ -1,6 +1,5 @@
 "use client";
 
-import ky from "ky";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { track } from "@/lib/analytics/client";
+import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 
 interface PropsInterface {
@@ -47,9 +47,9 @@ export function RequestAccessDialog(props: Readonly<PropsInterface>) {
         setError(null);
         setSubmitting(true);
         try {
-            await ky
+            await api
                 .post("/api/access-requests", {
-                    json: { uid, note: note.trim() || undefined },
+                    json: { note: note.trim() || undefined },
                     timeout: 20_000,
                 })
                 .json();

@@ -1,6 +1,5 @@
 "use client";
 
-import ky from "ky";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
@@ -9,6 +8,7 @@ import { useAllCaptures } from "@/hooks/use-all-captures";
 import { useAllSessions } from "@/hooks/use-all-sessions";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { track } from "@/lib/analytics/client";
+import { api } from "@/lib/api-client";
 import { getKyErrorMessage, isKyHttpStatus } from "@/lib/ky-error-message";
 
 export default function DashboardPage() {
@@ -40,10 +40,10 @@ export default function DashboardPage() {
             track("credit_limit_reached", { feature: "drill" });
             return;
         }
-        const json: Record<string, string> = { uid: user.uid };
+        const json: Record<string, string> = {};
         if (category) json.category = category;
         try {
-            await ky.post("/api/sessions/new-drill", {
+            await api.post("/api/sessions/new-drill", {
                 json,
                 timeout: 330_000,
             });
@@ -67,8 +67,8 @@ export default function DashboardPage() {
 
     const handleDeleteSession = async (sessionId: string) => {
         try {
-            await ky.post("/api/sessions/delete", {
-                json: { uid: user.uid, sessionId },
+            await api.post("/api/sessions/delete", {
+                json: { sessionId },
                 timeout: 30_000,
             });
         } catch (err) {
@@ -80,8 +80,7 @@ export default function DashboardPage() {
 
     const handleDeleteCapture = async (captureId: string) => {
         try {
-            await ky.delete(`/api/captures/${captureId}`, {
-                json: { uid: user.uid },
+            await api.delete(`/api/captures/${captureId}`, {
                 timeout: 30_000,
             });
         } catch (err) {

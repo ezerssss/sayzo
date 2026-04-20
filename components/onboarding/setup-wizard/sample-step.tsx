@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft, Loader2, Mic, Sparkles, Square } from "lucide-react";
-import ky from "ky";
 import {
     useCallback,
     useEffect,
@@ -12,8 +11,8 @@ import {
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
-import { useAuthUser } from "@/hooks/use-auth-user";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +47,6 @@ interface PropsInterface {
 export function SampleStep(props: Readonly<PropsInterface>) {
     const { canFinish, onBack, onFinish, onIntroReady, onIntroClear } = props;
     const { isRecording, stream, start, stop } = useVoiceRecorder();
-    const { user } = useAuthUser();
     const [sampleSeconds, setSampleSeconds] = useState(MAX_SECONDS);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [transcribeError, setTranscribeError] = useState<string | null>(null);
@@ -72,14 +70,13 @@ export function SampleStep(props: Readonly<PropsInterface>) {
         try {
             const ext = extensionForMime(result.mimeType);
             const fd = new FormData();
-            if (user?.uid) fd.append("uid", user.uid);
             fd.append(
                 "file",
                 new File([result.blob], `intro.${ext}`, {
                     type: result.mimeType,
                 }),
             );
-            const data = await ky
+            const data = await api
                 .post("/api/transcribe", {
                     body: fd,
                     timeout: 180_000,
@@ -105,7 +102,7 @@ export function SampleStep(props: Readonly<PropsInterface>) {
         } finally {
             setIsTranscribing(false);
         }
-    }, [clearTick, onIntroReady, stop, user?.uid]);
+    }, [clearTick, onIntroReady, stop]);
 
     const stopRef = useRef(handleStop);
     useEffect(() => {

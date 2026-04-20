@@ -1,5 +1,6 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { isStaleProcessing } from "@/constants/session-processing";
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     consumeCreditOrThrow,
     CreditLimitReachedError,
@@ -25,7 +26,7 @@ import {
 import type { UserProfileType } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";
 
-type NewDrillPayload = { uid: string; category?: string };
+type NewDrillPayload = { category?: string };
 
 export const runtime = "nodejs";
 
@@ -160,6 +161,10 @@ async function refreshCompanyResearchIfNeeded(
 }
 
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     let payload: NewDrillPayload;
     try {
         payload = (await request.json()) as NewDrillPayload;
@@ -167,10 +172,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     }
 
-    const uid = payload.uid?.trim();
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
-    }
     const requestedCategory = payload.category?.trim() || undefined;
 
     try {

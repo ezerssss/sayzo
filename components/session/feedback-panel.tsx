@@ -270,7 +270,6 @@ export function FeedbackPanel(props: Readonly<PropsInterface>) {
                             <FeedbackChat
                                 source="session"
                                 sourceId={sessionId}
-                                uid={uid}
                                 sectionKey={section.key}
                                 sectionTitle={section.title}
                                 feedbackContent={section.content}

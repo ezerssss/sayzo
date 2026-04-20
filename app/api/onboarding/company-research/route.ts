@@ -1,3 +1,4 @@
+import { requireAuth } from "@/lib/auth/require-auth";
 import { enrichCompanyContext } from "@/services/company-context-enricher";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -9,6 +10,9 @@ type CompanyResearchPayload = {
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+
     let payload: CompanyResearchPayload;
     try {
         payload = (await request.json()) as CompanyResearchPayload;

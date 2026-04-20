@@ -1,11 +1,11 @@
 "use client";
 
-import ky from "ky";
 import { ArrowLeft, ArrowRight, Loader2, Search } from "lucide-react";
 import { useState } from "react";
 
 import { VoiceInputBlock } from "@/components/onboarding/voice-input-block";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 
 type CompanyResearchResponse = {
@@ -70,7 +70,7 @@ export function WorkplaceStep(props: Readonly<PropsInterface>) {
         setIsResearching(true);
         setResearchError(null);
         try {
-            const data = await ky
+            const data = await api
                 .post("/api/onboarding/company-research", {
                     json: {
                         companyName: trimmedName,

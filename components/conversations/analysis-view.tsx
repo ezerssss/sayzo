@@ -375,7 +375,6 @@ export function AnalysisView(props: Readonly<Props>) {
             <FeedbackChat
                 source="capture"
                 sourceId={captureId!}
-                uid={uid!}
                 sectionKey={sectionKey}
                 sectionTitle={sectionTitle}
                 feedbackContent={content}

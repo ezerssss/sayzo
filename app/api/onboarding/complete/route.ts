@@ -1,4 +1,5 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { analyzeSession } from "@/services/analyzer";
 import { enrichCompanyContext } from "@/services/company-context-enricher";
@@ -14,7 +15,6 @@ import { type UserProfileType } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";
 
 type CompleteOnboardingPayload = {
-    uid: string;
     drills: OnboardingDrillTranscript[];
 };
 
@@ -36,6 +36,10 @@ function emptyProfileFields(): UserProfileFieldsFromAI {
 }
 
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     const formData = await request.formData();
     const rawPayload = formData.get("payload");
 
@@ -54,11 +58,6 @@ export async function POST(request: NextRequest) {
             { error: "Invalid payload JSON." },
             { status: 400 },
         );
-    }
-
-    const uid = payload.uid?.trim();
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
     }
 
     const drills = Array.isArray(payload.drills) ? payload.drills : [];

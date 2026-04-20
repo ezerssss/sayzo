@@ -1,4 +1,5 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     assertHasCredit,
     CreditLimitReachedError,
@@ -22,6 +23,10 @@ export const runtime = "nodejs";
  * the UI chooses to show the reflection step.
  */
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     let formData: FormData;
     try {
         formData = await request.formData();
@@ -32,13 +37,11 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const uidRaw = formData.get("uid");
     const priorSessionIdRaw = formData.get("priorSessionId");
     const dismissRaw = formData.get("dismissWithoutSharing");
     const feedbackTextRaw = formData.get("feedbackText");
     const audio = formData.get("audio");
 
-    const uid = typeof uidRaw === "string" ? uidRaw.trim() : "";
     const priorSessionId =
         typeof priorSessionIdRaw === "string"
             ? priorSessionIdRaw.trim()
@@ -48,9 +51,6 @@ export async function POST(request: NextRequest) {
     const feedbackText =
         typeof feedbackTextRaw === "string" ? feedbackTextRaw.trim() : "";
 
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
-    }
     if (!priorSessionId) {
         return NextResponse.json(
             { error: "Missing priorSessionId." },

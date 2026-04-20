@@ -1,4 +1,5 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
 import { openai } from "@ai-sdk/openai";
 import {
@@ -82,18 +83,17 @@ async function isActiveProcessingJob(
 }
 
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     const formData = await request.formData();
-    const uidRaw = formData.get("uid");
     const sessionIdRaw = formData.get("sessionId");
     const audio = formData.get("audio");
 
-    const uid = typeof uidRaw === "string" ? uidRaw.trim() : "";
     const sessionId =
         typeof sessionIdRaw === "string" ? sessionIdRaw.trim() : "";
 
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
-    }
     if (!sessionId) {
         return NextResponse.json(
             { error: "Missing sessionId." },

@@ -511,7 +511,6 @@ function BigPictureSection({
                         <FeedbackChat
                             source="session"
                             sourceId={sessionId}
-                            uid={uid}
                             sectionKey={section.key}
                             sectionTitle={COACHING_SECTION_LABELS[section.key]}
                             feedbackContent={buildSectionContext(section)}

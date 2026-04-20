@@ -1,6 +1,5 @@
 "use client";
 
-import ky from "ky";
 import {
     ArrowLeft,
     ArrowRight,
@@ -21,8 +20,8 @@ import {
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import type { OnboardingDrillConfig } from "@/components/onboarding/setup-wizard/steps";
 import { Button } from "@/components/ui/button";
-import { useAuthUser } from "@/hooks/use-auth-user";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 
 export type OnboardingDrillResult = {
@@ -51,7 +50,6 @@ interface PropsInterface {
 export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
     const { drill, drillIndex, onBack, onNext, onSkip, isLast } = props;
     const { isRecording, stream, start, stop } = useVoiceRecorder();
-    const { user } = useAuthUser();
     const MAX_RECORDINGS = 3;
     const [recordingCount, setRecordingCount] = useState(0);
     const [secondsLeft, setSecondsLeft] = useState(drill.maxSeconds);
@@ -78,7 +76,6 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
         try {
             const ext = extensionForMime(result.mimeType);
             const fd = new FormData();
-            if (user?.uid) fd.append("uid", user.uid);
             fd.append(
                 "file",
                 new File(
@@ -87,7 +84,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                     { type: result.mimeType },
                 ),
             );
-            const data = await ky
+            const data = await api
                 .post("/api/transcribe", {
                     body: fd,
                     timeout: 180_000,
@@ -112,7 +109,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
         } finally {
             setIsTranscribing(false);
         }
-    }, [clearTick, stop, drill.drillType, user?.uid]);
+    }, [clearTick, stop, drill.drillType]);
 
     const stopRef = useRef(handleStop);
     useEffect(() => {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     getAdminFirestore,
     getAdminStorageBucket,
@@ -17,14 +18,9 @@ export async function GET(
 ) {
     const { id: captureId } = await params;
 
-    // Auth: uid from query param (matches existing project pattern)
-    const uid = request.nextUrl.searchParams.get("uid")?.trim();
-    if (!uid) {
-        return NextResponse.json(
-            { error: "Missing uid query parameter." },
-            { status: 400 },
-        );
-    }
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
 
     try {
         const db = getAdminFirestore();

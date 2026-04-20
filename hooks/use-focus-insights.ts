@@ -1,10 +1,10 @@
 "use client";
 
-import ky from "ky";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { api } from "@/lib/api-client";
 import { db } from "@/lib/firebase/client";
 import type { UserFocusInsights } from "@/types/focus-insights";
 
@@ -27,12 +27,12 @@ export function useFocusInsights(uid: string | undefined): UseFocusInsightsResul
 
     const autoRefreshedForUidRef = useRef<string | null>(null);
 
-    const runRefresh = useCallback(async (targetUid: string) => {
+    const runRefresh = useCallback(async () => {
         setRefreshing(true);
         setError(null);
         try {
-            await ky.post("/api/focus/refresh", {
-                json: { uid: targetUid },
+            await api.post("/api/focus/refresh", {
+                json: {},
                 timeout: 120_000,
             });
         } catch (err) {
@@ -83,12 +83,12 @@ export function useFocusInsights(uid: string | undefined): UseFocusInsightsResul
         if (!uid) return;
         if (autoRefreshedForUidRef.current === uid) return;
         autoRefreshedForUidRef.current = uid;
-        void runRefresh(uid);
+        void runRefresh();
     }, [uid, runRefresh]);
 
     const refresh = useCallback(async () => {
         if (!uid) return;
-        await runRefresh(uid);
+        await runRefresh();
     }, [uid, runRefresh]);
 
     return { insights, loading, refreshing, error, refresh };

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     assertHasCredit,
     CreditLimitReachedError,
@@ -15,7 +16,6 @@ const MAX_INPUT_CHARS = 2000;
 
 type TtsRequestBody = {
     text?: unknown;
-    uid?: unknown;
 };
 
 function cacheKey(text: string, model: string, voice: string): string {
@@ -33,6 +33,10 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     let body: TtsRequestBody;
     try {
         body = (await request.json()) as TtsRequestBody;
@@ -43,11 +47,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const uid = typeof body.uid === "string" ? body.uid.trim() : "";
     const text = typeof body.text === "string" ? body.text.trim() : "";
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
-    }
     if (!text) {
         return NextResponse.json({ error: "Missing text." }, { status: 400 });
     }

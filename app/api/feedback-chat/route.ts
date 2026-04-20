@@ -1,7 +1,9 @@
 import { openai } from "@ai-sdk/openai";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     assertHasCredit,
     CreditLimitReachedError,
@@ -103,20 +105,22 @@ async function loadSourceContext(
     return { ok: true, transcript: formatCaptureTranscript(lines) };
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     const body = await request.json();
     const {
         messages,
         source,
         sourceId,
-        uid,
         sectionTitle,
         feedbackContent,
     } = body as {
         messages: UIMessage[];
         source: FeedbackChatSource;
         sourceId: string;
-        uid: string;
         sectionTitle: string;
         feedbackContent: string;
     };
@@ -128,9 +132,9 @@ export async function POST(request: Request) {
         );
     }
 
-    if (!sourceId || !uid) {
+    if (!sourceId) {
         return Response.json(
-            { error: "Missing sourceId or uid" },
+            { error: "Missing sourceId" },
             { status: 400 },
         );
     }

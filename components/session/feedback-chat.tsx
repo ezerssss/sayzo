@@ -2,7 +2,6 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import ky from "ky";
 import {
     MessageCircle,
     Mic,
@@ -27,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { track } from "@/lib/analytics/client";
 import { bucketLength } from "@/lib/analytics/events";
+import { api } from "@/lib/api-client";
+import { auth } from "@/lib/firebase/client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +36,6 @@ export type FeedbackChatSource = "session" | "capture";
 interface FeedbackChatProps {
     source: FeedbackChatSource;
     sourceId: string;
-    uid: string;
     sectionKey: string;
     sectionTitle: string;
     feedbackContent: string;
@@ -155,7 +155,6 @@ function chatMarkdownComponents(onSeekToSecond?: (seconds: number) => void) {
 export function FeedbackChat({
     source,
     sourceId,
-    uid,
     sectionKey,
     sectionTitle,
     feedbackContent,
@@ -177,13 +176,21 @@ export function FeedbackChat({
                 body: {
                     source,
                     sourceId,
-                    uid,
                     sectionKey,
                     sectionTitle,
                     feedbackContent,
                 },
+                headers: async () => {
+                    const user = auth.currentUser;
+                    const headers: Record<string, string> = {};
+                    if (user) {
+                        const token = await user.getIdToken();
+                        headers.Authorization = `Bearer ${token}`;
+                    }
+                    return headers;
+                },
             }),
-        [source, sourceId, uid, sectionKey, sectionTitle, feedbackContent],
+        [source, sourceId, sectionKey, sectionTitle, feedbackContent],
     );
 
     const { messages, sendMessage, status } = useChat({
@@ -235,14 +242,13 @@ export function FeedbackChat({
             setIsTranscribing(true);
             try {
                 const fd = new FormData();
-                fd.append("uid", uid);
                 fd.append(
                     "file",
                     new File([result.blob], "chat-voice.webm", {
                         type: result.mimeType,
                     }),
                 );
-                const data = await ky
+                const data = await api
                     .post("/api/transcribe", {
                         body: fd,
                         timeout: 180_000,

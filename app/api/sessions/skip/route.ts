@@ -1,4 +1,5 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import {
     assertHasCredit,
     CreditLimitReachedError,
@@ -22,6 +23,10 @@ function sessionHasSubmittedDrillRecording(session: SessionType): boolean {
 }
 
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     let formData: FormData;
     try {
         formData = await request.formData();
@@ -32,13 +37,11 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const uidRaw = formData.get("uid");
     const sessionIdRaw = formData.get("sessionId");
     const skipWithoutFeedbackRaw = formData.get("skipWithoutFeedback");
     const feedbackTextRaw = formData.get("feedbackText");
     const audio = formData.get("audio");
 
-    const uid = typeof uidRaw === "string" ? uidRaw.trim() : "";
     const sessionId =
         typeof sessionIdRaw === "string" ? sessionIdRaw.trim() : "";
     const skipWithoutFeedback =
@@ -46,9 +49,6 @@ export async function POST(request: NextRequest) {
     const feedbackText =
         typeof feedbackTextRaw === "string" ? feedbackTextRaw.trim() : "";
 
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
-    }
     if (!sessionId) {
         return NextResponse.json(
             { error: "Missing sessionId." },

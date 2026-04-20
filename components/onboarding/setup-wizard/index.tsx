@@ -1,6 +1,5 @@
 "use client";
 
-import ky from "ky";
 import { doc, onSnapshot } from "firebase/firestore";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +16,7 @@ import {
 } from "@/components/onboarding/setup-wizard/steps";
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { track } from "@/lib/analytics/client";
+import { api } from "@/lib/api-client";
 import { db } from "@/lib/firebase/client";
 import {
     getKyErrorMessage,
@@ -126,15 +126,15 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     const saveDrillToServer = useCallback(
         async (drillType: string, transcript: string) => {
             try {
-                await ky.post("/api/onboarding/save-drill", {
-                    json: { uid, drillType, transcript },
+                await api.post("/api/onboarding/save-drill", {
+                    json: { drillType, transcript },
                     timeout: 15_000,
                 });
             } catch {
                 console.warn(`Failed to persist drill ${drillType}`);
             }
         },
-        [uid],
+        [],
     );
 
     const finish = useCallback(async () => {
@@ -150,7 +150,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                 transcript: getTranscript(drill.drillType),
             }));
 
-            fd.append("payload", JSON.stringify({ uid, drills }));
+            fd.append("payload", JSON.stringify({ drills }));
 
             for (const drill of ONBOARDING_DRILLS) {
                 const result = drillResults.current.get(drill.drillType);
@@ -163,7 +163,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                 );
             }
 
-            await ky.post("/api/onboarding/complete", {
+            await api.post("/api/onboarding/complete", {
                 body: fd,
                 timeout: 330_000,
             });
@@ -197,7 +197,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             );
             setIsCreatingProfile(false);
         }
-    }, [uid, getTranscript]);
+    }, [getTranscript]);
 
     const handleDrillComplete = useCallback(
         (

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import {
     synthesizeFocusInsights,
@@ -18,7 +19,6 @@ import type { UserProfileType } from "@/types/user";
 export const runtime = "nodejs";
 
 type RefreshRequestBody = {
-    uid?: unknown;
     /**
      * When true, discard the existing insights doc and do a full cold-start
      * synthesis from all available sessions/captures. Incremental updates
@@ -76,6 +76,10 @@ function collectNewAnalyzedCaptures(
 }
 
 export async function POST(request: NextRequest) {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+    const { uid } = auth;
+
     let body: RefreshRequestBody;
     try {
         body = (await request.json()) as RefreshRequestBody;
@@ -86,11 +90,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const uid = typeof body.uid === "string" ? body.uid.trim() : "";
     const rebuild = body.rebuild === true;
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid." }, { status: 400 });
-    }
 
     try {
         const db = getAdminFirestore();
