@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { AnalyticsDeviceSync } from "@/components/analytics/analytics-device-sync";
 import { AnalyticsUserSync } from "@/components/analytics/analytics-user-sync";
 
 import "./globals.css";
@@ -27,6 +28,12 @@ export const metadata: Metadata = {
     },
 };
 
+export const viewport: Viewport = {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+};
+
 export default function RootLayout({
     children,
 }: Readonly<{
@@ -39,6 +46,7 @@ export default function RootLayout({
         >
             <body className="min-h-full flex flex-col">
                 <AnalyticsUserSync />
+                <AnalyticsDeviceSync />
                 {children}
             </body>
         </html>

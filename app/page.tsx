@@ -14,6 +14,7 @@ import {
     Waves,
 } from "lucide-react";
 
+import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ export default function LandingPage() {
 
     return (
         <main className="min-h-screen bg-background">
+            <MobileBanner page="landing" />
             <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
                 <div className="flex items-center gap-2">
                     <Image

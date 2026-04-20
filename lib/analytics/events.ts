@@ -86,6 +86,14 @@ export type AnalyticsEventParams = {
     upgrade_dialog_opened: { trigger: "banner_zero" | "guard" | "limit_hit" };
     full_access_requested: Record<string, never>;
 
+    // Mobile traffic
+    mobile_visitor_detected: { page: "landing" | "install_page" | "app" };
+    install_link_sent_to_self: {
+        method: "share" | "copy";
+        source: "banner" | "install_page";
+    };
+    mobile_banner_dismissed: { page: "landing" | "app" };
+
     // Errors
     api_error: {
         route: string;

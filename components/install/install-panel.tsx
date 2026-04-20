@@ -8,13 +8,16 @@ import {
     Copy,
     Download,
     Monitor,
+    Smartphone,
     Terminal,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { SaveLinkActions } from "@/components/mobile/save-link-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { track } from "@/lib/analytics/client";
 import type { InstallPanelSource } from "@/lib/analytics/events";
+import { useIsMobile } from "@/lib/device/is-mobile";
 import { cn } from "@/lib/utils";
 
 const DOWNLOAD_TIMESTAMP_KEY = "sayzo.desktop.downloadedAt";
@@ -85,6 +88,8 @@ export function InstallPanel(props: Readonly<Props>) {
     const isControlled = controlledOS !== undefined;
     const [internalOS, setInternalOS] = useState<OS>("windows");
     const [copied, setCopied] = useState(false);
+    const isMobile = useIsMobile();
+    const mobileDetectedRef = useRef(false);
 
     const os = isControlled ? controlledOS : internalOS;
     const setOS = (next: OS) => {
@@ -98,6 +103,12 @@ export function InstallPanel(props: Readonly<Props>) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setInternalOS(detectOS());
     }, [isControlled]);
+
+    useEffect(() => {
+        if (!isMobile || mobileDetectedRef.current) return;
+        mobileDetectedRef.current = true;
+        track("mobile_visitor_detected", { page: "install_page" });
+    }, [isMobile]);
 
     const handleCopy = async (command: string) => {
         try {
@@ -145,68 +156,92 @@ export function InstallPanel(props: Readonly<Props>) {
                 <p className="mt-1 text-sm text-muted-foreground">{subhead}</p>
             </div>
 
-            <div className="mt-4">
-                <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200/70">
-                    <OSIcon className="size-3" />
-                    Detected {active.label}
-                </div>
-
-                <a
-                    href={active.downloadUrl}
-                    download
-                    onClick={handleDownloadClick}
-                    className={cn(buttonVariants({ size: "lg" }), "w-full")}
-                >
-                    <Download className="size-4" />
-                    Download for {active.label}
-                </a>
-                <p className="mt-2 text-xs text-muted-foreground">
-                    {active.fileName} · {active.minOS}
-                </p>
-
-                <button
-                    type="button"
-                    onClick={switchOS}
-                    className="mt-3 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-                >
-                    Need {other.label} instead?
-                </button>
-            </div>
-
-            <details className="group mt-4 border-t border-border/50 pt-3">
-                <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
-                    <Terminal className="size-3" />
-                    <span className="group-open:hidden">
-                        Prefer the terminal?
-                    </span>
-                    <span className="hidden group-open:inline">
-                        Hide terminal one-liner
-                    </span>
-                </summary>
-                <div className="mt-3">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                        {active.shell}
-                    </p>
-                    <div className="flex items-stretch gap-2">
-                        <code className="flex-1 overflow-x-auto rounded-lg border border-border/70 bg-background px-3 py-2 font-mono text-xs leading-relaxed">
-                            {active.command}
-                        </code>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handleCopy(active.command)}
-                            aria-label={`Copy ${active.shell} command`}
-                        >
-                            {copied ? (
-                                <Check className="size-3.5" />
-                            ) : (
-                                <Copy className="size-3.5" />
-                            )}
-                            {copied ? "Copied" : "Copy"}
-                        </Button>
+            {isMobile ? (
+                <div className="mt-4 flex flex-col gap-3">
+                    <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200/70">
+                        <Smartphone className="size-3" />
+                        You&apos;re on mobile — save for your computer
                     </div>
+                    <SaveLinkActions
+                        source="install_page"
+                        layout="stacked"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                        Sayzo runs on Windows and macOS. Send yourself the
+                        link and finish the install on your computer.
+                    </p>
                 </div>
-            </details>
+            ) : (
+                <>
+                    <div className="mt-4">
+                        <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200/70">
+                            <OSIcon className="size-3" />
+                            Detected {active.label}
+                        </div>
+
+                        <a
+                            href={active.downloadUrl}
+                            download
+                            onClick={handleDownloadClick}
+                            className={cn(
+                                buttonVariants({ size: "lg" }),
+                                "w-full",
+                            )}
+                        >
+                            <Download className="size-4" />
+                            Download for {active.label}
+                        </a>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                            {active.fileName} · {active.minOS}
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={switchOS}
+                            className="mt-3 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                        >
+                            Need {other.label} instead?
+                        </button>
+                    </div>
+
+                    <details className="group mt-4 border-t border-border/50 pt-3">
+                        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                            <Terminal className="size-3" />
+                            <span className="group-open:hidden">
+                                Prefer the terminal?
+                            </span>
+                            <span className="hidden group-open:inline">
+                                Hide terminal one-liner
+                            </span>
+                        </summary>
+                        <div className="mt-3">
+                            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                                {active.shell}
+                            </p>
+                            <div className="flex items-stretch gap-2">
+                                <code className="flex-1 overflow-x-auto rounded-lg border border-border/70 bg-background px-3 py-2 font-mono text-xs leading-relaxed">
+                                    {active.command}
+                                </code>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                        void handleCopy(active.command)
+                                    }
+                                    aria-label={`Copy ${active.shell} command`}
+                                >
+                                    {copied ? (
+                                        <Check className="size-3.5" />
+                                    ) : (
+                                        <Copy className="size-3.5" />
+                                    )}
+                                    {copied ? "Copied" : "Copy"}
+                                </Button>
+                            </div>
+                        </div>
+                    </details>
+                </>
+            )}
 
             {showViewAllLink ? (
                 <div className="mt-4 flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
