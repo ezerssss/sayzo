@@ -34,31 +34,35 @@ export type TeachableMomentType =
 export type TeachableMomentSeverity = "minor" | "moderate" | "major";
 
 /**
- * The unified four-part teachable shape used across all coaching content
- * (`teachableMoments` and dimensional `findings`). Mirrors the drill side's
- * `session-feedback` "teachable moment format" requirement.
+ * The unified three-part teachable shape used across all coaching content
+ * (fix-first, more-moments, dimensional `findings`). Mirrors the drill side's
+ * `session-feedback` "teachable moment format".
  *
  * Every part is required because each does distinct work:
  * - `anchor` grounds the feedback in evidence (without it, feedback is generic)
- * - `whyIssue` explains the cost (without it, the learner doesn't understand what was wrong)
  * - `betterOption` gives a target to aim for (without it, the learner has nothing concrete to copy)
- * - `keyTakeaway` makes the lesson transferable (without it, the learner needs the same correction next time)
+ * - `whyThisMatters` explains the cost AND a reusable principle the learner
+ *   can apply to future situations. Merges the old `whyIssue` + `keyTakeaway`
+ *   fields into one single narrative so the UI can show one toggle instead of
+ *   two separate labels.
  */
 export type CoachingMoment = {
     /** What the user actually did. Quote when possible, otherwise tight paraphrase. Include conversational context (e.g. "When the PM asked about the timeline, you said..."). */
     anchor: string;
-    /** Why this is an issue **for the listener, the goal, or professional impact**. Not a generic label — tie it to the actual moment and the actual cost. */
-    whyIssue: string;
     /** Concrete better alternative — exact wording when possible, or a specific structural / delivery change. */
     betterOption: string;
-    /** **Why** the better option works AND a **reusable principle** the learner can apply to future situations. This is what turns a single correction into a transferable skill. */
-    keyTakeaway: string;
+    /** Why this is an issue for the listener / goal / professional impact AND a reusable principle the learner can apply to future situations. One cohesive explanation — the single "Why this matters" field. */
+    whyThisMatters: string;
+    /** @deprecated Merged into `whyThisMatters`. Kept so legacy analyses persisted before the schema change still render. */
+    whyIssue?: string;
+    /** @deprecated Merged into `whyThisMatters`. Kept so legacy analyses persisted before the schema change still render. */
+    keyTakeaway?: string;
 };
 
 /**
  * Specific coachable moment with type/severity classification on top of the
- * standard four-part `CoachingMoment` shape. Used for the `teachableMoments`
- * array on `CaptureAnalysis`.
+ * standard `CoachingMoment` shape. Lives in the `fixTheseFirst` and
+ * `moreMoments` arrays on `CaptureAnalysis`.
  */
 export type TeachableMoment = CoachingMoment & {
     type: TeachableMomentType;
@@ -184,9 +188,20 @@ export type CaptureAnalysis = {
     improvements: string[];
     regressions: string[];
 
-    // Specific moments — capture-unique because organic conversations
-    // produce many small coachable instances over their length
-    teachableMoments: TeachableMoment[];
+    /**
+     * Top-priority coachable moments — the ones the learner should fix first.
+     * The LLM decides which moments earn a slot here based on impact, severity,
+     * and how much of the overall issue they represent. Typically 2-4.
+     */
+    fixTheseFirst: TeachableMoment[];
+    /**
+     * Additional coachable moments beyond the top priorities. Shown as a
+     * secondary list so the learner can explore more feedback without being
+     * overwhelmed up-front.
+     */
+    moreMoments: TeachableMoment[];
+    /** @deprecated Split into `fixTheseFirst` + `moreMoments`. Kept so legacy analyses persisted before the schema change still render. */
+    teachableMoments?: TeachableMoment[];
 
     // Pattern detection unique to captures (drills are too short for these
     // metrics to be meaningful)

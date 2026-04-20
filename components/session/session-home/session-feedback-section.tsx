@@ -1,16 +1,22 @@
 import { FileText, Lightbulb, Sparkles } from "lucide-react";
 
 import { CoachingMomentsView } from "@/components/session/coaching-moments-view";
-import { FeedbackPanel } from "@/components/session/feedback-panel";
+import { DrillOverviewPanel } from "@/components/session/drill-overview-panel";
+import { DrillTranscriptView } from "@/components/session/drill-transcript-view";
 import { ImprovedVersionView } from "@/components/session/improved-version-view";
-import { TranscriptPanel } from "@/components/session/transcript-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { SessionFeedbackType } from "@/types/sessions";
+import type { CaptureTranscriptLine } from "@/types/captures";
+import type {
+    SessionAnalysisType,
+    SessionFeedbackType,
+} from "@/types/sessions";
 
 type Props = {
     shouldShowResults: boolean;
     isSkipped: boolean;
     currentTranscript: string;
+    currentServerTranscript?: CaptureTranscriptLine[] | null;
+    currentAnalysis: SessionAnalysisType | null;
     currentFeedback: SessionFeedbackType | null;
     hasMainOverview: boolean;
     coachingSectionKeys: Array<keyof SessionFeedbackType>;
@@ -26,6 +32,8 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
         shouldShowResults,
         isSkipped,
         currentTranscript,
+        currentServerTranscript,
+        currentAnalysis,
         currentFeedback,
         hasMainOverview,
         coachingSectionKeys,
@@ -49,8 +57,10 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                     </p>
                 </div>
                 {currentTranscript ? (
-                    <TranscriptPanel
+                    <DrillTranscriptView
+                        serverTranscript={currentServerTranscript}
                         transcript={currentTranscript}
+                        feedback={null}
                         onSeekToSecond={onSeekToSecond}
                         heading="Why you skipped"
                     />
@@ -80,16 +90,27 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="main" className="mt-3 space-y-4">
-                {hasMainOverview && currentFeedback ? (
-                    <FeedbackPanel
-                        feedback={currentFeedback}
-                        onSeekToSecond={onSeekToSecond}
+                {currentAnalysis ? (
+                    <DrillOverviewPanel
+                        analysis={currentAnalysis}
                         needsRetry={requiresRetry}
                         completionReason={completionReason}
-                        sectionKey="overview"
                         sessionId={sessionId}
                         uid={uid}
+                        onSeekToSecond={onSeekToSecond}
                     />
+                ) : hasMainOverview && currentFeedback?.overview ? (
+                    <div className="rounded-xl border border-border/70 p-4">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                            <Sparkles className="size-4" />
+                            Overview
+                        </div>
+                        <div className="mt-3 rounded-lg border border-border/50 bg-background/50 p-3">
+                            <p className="text-sm leading-relaxed text-muted-foreground">
+                                {currentFeedback.overview}
+                            </p>
+                        </div>
+                    </div>
                 ) : (
                     <div className="rounded-xl border border-border/70 p-4">
                         <p className="text-sm font-medium">Overview</p>
@@ -98,9 +119,13 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                         </p>
                     </div>
                 )}
-                {currentTranscript ? (
-                    <TranscriptPanel
+                {currentTranscript ||
+                (currentServerTranscript &&
+                    currentServerTranscript.length > 0) ? (
+                    <DrillTranscriptView
+                        serverTranscript={currentServerTranscript}
                         transcript={currentTranscript}
+                        feedback={currentFeedback}
                         onSeekToSecond={onSeekToSecond}
                     />
                 ) : (

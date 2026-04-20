@@ -1,14 +1,17 @@
 "use client";
 
 import { ChevronDown, Play, Sparkles } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { FeedbackChat } from "@/components/session/feedback-chat";
+import { InlineMarkdown } from "@/components/session/inline-markdown";
+import { cn } from "@/lib/utils";
 import type {
     CaptureAnalysis,
     CoachingMoment,
     DimensionalAnalysis,
     TeachableMoment,
+    TeachableMomentSeverity,
 } from "@/types/captures";
 
 type Props = {
@@ -21,8 +24,26 @@ type Props = {
     uid?: string;
 };
 
+/**
+ * Resolve the unified `whyThisMatters` narrative. New analyses populate
+ * `whyThisMatters` directly; legacy analyses persisted before the schema
+ * change have the old `whyIssue` + `keyTakeaway` pair that we merge on read.
+ */
+function resolveWhyThisMatters(moment: CoachingMoment): string {
+    if (moment.whyThisMatters && moment.whyThisMatters.trim()) {
+        return moment.whyThisMatters.trim();
+    }
+    const parts: string[] = [];
+    if (moment.whyIssue?.trim()) parts.push(moment.whyIssue.trim());
+    if (moment.keyTakeaway?.trim()) {
+        parts.push(`**Takeaway:** ${moment.keyTakeaway.trim()}`);
+    }
+    return parts.join("\n\n");
+}
+
 function formatCoachingMoment(moment: CoachingMoment): string {
-    return `- **What happened:** ${moment.anchor}\n  - **Why this is an issue:** ${moment.whyIssue}\n  - **Better:** ${moment.betterOption}\n  - **Key takeaway:** ${moment.keyTakeaway}`;
+    const why = resolveWhyThisMatters(moment);
+    return `- **What happened:** ${moment.anchor}\n  - **Better:** ${moment.betterOption}\n  - **Why this matters:** ${why}`;
 }
 
 function dimensionalToText(dim: DimensionalAnalysis): string {
@@ -56,9 +77,12 @@ function overviewToText(analysis: CaptureAnalysis): string {
     return parts.join("\n\n");
 }
 
-function teachableMomentsToText(moments: TeachableMoment[]): string {
-    if (!moments.length) return "";
-    return moments
+function formatTeachableGroup(
+    label: string,
+    moments: TeachableMoment[],
+): string | null {
+    if (!moments.length) return null;
+    return `**${label}:**\n${moments
         .map((m) => {
             const mm = Math.floor(m.timestamp / 60);
             const ss = Math.floor(m.timestamp % 60)
@@ -66,7 +90,73 @@ function teachableMomentsToText(moments: TeachableMoment[]): string {
                 .padStart(2, "0");
             return `**[${mm}:${ss}] ${m.type} (${m.severity})**\n${formatCoachingMoment(m)}`;
         })
-        .join("\n\n");
+        .join("\n\n")}`;
+}
+
+function coachingToText(analysis: CaptureAnalysis): string {
+    const fix = getFixTheseFirst(analysis);
+    const more = getMoreMoments(analysis);
+    const parts: string[] = [];
+    const fixChunk = formatTeachableGroup("Fix these first", fix);
+    if (fixChunk) parts.push(fixChunk);
+    const moreChunk = formatTeachableGroup("More moments", more);
+    if (moreChunk) parts.push(moreChunk);
+    const dims: Array<[string, DimensionalAnalysis]> = [
+        ["Structure & Flow", analysis.structureAndFlow],
+        ["Clarity & Conciseness", analysis.clarityAndConciseness],
+        ["Relevance & Focus", analysis.relevanceAndFocus],
+        ["Engagement", analysis.engagement],
+        ["Professionalism", analysis.professionalism],
+        ["Voice, Tone & Expression", analysis.voiceToneExpression],
+    ];
+    for (const [label, dim] of dims) {
+        parts.push(`**${label}:**\n${dimensionalToText(dim)}`);
+    }
+    return parts.join("\n\n");
+}
+
+/**
+ * Return the fix-these-first moments for the UI. New analyses populate
+ * `fixTheseFirst` directly. Legacy analyses only have `teachableMoments` —
+ * fall back to slicing the top 3 by severity (major → moderate → minor) so
+ * old captures still get a sensible "Fix these first" list.
+ */
+function getFixTheseFirst(analysis: CaptureAnalysis): TeachableMoment[] {
+    if (Array.isArray(analysis.fixTheseFirst) && analysis.fixTheseFirst.length) {
+        return analysis.fixTheseFirst;
+    }
+    const legacy = analysis.teachableMoments;
+    if (!Array.isArray(legacy) || legacy.length === 0) return [];
+    return [...legacy]
+        .sort(
+            (a, b) =>
+                SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
+                a.timestamp - b.timestamp,
+        )
+        .slice(0, 3);
+}
+
+/**
+ * Return the more-moments list for the UI. New analyses populate `moreMoments`
+ * directly. Legacy analyses only have `teachableMoments` — fall back to
+ * everything minus whatever the legacy `getFixTheseFirst` selection used.
+ */
+function getMoreMoments(analysis: CaptureAnalysis): TeachableMoment[] {
+    if (Array.isArray(analysis.moreMoments) && analysis.moreMoments.length) {
+        return analysis.moreMoments;
+    }
+    // If new fixTheseFirst is populated but no moreMoments, nothing else to show.
+    if (
+        Array.isArray(analysis.fixTheseFirst) &&
+        analysis.fixTheseFirst.length > 0 &&
+        !Array.isArray(analysis.moreMoments)
+    ) {
+        return [];
+    }
+    const legacy = analysis.teachableMoments;
+    if (!Array.isArray(legacy) || legacy.length === 0) return [];
+    const fixFirstSet = new Set(getFixTheseFirst(analysis));
+    return legacy.filter((m) => !fixFirstSet.has(m));
 }
 
 function rewritesToText(analysis: CaptureAnalysis): string {
@@ -95,39 +185,33 @@ function formatTimestamp(seconds: number): string {
     return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+const SEVERITY_RANK: Record<TeachableMomentSeverity, number> = {
+    major: 0,
+    moderate: 1,
+    minor: 2,
+};
+
 function CollapsibleCard({
     title,
     subtitle,
     defaultOpen = false,
-    emphasized = false,
     children,
 }: {
     title: string;
     subtitle?: string;
     defaultOpen?: boolean;
-    emphasized?: boolean;
     children: React.ReactNode;
 }) {
     const [open, setOpen] = useState(defaultOpen);
 
     return (
-        <div
-            className={`rounded-2xl border ${
-                emphasized
-                    ? "border-primary/30 bg-primary/5"
-                    : "border-border/70 bg-background"
-            }`}
-        >
+        <div className="rounded-2xl border border-border/70 bg-background">
             <button
                 type="button"
                 className="flex w-full items-center justify-between gap-3 p-5 text-left"
                 onClick={() => setOpen((v) => !v)}
             >
-                <span
-                    className={`text-sm font-semibold tracking-tight ${
-                        emphasized ? "text-primary" : ""
-                    }`}
-                >
+                <span className="text-sm font-semibold tracking-tight">
                     {title}
                 </span>
                 <span className="flex items-center gap-2">
@@ -137,9 +221,10 @@ function CollapsibleCard({
                         </span>
                     ) : null}
                     <ChevronDown
-                        className={`size-4 text-muted-foreground transition-transform ${
-                            open ? "rotate-180" : ""
-                        }`}
+                        className={cn(
+                            "size-4 text-muted-foreground transition-transform",
+                            open && "rotate-180",
+                        )}
                     />
                 </span>
             </button>
@@ -152,40 +237,136 @@ function CollapsibleCard({
     );
 }
 
-function CoachingMomentCard({ moment }: { moment: CoachingMoment }) {
+function TimestampChip({
+    seconds,
+    onSeek,
+}: {
+    seconds: number;
+    onSeek?: (seconds: number) => void;
+}) {
+    const label = formatTimestamp(seconds);
+    if (!onSeek) {
+        return (
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
+                {label}
+            </span>
+        );
+    }
     return (
-        <div className="rounded-lg border border-border/50 bg-background/50 p-3 space-y-3">
-            <blockquote className="border-l-2 border-border/70 pl-3 text-sm leading-relaxed text-foreground/90">
-                {moment.anchor}
-            </blockquote>
-            {moment.betterOption && (
-                <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Try instead
-                    </p>
-                    <p className="mt-1 text-sm text-foreground">
-                        {moment.betterOption}
-                    </p>
-                </div>
+        <button
+            type="button"
+            onClick={() => onSeek(seconds)}
+            className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground hover:bg-muted/80"
+            title={`Seek to ${label}`}
+        >
+            <Play className="size-3" />
+            {label}
+        </button>
+    );
+}
+
+function TypeChip({ type }: { type: string }) {
+    return (
+        <span className="inline-flex items-center rounded-full border border-border/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            {type}
+        </span>
+    );
+}
+
+function SeverityChip({ severity }: { severity: TeachableMomentSeverity }) {
+    const cls =
+        severity === "major"
+            ? "bg-red-100 text-red-700"
+            : severity === "moderate"
+              ? "bg-amber-100 text-amber-700"
+              : "bg-muted text-muted-foreground";
+    return (
+        <span
+            className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+                cls,
             )}
-            <div className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
-                {moment.whyIssue && (
-                    <p>
-                        <span className="font-semibold text-foreground/80">
-                            Why:
-                        </span>{" "}
-                        {moment.whyIssue}
-                    </p>
-                )}
-                {moment.keyTakeaway && (
-                    <p>
-                        <span className="font-semibold text-foreground/80">
-                            Takeaway:
-                        </span>{" "}
-                        {moment.keyTakeaway}
-                    </p>
-                )}
+        >
+            {severity}
+        </span>
+    );
+}
+
+function AnchorQuote({
+    text,
+    compact = false,
+}: {
+    text: string;
+    compact?: boolean;
+}) {
+    const cleaned = text.trim();
+    if (!cleaned) return null;
+    return (
+        <blockquote
+            className={cn(
+                "border-l-2 border-border/70 pl-3 text-foreground/90",
+                compact
+                    ? "text-sm leading-relaxed"
+                    : "text-[15px] leading-relaxed",
+            )}
+        >
+            {stripWrappingQuotes(cleaned)}
+        </blockquote>
+    );
+}
+
+function stripWrappingQuotes(input: string): string {
+    const pattern = /^"([\s\S]+)"$/;
+    const match = pattern.exec(input);
+    return match?.[1] ?? input;
+}
+
+function TryInsteadBox({ text }: { text: string }) {
+    if (!text.trim()) return null;
+    return (
+        <div className="rounded-lg bg-muted/50 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Try instead
+            </p>
+            <div className="mt-1">
+                <InlineMarkdown text={text} tone="body" />
             </div>
+        </div>
+    );
+}
+
+function CoachingMomentCard({ moment }: { moment: CoachingMoment }) {
+    const [expanded, setExpanded] = useState(false);
+    const why = resolveWhyThisMatters(moment);
+    const hasWhy = Boolean(why);
+    return (
+        <div className="space-y-3 rounded-lg border border-border/50 bg-background/50 p-3">
+            <AnchorQuote text={moment.anchor} compact />
+            {moment.betterOption ? (
+                <TryInsteadBox text={moment.betterOption} />
+            ) : null}
+            {hasWhy ? (
+                <div>
+                    <button
+                        type="button"
+                        onClick={() => setExpanded((v) => !v)}
+                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                        <ChevronDown
+                            className={cn(
+                                "size-3 transition-transform",
+                                expanded && "rotate-180",
+                            )}
+                        />
+                        {expanded ? "Hide why" : "Why this matters"}
+                    </button>
+                    {expanded ? (
+                        <div className="mt-2">
+                            <InlineMarkdown text={why} tone="small-muted" />
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -193,12 +374,10 @@ function CoachingMomentCard({ moment }: { moment: CoachingMoment }) {
 function DimensionalCard({
     title,
     dimension,
-    emphasized = false,
     chat,
 }: {
     title: string;
     dimension: DimensionalAnalysis;
-    emphasized?: boolean;
     chat?: ReactNode;
 }) {
     return (
@@ -211,8 +390,6 @@ function DimensionalCard({
                         : `${dimension.findings.length} findings`
                     : undefined
             }
-            defaultOpen={emphasized}
-            emphasized={emphasized}
         >
             <p className="text-sm leading-relaxed text-muted-foreground">
                 {dimension.assessment}
@@ -229,7 +406,122 @@ function DimensionalCard({
     );
 }
 
-function TeachableMomentRow({
+function TopFixesCard({
+    moments,
+    onSeek,
+}: {
+    moments: TeachableMoment[];
+    onSeek?: (seconds: number) => void;
+}) {
+    const [open, setOpen] = useState(true);
+    return (
+        <div className="rounded-2xl border border-border/70 bg-background">
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="flex w-full items-center justify-between gap-3 p-5"
+            >
+                <span className="text-sm font-semibold tracking-tight">
+                    Fix these first
+                </span>
+                <span className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                        {moments.length === 1
+                            ? "1 priority"
+                            : `${moments.length} priorities`}
+                    </span>
+                    <ChevronDown
+                        className={cn(
+                            "size-4 text-muted-foreground transition-transform",
+                            open && "rotate-180",
+                        )}
+                    />
+                </span>
+            </button>
+            {open ? (
+                <ol className="space-y-4 border-t border-border/50 p-5">
+                    {moments.map((moment, index) => (
+                        <li
+                            key={`${moment.timestamp}-${moment.transcriptIdx}-${index}`}
+                            className="rounded-xl border border-border/70 bg-background p-4"
+                        >
+                            <TopFixContent
+                                index={index + 1}
+                                moment={moment}
+                                onSeek={onSeek}
+                            />
+                        </li>
+                    ))}
+                </ol>
+            ) : null}
+        </div>
+    );
+}
+
+function TopFixContent({
+    index,
+    moment,
+    onSeek,
+}: {
+    index: number;
+    moment: TeachableMoment;
+    onSeek?: (seconds: number) => void;
+}) {
+    const why = resolveWhyThisMatters(moment);
+    return (
+        <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-sky-600 text-[11px] font-medium text-white">
+                    {index}
+                </span>
+                <TimestampChip seconds={moment.timestamp} onSeek={onSeek} />
+                <TypeChip type={moment.type} />
+                <SeverityChip severity={moment.severity} />
+            </div>
+            <AnchorQuote text={moment.anchor} />
+            {moment.betterOption ? (
+                <TryInsteadBox text={moment.betterOption} />
+            ) : null}
+            {why ? (
+                <InlineMarkdown text={why} tone="small-muted" />
+            ) : null}
+        </div>
+    );
+}
+
+function MomentsList({
+    moments,
+    onSeek,
+}: {
+    moments: TeachableMoment[];
+    onSeek?: (seconds: number) => void;
+}) {
+    return (
+        <div className="rounded-2xl border border-border/70 bg-background p-5">
+            <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-sm font-semibold tracking-tight">
+                    More moments
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                    {moments.length === 1
+                        ? "1 moment"
+                        : `${moments.length} moments`}
+                </span>
+            </div>
+            <ul className="mt-4 space-y-3">
+                {moments.map((moment, idx) => (
+                    <li
+                        key={`${moment.timestamp}-${moment.transcriptIdx}-${idx}`}
+                    >
+                        <MoreMomentRow moment={moment} onSeek={onSeek} />
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+function MoreMomentRow({
     moment,
     onSeek,
 }: {
@@ -237,60 +529,28 @@ function TeachableMomentRow({
     onSeek?: (seconds: number) => void;
 }) {
     const [expanded, setExpanded] = useState(false);
-
-    const severityClass =
-        moment.severity === "major"
-            ? "bg-red-100 text-red-700"
-            : moment.severity === "moderate"
-              ? "bg-amber-100 text-amber-700"
-              : "bg-muted text-muted-foreground";
+    const why = resolveWhyThisMatters(moment);
+    const hasWhy = Boolean(why);
 
     return (
         <div className="rounded-xl border border-border/60 bg-background p-4">
             <div className="flex flex-wrap items-center gap-2">
-                {onSeek ? (
-                    <button
-                        type="button"
-                        onClick={() => onSeek(moment.timestamp)}
-                        className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground hover:bg-muted/80"
-                        title={`Seek to ${formatTimestamp(moment.timestamp)}`}
-                    >
-                        <Play className="size-3" />
-                        {formatTimestamp(moment.timestamp)}
-                    </button>
-                ) : (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
-                        {formatTimestamp(moment.timestamp)}
-                    </span>
-                )}
-                <span className="inline-flex items-center rounded-full border border-border/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    {moment.type}
-                </span>
-                <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${severityClass}`}
-                >
-                    {moment.severity}
-                </span>
+                <TimestampChip seconds={moment.timestamp} onSeek={onSeek} />
+                <TypeChip type={moment.type} />
+                <SeverityChip severity={moment.severity} />
             </div>
 
             <div className="mt-3">
-                <blockquote className="border-l-2 border-border/70 pl-3 text-sm leading-relaxed text-foreground/90">
-                    {moment.anchor}
-                </blockquote>
+                <AnchorQuote text={moment.anchor} compact />
             </div>
 
-            {moment.betterOption && (
-                <div className="mt-3 rounded-lg bg-muted/50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Try instead
-                    </p>
-                    <p className="mt-1 text-sm text-foreground">
-                        {moment.betterOption}
-                    </p>
+            {moment.betterOption ? (
+                <div className="mt-3">
+                    <TryInsteadBox text={moment.betterOption} />
                 </div>
-            )}
+            ) : null}
 
-            {(moment.whyIssue || moment.keyTakeaway) && (
+            {hasWhy && (
                 <div className="mt-3">
                     <button
                         type="button"
@@ -298,23 +558,16 @@ function TeachableMomentRow({
                         className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
                     >
                         <ChevronDown
-                            className={`size-3 transition-transform ${
-                                expanded ? "rotate-180" : ""
-                            }`}
+                            className={cn(
+                                "size-3 transition-transform",
+                                expanded && "rotate-180",
+                            )}
                         />
                         {expanded ? "Hide why" : "Why this matters"}
                     </button>
                     {expanded && (
-                        <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
-                            {moment.whyIssue && <p>{moment.whyIssue}</p>}
-                            {moment.keyTakeaway && (
-                                <p>
-                                    <span className="font-semibold text-foreground/80">
-                                        Takeaway:
-                                    </span>{" "}
-                                    {moment.keyTakeaway}
-                                </p>
-                            )}
+                        <div className="mt-2">
+                            <InlineMarkdown text={why} tone="small-muted" />
                         </div>
                     )}
                 </div>
@@ -323,44 +576,60 @@ function TeachableMomentRow({
     );
 }
 
-function MetricCard({
-    label,
-    value,
-    detail,
+function BigPicturePanel({
+    dimensions,
+    renderChat,
 }: {
-    label: string;
-    value: string;
-    detail?: string;
+    dimensions: Array<{
+        key: string;
+        title: string;
+        dim: DimensionalAnalysis;
+    }>;
+    renderChat: (
+        sectionKey: string,
+        sectionTitle: string,
+        content: string,
+    ) => ReactNode;
 }) {
-    return (
-        <div className="rounded-lg border border-border/50 bg-background/50 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {label}
-            </p>
-            <p className="mt-1 text-lg font-semibold tracking-tight">
-                {value}
-            </p>
-            {detail && (
-                <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
-            )}
-        </div>
+    const [open, setOpen] = useState(false);
+    const visible = dimensions.filter(
+        (d) => d.dim.assessment.trim() || d.dim.findings.length > 0,
     );
-}
+    if (visible.length === 0) return null;
 
-function GaugeBar({ label, value }: { label: string; value: number }) {
-    const pct = Math.round(value * 100);
     return (
-        <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">{label}</span>
-                <span className="font-medium">{pct}%</span>
-            </div>
-            <div className="h-1.5 rounded-full bg-muted">
-                <div
-                    className="h-full rounded-full bg-primary/60 transition-all"
-                    style={{ width: `${pct}%` }}
+        <div className="rounded-2xl border border-border/70 bg-background">
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="flex w-full items-center justify-between gap-3 p-5"
+            >
+                <span className="text-sm font-semibold tracking-tight">
+                    Big picture
+                </span>
+                <ChevronDown
+                    className={cn(
+                        "size-4 text-muted-foreground transition-transform",
+                        open && "rotate-180",
+                    )}
                 />
-            </div>
+            </button>
+            {open ? (
+                <div className="space-y-3 border-t border-border/50 p-5">
+                    {visible.map((d) => (
+                        <DimensionalCard
+                            key={d.key}
+                            title={d.title}
+                            dimension={d.dim}
+                            chat={renderChat(
+                                d.key,
+                                d.title,
+                                dimensionalToText(d.dim),
+                            )}
+                        />
+                    ))}
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -369,7 +638,11 @@ export function AnalysisView(props: Readonly<Props>) {
     const { analysis, onSeekToSecond, section, captureId, uid } = props;
     const chatEnabled = Boolean(captureId && uid);
 
-    const renderChat = (sectionKey: string, sectionTitle: string, content: string) => {
+    const renderChat = (
+        sectionKey: string,
+        sectionTitle: string,
+        content: string,
+    ) => {
         if (!chatEnabled || !content.trim()) return null;
         return (
             <FeedbackChat
@@ -382,6 +655,9 @@ export function AnalysisView(props: Readonly<Props>) {
             />
         );
     };
+
+    const topFixes = useMemo(() => getFixTheseFirst(analysis), [analysis]);
+    const moreMoments = useMemo(() => getMoreMoments(analysis), [analysis]);
 
     // ── Overview section (Main tab) ──────────────────────────────────
     if (section === "overview") {
@@ -425,46 +701,6 @@ export function AnalysisView(props: Readonly<Props>) {
                     )}
                 </div>
 
-                <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        At a glance
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        <MetricCard
-                            label="Filler rate"
-                            value={`${analysis.fillerWords.perMinute.toFixed(1)}/min`}
-                            detail={`${analysis.fillerWords.totalCount} total`}
-                        />
-                        <MetricCard
-                            label="Speaking pace"
-                            value={`${analysis.fluency.wordsPerMinute} WPM`}
-                        />
-                        <MetricCard
-                            label="Vocabulary"
-                            value={String(analysis.vocabulary.uniqueWords)}
-                            detail={`Sophistication: ${Math.round(analysis.vocabulary.sophisticationScore * 100)}%`}
-                        />
-                    </div>
-                    <div className="mt-4 space-y-3 border-t border-border/50 pt-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Communication style
-                        </p>
-                        <GaugeBar
-                            label="Directness"
-                            value={analysis.communicationStyle.directness}
-                        />
-                        <GaugeBar
-                            label="Formality"
-                            value={analysis.communicationStyle.formality}
-                        />
-                        <GaugeBar
-                            label="Confidence"
-                            value={analysis.communicationStyle.confidence}
-                        />
-                    </div>
-                </div>
-
-                {/* Progress */}
                 {(analysis.improvements.length > 0 ||
                     analysis.regressions.length > 0) && (
                     <div className="rounded-xl border border-border/70 p-4">
@@ -525,13 +761,11 @@ export function AnalysisView(props: Readonly<Props>) {
             key: string;
             title: string;
             dim: DimensionalAnalysis;
-            emphasized?: boolean;
         }> = [
             {
                 key: "structureAndFlow",
                 title: "Structure & Flow",
                 dim: analysis.structureAndFlow,
-                emphasized: true,
             },
             {
                 key: "clarityAndConciseness",
@@ -560,56 +794,52 @@ export function AnalysisView(props: Readonly<Props>) {
             },
         ];
 
-        return (
-            <div className="space-y-3">
-                {dimensions.map((d) => (
-                    <DimensionalCard
-                        key={d.key}
-                        title={d.title}
-                        dimension={d.dim}
-                        emphasized={d.emphasized}
-                        chat={renderChat(
-                            d.key,
-                            d.title,
-                            dimensionalToText(d.dim),
-                        )}
-                    />
-                ))}
+        const hasAnyContent =
+            topFixes.length > 0 ||
+            moreMoments.length > 0 ||
+            dimensions.some(
+                (d) =>
+                    d.dim.assessment.trim() || d.dim.findings.length > 0,
+            );
 
-                {analysis.teachableMoments.length > 0 && (
-                    <CollapsibleCard
-                        title="Teachable moments"
-                        subtitle={
-                            analysis.teachableMoments.length === 1
-                                ? "1 moment"
-                                : `${analysis.teachableMoments.length} moments`
-                        }
-                        defaultOpen
-                    >
-                        <ul className="space-y-3">
-                            {analysis.teachableMoments.map((m, i) => (
-                                <li key={i}>
-                                    <TeachableMomentRow
-                                        moment={m}
-                                        onSeek={onSeekToSecond}
-                                    />
-                                </li>
-                            ))}
-                        </ul>
-                        {renderChat(
-                            "teachableMoments",
-                            "Teachable moments",
-                            teachableMomentsToText(analysis.teachableMoments),
-                        )}
-                    </CollapsibleCard>
-                )}
+        if (!hasAnyContent) {
+            return (
+                <div className="rounded-xl border border-border/70 p-4">
+                    <p className="text-sm font-medium">Coaching</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        No coaching findings for this conversation.
+                    </p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-4">
+                {topFixes.length > 0 ? (
+                    <TopFixesCard
+                        moments={topFixes}
+                        onSeek={onSeekToSecond}
+                    />
+                ) : null}
+
+                {moreMoments.length > 0 ? (
+                    <MomentsList
+                        moments={moreMoments}
+                        onSeek={onSeekToSecond}
+                    />
+                ) : null}
+
+                <BigPicturePanel
+                    dimensions={dimensions}
+                    renderChat={renderChat}
+                />
+
+                {renderChat("coaching", "Coaching", coachingToText(analysis))}
             </div>
         );
     }
 
     // ── Rewrites section (Improved Versions tab) ─────────────────────
-    // Shows the full cohesive rewrite first (nativeSpeakerVersion), then
-    // per-turn rewrites below as a secondary reference.
     if (section === "rewrites") {
         const hasFullRewrite = Boolean(analysis.nativeSpeakerVersion?.trim());
         const hasPerTurnRewrites = analysis.nativeSpeakerRewrites.length > 0;
@@ -726,6 +956,5 @@ export function AnalysisView(props: Readonly<Props>) {
         );
     }
 
-    // ── No section specified: shouldn't happen with tabs, but safe fallback ──
     return null;
 }

@@ -87,10 +87,7 @@ function formatDuration(seconds: number | undefined): string {
 }
 
 function drillHref(session: SessionType): string {
-    if (session.completionStatus === "pending") {
-        return `/app/drills/${session.id}`;
-    }
-    return `/app/drills/${session.id}/summary`;
+    return `/app/drills/${session.id}`;
 }
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {

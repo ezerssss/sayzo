@@ -26,7 +26,7 @@ function formatRelativeDate(iso: string): string {
 
 function evidenceHref(evidence: FocusEvidence): string {
     if (evidence.source === "session") {
-        return `/app/drills/${evidence.sourceId}/summary`;
+        return `/app/drills/${evidence.sourceId}`;
     }
     return `/app/conversations/${evidence.sourceId}`;
 }

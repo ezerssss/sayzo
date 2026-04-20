@@ -78,10 +78,24 @@ function formatTranscript(transcript: CaptureTranscriptLine[]): string {
         .join("\n");
 }
 
-function formatDimensionalAssessment(label: string, dim: {
-    assessment: string;
-    findings: { anchor: string; whyIssue: string }[];
+function findingWhy(finding: {
+    whyThisMatters?: string;
+    whyIssue?: string;
 }): string {
+    return (finding.whyThisMatters ?? finding.whyIssue ?? "").trim();
+}
+
+function formatDimensionalAssessment(
+    label: string,
+    dim: {
+        assessment: string;
+        findings: {
+            anchor: string;
+            whyThisMatters?: string;
+            whyIssue?: string;
+        }[];
+    },
+): string {
     const assessment = dim.assessment.trim();
     const topFinding = dim.findings[0];
     if (!assessment && !topFinding) return `- ${label}: (no issues flagged)`;
@@ -89,18 +103,26 @@ function formatDimensionalAssessment(label: string, dim: {
     if (assessment) parts.push(assessment);
     if (topFinding) {
         parts.push(
-            `(top issue: ${topFinding.anchor.trim()} — ${topFinding.whyIssue.trim()})`,
+            `(top issue: ${topFinding.anchor.trim()} — ${findingWhy(topFinding)})`,
         );
     }
     return `- ${label}: ${parts.join(" ")}`;
 }
 
 function formatTeachableMoments(analysis: CaptureAnalysis): string {
-    const moments = analysis.teachableMoments.slice(0, 6);
+    // Prefer the new fix-first + more fields; fall back to legacy teachableMoments.
+    const combined = [
+        ...(analysis.fixTheseFirst ?? []),
+        ...(analysis.moreMoments ?? []),
+    ];
+    const moments = (combined.length > 0
+        ? combined
+        : analysis.teachableMoments ?? []
+    ).slice(0, 6);
     if (moments.length === 0) return "(none flagged)";
     return moments
         .map((m, i) => {
-            return `${i + 1}. [idx ${m.transcriptIdx}, ${m.severity}] anchor: ${m.anchor.trim()} | why: ${m.whyIssue.trim()} | better: ${m.betterOption.trim()}`;
+            return `${i + 1}. [idx ${m.transcriptIdx}, ${m.severity}] anchor: ${m.anchor.trim()} | why: ${findingWhy(m)} | better: ${m.betterOption.trim()}`;
         })
         .join("\n");
 }

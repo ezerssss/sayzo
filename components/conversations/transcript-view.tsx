@@ -3,6 +3,7 @@
 import { ChevronDown, Flag, Play, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { InlineMarkdown } from "@/components/session/inline-markdown";
 import { cn } from "@/lib/utils";
 import type {
     CaptureTranscriptLine,
@@ -223,34 +224,41 @@ export function TranscriptView(props: Readonly<Props>) {
                                                             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                                                                 Try instead
                                                             </p>
-                                                            <p className="mt-1 text-sm text-foreground">
-                                                                {m.betterOption}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                    {(m.whyIssue ||
-                                                        m.keyTakeaway) && (
-                                                        <div className="mt-3 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
-                                                            {m.whyIssue && (
-                                                                <p>
-                                                                    <span className="font-semibold text-foreground/80">
-                                                                        Why:
-                                                                    </span>{" "}
-                                                                    {m.whyIssue}
-                                                                </p>
-                                                            )}
-                                                            {m.keyTakeaway && (
-                                                                <p>
-                                                                    <span className="font-semibold text-foreground/80">
-                                                                        Takeaway:
-                                                                    </span>{" "}
-                                                                    {
-                                                                        m.keyTakeaway
+                                                            <div className="mt-1">
+                                                                <InlineMarkdown
+                                                                    text={
+                                                                        m.betterOption
                                                                     }
-                                                                </p>
-                                                            )}
+                                                                    tone="body"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     )}
+                                                    {(() => {
+                                                        const why =
+                                                            m.whyThisMatters?.trim() ||
+                                                            [
+                                                                m.whyIssue?.trim(),
+                                                                m.keyTakeaway?.trim()
+                                                                    ? `**Takeaway:** ${m.keyTakeaway.trim()}`
+                                                                    : null,
+                                                            ]
+                                                                .filter(Boolean)
+                                                                .join("\n\n");
+                                                        return why ? (
+                                                            <div className="mt-3">
+                                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                                    Why this matters
+                                                                </p>
+                                                                <div className="mt-1">
+                                                                    <InlineMarkdown
+                                                                        text={why}
+                                                                        tone="small-muted"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
                                                 </div>
                                             );
                                         })}

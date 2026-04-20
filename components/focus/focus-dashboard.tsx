@@ -130,7 +130,7 @@ export function FocusDashboard({
                                                 <Link
                                                     href={
                                                         win.lastSeen.source === "session"
-                                                            ? `/app/drills/${win.lastSeen.sourceId}/summary`
+                                                            ? `/app/drills/${win.lastSeen.sourceId}`
                                                             : `/app/conversations/${win.lastSeen.sourceId}`
                                                     }
                                                     className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"

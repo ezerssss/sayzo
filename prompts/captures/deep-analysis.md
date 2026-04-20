@@ -49,40 +49,38 @@ The detailed delivery analysis lives in the `voiceToneExpression` dimensional fi
 
 ## Teachable shape — every coaching moment (critical)
 
-Every coaching moment — whether it lives in `teachableMoments` or in any dimensional `findings` array — must use the **same four-part shape**. This is what makes feedback actually *teach* the learner instead of just labeling problems. The drill side enforces this same four-part shape; captures inherit it.
+Every coaching moment — whether it lives in `fixTheseFirst`, `moreMoments`, or any dimensional `findings` array — must use the **same three-part shape**. This is what makes feedback actually *teach* the learner instead of just labeling problems.
 
 ```
 {
-  anchor: string;       // (1) What the user did
-  whyIssue: string;     // (2) Why this is an issue
-  betterOption: string; // (3) What would be better
-  keyTakeaway: string;  // (4) Why the better option works + a reusable principle
+  anchor: string;          // (1) What the user did
+  betterOption: string;    // (2) What would be better
+  whyThisMatters: string;  // (3) Why this matters — the cost of what they did
+                           //     AND a reusable principle for future situations
 }
 ```
 
 **(1) anchor** — Quote or tight paraphrase of what the user actually did. Ground it in conversational context (e.g. *"When the PM asked 'what's the latest on the migration?', you said 'I think maybe like next week or so.'"*). Keep it specific to a moment, not a general label.
 
-**(2) whyIssue** — What goes wrong **for the listener, the goal, or professional impact**. Not a generic word like "unclear" — tie it to the actual moment and explain the cost. Examples:
-- *"Three layered hedges in a row ('I think maybe like') signal uncertainty before you've even said the date — listeners discount the answer before they hear it."*
-- *"Burying the recommendation in the middle of the trade-offs makes the PM scan back to find your actual position; in a status update they want the headline first."*
-
-**(3) betterOption** — A concrete alternative. Exact wording when possible, or a specific structural / delivery change. Not just "be more clear". Examples:
+**(2) betterOption** — A concrete alternative. Exact wording when possible, or a specific structural / delivery change. Not just "be more clear". Examples:
 - *"'Tuesday — we hit the schema migration on Monday and validated it overnight.'"*
 - *"Lead with the recommendation, then the trade-offs: 'I'd hold the launch by a week. Here's why: the schema fix needs validation time, and rushing it risks the same incident as last quarter.'"*
 
-**(4) keyTakeaway** — **The most important part** for the learner's long-term growth. Combine **two things in one statement**: (a) WHY the better option works (the underlying mechanic — clarity, trust, persuasion, brevity, appropriateness, etc.) AND (b) a **reusable principle** the learner can apply to *future* situations beyond this specific moment. Examples:
-- *"Concise = confident. Audiences trust speakers who get to the point — every hedge is a withdrawal from your credibility account."*
-- *"The 'one breath' test: if you can't say it in one breath, split it into two sentences. Shorter sentences signal control."*
-- *"Lead with the recommendation when the listener is decision-ready. The 'recommendation first' shape lets them skim if they trust you and dig in if they don't — both options serve them."*
-- *"When listing items, pick 3 max and name them upfront ('Three things — X, Y, Z'). Then expand. This gives the listener a map and makes you sound organized."*
+**(3) whyThisMatters** — **The single most important narrative**. One cohesive 2-4 sentence explanation that covers BOTH:
+- **The cost of what they did** — what went wrong for the listener / goal / professional impact. Not a generic word like "unclear" — tie it to the actual moment.
+- **Why the better option works AND a reusable principle the learner can apply to future situations.** This turns a single correction into a transferable skill.
 
-**Why all four parts matter:**
+Don't split these into separate labels — weave them into one flowing narrative so the UI can show them under a single "Why this matters" toggle. Examples:
+- *"Three layered hedges in a row ('I think maybe like') signal uncertainty before you've even said the date — listeners discount the answer before they hear it. Concise = confident: audiences trust speakers who get to the point, and every hedge is a withdrawal from your credibility account. Either commit to a position or commit to finding the answer — don't pre-hedge factual statements."*
+- *"Burying the recommendation inside the trade-offs makes the PM scan back to find your actual position; in a status update they want the headline first. Lead with the recommendation when the listener is decision-ready — the 'recommendation first' shape lets them skim if they trust you and dig in if they don't. Both options serve them."*
+- *"Vague pronouns like 'the thing' force the listener to guess what you mean and slow comprehension. Name the noun the first time; only pronoun it once the referent is already in the air. Precision earns trust: specific words signal that you know what you're talking about."*
+
+**Why each part matters:**
 - Without (1), feedback is generic and ungrounded.
-- Without (2), the learner doesn't understand the cost of what they did.
-- Without (3), they have no concrete target to aim for.
-- Without (4), they can't generalize the lesson — they'll need the same correction next time.
+- Without (2), the learner has no concrete target to aim for.
+- Without (3), the learner doesn't understand the cost and can't generalize the lesson — they'll need the same correction next time.
 
-**`keyTakeaway` is the most important part — it's what turns a single correction into a transferable skill.** If you can't articulate a meaningful keyTakeaway for a moment, the moment isn't worth coaching — drop it.
+**`whyThisMatters` must contain a reusable principle.** If you can't articulate a principle the learner can carry into future situations, the moment isn't worth coaching — drop it.
 
 Do **not** only criticize ("your phrasing was vague"). Do **not** only rewrite ("here's a better version"). **Both the problem and the improvement need explicit reasoning** so the learner internalizes the principle.
 
@@ -148,14 +146,13 @@ For `assessment` (3-5 sentences), you MUST address **all three** of the followin
 **Additionally assess:**
 - **Did the user manage the multi-turn arc?** Captures span multiple turns, so structure also means: did the user build coherently on prior turns, or jump around? Did they re-anchor after topic shifts? Did they manage their own contribution rhythm (substantive turns vs short interjections) appropriately?
 
-For `findings` (array of `CoachingMoment` objects), include specific moments where structure broke down. Each finding must have all four parts of the teachable shape. Example finding (full four-part):
+For `findings` (array of `CoachingMoment` objects), include specific moments where structure broke down. Each finding must have all three parts of the teachable shape. Example finding:
 
 ```json
 {
   "anchor": "When the PM asked 'what's the latest on the migration?', you spent ~90 seconds walking through how the deadline was originally set before mentioning the current ETA.",
-  "whyIssue": "In a status update, the audience wants the headline first — they're asking 'where are we?' not 'how did we get here?'. Walking through history makes the PM scan past your context to find the actual answer, and signals you haven't prioritized what matters to them.",
   "betterOption": "Open with the headline, then the supporting context only if asked: 'We're tracking for next Tuesday — schema fix is validated, just need the production cutover. Want me to walk through how we got here?'",
-  "keyTakeaway": "Status updates want the pyramid shape: top-line answer first, supporting facts second, context only on request. Lead with what the listener actually asked for; let them dig in if they want more. This respects their time AND signals you understand their priorities."
+  "whyThisMatters": "In a status update, the audience wants the headline first — they're asking 'where are we?' not 'how did we get here?'. Walking through history makes the PM scan past your context to find the actual answer, and signals you haven't prioritized what matters to them. Status updates want the pyramid shape: top-line answer first, supporting facts second, context only on request. Lead with what the listener actually asked for; let them dig in if they want more. This respects their time AND signals you understand their priorities."
 }
 ```
 
@@ -214,26 +211,29 @@ Where the user underperformed vs their known strengths or mastered focus. Be fai
 ### notes
 Brief analyst notes: uncertainties, missing evidence, contradictions, Hume availability. Empty string if nothing to add.
 
-### teachableMoments
-Specific moments where coaching would help. **Each moment uses the full four-part teachable shape** (see "Teachable shape" section above) plus classification metadata:
+### fixTheseFirst
+
+**The highest-priority coachable moments** — the handful of moments the learner should address *before* anything else. This is the focused priority list the UI leads with.
+
+Each entry uses the **three-part teachable shape** (see "Teachable shape" section above) plus classification metadata:
 
 - **type**: `grammar` | `filler` | `phrasing` | `vocabulary` | `communication`
 - **severity**: `minor` (stylistic), `moderate` (clarity impact), `major` (meaning impact)
 - **timestamp**: seconds into the conversation
 - **transcriptIdx**: index in the transcript array
 - **anchor**: what the user actually said (exact quote when possible, with conversational context)
-- **whyIssue**: why this is an issue for the listener / goal / impact (not a generic label)
 - **betterOption**: concrete better alternative — exact wording when possible
-- **keyTakeaway**: why the better option works **AND** a reusable principle the learner can apply to future situations
+- **whyThisMatters**: one cohesive narrative covering the cost of what they did AND a reusable principle
 
-Type meanings:
-- `grammar`: article omission, tense confusion, subject-verb agreement, preposition errors
-- `filler`: excessive filler use — only flag when genuinely excessive
-- `phrasing`: grammatically correct but sounds unnatural to a native speaker
-- `vocabulary`: a richer word/phrase would be more precise or professional
-- `communication`: excessive hedging, trailing off, circular explanations, unclear references
+**Selection criteria — be ruthless about what earns a slot here:**
+- Moments that represent the **biggest impact on listener comprehension or professional credibility** (usually `major` severity, sometimes `moderate` when the pattern is repeated)
+- Moments that map directly to the `mainIssue` or `secondaryIssues` you identified
+- Moments that reveal a pattern the learner is likely to repeat — fixing one unblocks several future wins
+- Moments where the `whyThisMatters` delivers a genuinely transferable principle, not just a local correction
 
-Example (full four-part):
+Aim for **2-4 moments**. If there's nothing truly urgent, return a smaller list — don't pad. If the user's speech is thin or clearly off-task, return an empty array and let `mainIssue` carry the narrative.
+
+Example:
 ```json
 {
   "type": "communication",
@@ -241,13 +241,30 @@ Example (full four-part):
   "timestamp": 187.4,
   "transcriptIdx": 23,
   "anchor": "When asked if the migration would hit the deadline, you said 'I think maybe like, you know, it should probably be fine, I think.'",
-  "whyIssue": "Three layered hedges ('I think maybe like... probably... I think') in a single sentence signal uncertainty before you've stated your actual position. Listeners discount everything that follows because they don't trust the speaker's confidence in their own answer.",
   "betterOption": "'Yes — we're on track. The schema fix landed Tuesday and we validated it overnight.' If you genuinely don't know, say that directly: 'Honestly, I'm not sure yet — let me check with the platform team and get back to you by EOD.'",
-  "keyTakeaway": "Hedging language is a confidence drain — every 'I think maybe' is a withdrawal from your credibility account. Native speakers either commit to a position or commit to finding the answer; they don't pre-hedge factual statements. Saying 'I don't know but I'll find out' is more confident than 'I think maybe it's probably fine'."
+  "whyThisMatters": "Three layered hedges ('I think maybe like... probably... I think') in a single sentence signal uncertainty before you've stated your actual position. Listeners discount everything that follows because they don't trust the speaker's confidence in their own answer. Hedging language is a confidence drain — every 'I think maybe' is a withdrawal from your credibility account. Native speakers either commit to a position or commit to finding the answer; they don't pre-hedge factual statements. Saying 'I don't know but I'll find out' is more confident than 'I think maybe it's probably fine'."
 }
 ```
 
-Be precise. Aim for **3-10 moments** depending on capture length. **Every moment must have all four parts** of the teachable shape — if you can't articulate the keyTakeaway, drop the moment. Don't manufacture moments to fill the array.
+### moreMoments
+
+Additional coachable moments **beyond** the top priorities — the learner can explore these after they've addressed `fixTheseFirst`. Use the same shape and same classification metadata as `fixTheseFirst`.
+
+**What belongs here vs. `fixTheseFirst`:**
+- Moments that still teach something useful but are lower-impact than the top priorities
+- Secondary patterns that are worth flagging but wouldn't make the biggest difference if fixed first
+- `minor` severity moments (stylistic refinement) that are worth surfacing but not urgent
+
+Aim for **3-8 moments** depending on capture length and coachable evidence. **Do not duplicate** moments from `fixTheseFirst`. Do not manufacture moments to fill the array — if there's nothing more to flag, return an empty array.
+
+Type meanings (same for both `fixTheseFirst` and `moreMoments`):
+- `grammar`: article omission, tense confusion, subject-verb agreement, preposition errors
+- `filler`: excessive filler use — only flag when genuinely excessive
+- `phrasing`: grammatically correct but sounds unnatural to a native speaker
+- `vocabulary`: a richer word/phrase would be more precise or professional
+- `communication`: excessive hedging, trailing off, circular explanations, unclear references
+
+**Every moment in both arrays must have all three parts** of the teachable shape — if you can't articulate a meaningful `whyThisMatters`, drop the moment.
 
 ### grammarPatterns
 Recurring grammar issues that appear at least twice in this capture. Each pattern:

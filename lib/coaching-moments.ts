@@ -36,9 +36,13 @@ export type CoachingMoment = {
     timestampLabel: string | null;
     /** Anchor text after the timestamp link — the quote / what was said. */
     anchor: string;
-    why: string | null;
+    /** Concrete better alternative — exact wording when possible. */
     betterOption: string | null;
-    keyTakeaway: string | null;
+    /** Merged "why this is an issue + key takeaway" narrative. The parser
+     *  accepts the new **Why this matters:** label and also falls back to the
+     *  older **Why this is an issue:** / **Key takeaway:** pair so legacy
+     *  feedback markdown still renders correctly. */
+    whyThisMatters: string | null;
 };
 
 export type ParsedCoachingSection = {
@@ -100,9 +104,9 @@ function parseMomentBlock(
             const label = (labelMatch[1] ?? "").trim().toLowerCase();
             const content = (labelMatch[2] ?? "").trim();
             if (
+                label.startsWith("why this matters") ||
                 label.startsWith("why to tighten") ||
                 label.startsWith("why this is an issue") ||
-                label.startsWith("why this matters") ||
                 label === "why"
             ) {
                 why = content;
@@ -126,6 +130,12 @@ function parseMomentBlock(
         }
     }
 
+    // New prompts produce a single **Why this matters:** label; older prompts
+    // emitted separate **Why this is an issue:** + **Key takeaway:** lines.
+    // Merge both into one whyThisMatters narrative so the UI only ever has to
+    // render one field.
+    const whyThisMatters = mergeWhyAndTakeaway(why, keyTakeaway);
+
     const id = `${key}-${index}-${timestampSeconds ?? "na"}`;
 
     return {
@@ -134,10 +144,27 @@ function parseMomentBlock(
         timestampSeconds,
         timestampLabel,
         anchor: anchorText,
-        why,
         betterOption,
-        keyTakeaway,
+        whyThisMatters,
     };
+}
+
+function mergeWhyAndTakeaway(
+    why: string | null,
+    keyTakeaway: string | null,
+): string | null {
+    const parts: string[] = [];
+    if (why?.trim()) parts.push(why.trim());
+    if (keyTakeaway?.trim()) {
+        const t = keyTakeaway.trim();
+        // Avoid double-appending when the model already produced a single
+        // merged narrative under the "Why this matters" label (no separate
+        // "Key takeaway" line).
+        if (!why?.trim().endsWith(t)) {
+            parts.push(`**Takeaway:** ${t}`);
+        }
+    }
+    return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
 export function parseCoachingSection(

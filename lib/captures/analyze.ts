@@ -16,14 +16,14 @@ import type { UserProfileType } from "@/types/user";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
-// The unified four-part teachable shape used for every coaching moment
-// (`teachableMoments` and dimensional `findings`). See `CoachingMoment` in
-// `types/captures.ts` for the rationale.
+// Unified three-part teachable shape used for every coaching moment
+// (`fixTheseFirst`, `moreMoments`, and dimensional `findings`). The old
+// separate `whyIssue` + `keyTakeaway` fields are now merged into one
+// `whyThisMatters` narrative. See `CoachingMoment` in `types/captures.ts`.
 const coachingMomentSchema = z.object({
     anchor: z.string(),
-    whyIssue: z.string(),
     betterOption: z.string(),
-    keyTakeaway: z.string(),
+    whyThisMatters: z.string(),
 });
 
 const teachableMomentSchema = coachingMomentSchema.extend({
@@ -70,7 +70,8 @@ const captureAnalysisSchema = z.object({
     improvements: z.array(z.string()),
     regressions: z.array(z.string()),
 
-    teachableMoments: z.array(teachableMomentSchema),
+    fixTheseFirst: z.array(teachableMomentSchema),
+    moreMoments: z.array(teachableMomentSchema),
     grammarPatterns: z.array(
         z.object({
             pattern: z.string(),
@@ -255,7 +256,8 @@ ${humePayload}`;
             voiceToneExpression: result.output.voiceToneExpression,
             improvements: result.output.improvements,
             regressions: result.output.regressions,
-            teachableMoments: result.output.teachableMoments,
+            fixTheseFirst: result.output.fixTheseFirst,
+            moreMoments: result.output.moreMoments,
             grammarPatterns: result.output.grammarPatterns,
             vocabulary: result.output.vocabulary,
             fillerWords: result.output.fillerWords,

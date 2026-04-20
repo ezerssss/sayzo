@@ -100,6 +100,8 @@ export type SessionCompletionStatus =
     | "needs_retry"
     | "skipped";
 
+import type { CaptureTranscriptLine } from "@/types/captures";
+
 export type SessionType = {
     id: string;
     uid: string;
@@ -109,6 +111,14 @@ export type SessionType = {
     audioUrl: string | null;
     audioObjectPath?: string | null;
     transcript: string | null;
+    /**
+     * Structured per-utterance transcript (one line per Deepgram utterance)
+     * with start/end timings and `speaker: "user"` on every line (drills are
+     * monologues). Reuses the capture transcript shape so one renderer can
+     * serve both surfaces. Nullable on legacy drills persisted before this
+     * field was added — UI falls back to parsing `transcript` in that case.
+     */
+    serverTranscript?: CaptureTranscriptLine[] | null;
 
     analysis: SessionAnalysisType | null;
     feedback: SessionFeedbackType | null;

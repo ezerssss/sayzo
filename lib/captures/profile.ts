@@ -52,16 +52,21 @@ function formatTranscript(transcript: CaptureTranscriptLine[]): string {
 
 function formatDimension(dim: {
     assessment: string;
-    findings: { anchor: string; whyIssue: string; betterOption: string }[];
+    findings: {
+        anchor: string;
+        betterOption: string;
+        whyThisMatters?: string;
+        whyIssue?: string;
+    }[];
 }): string {
     const assessment = dim.assessment.trim();
-    // Compact each finding into "anchor — whyIssue (Better: betterOption)" so the
-    // profiler model has the gist without the full keyTakeaway prose.
+    // Compact each finding into "anchor — why (Better: betterOption)" so the
+    // profiler model has the gist without the full narrative.
     const findingsText = dim.findings
-        .map(
-            (f) =>
-                `${f.anchor.trim()} — ${f.whyIssue.trim()} (Better: ${f.betterOption.trim()})`,
-        )
+        .map((f) => {
+            const why = (f.whyThisMatters ?? f.whyIssue ?? "").trim();
+            return `${f.anchor.trim()} — ${why} (Better: ${f.betterOption.trim()})`;
+        })
         .join("; ");
     if (!assessment && !findingsText) return "(none)";
     if (assessment && findingsText)
@@ -176,7 +181,14 @@ Summary: ${summary}
 - Voice/tone/expression: ${formatDimension(analysis.voiceToneExpression)}
 
 ## Quantitative summary
-- Teachable moments: ${analysis.teachableMoments.length} (${analysis.teachableMoments.filter((m) => m.severity === "major").length} major)
+- Teachable moments: ${(() => {
+    const all = [
+        ...(analysis.fixTheseFirst ?? []),
+        ...(analysis.moreMoments ?? []),
+        ...(analysis.teachableMoments ?? []),
+    ];
+    return `${all.length} (${all.filter((m) => m.severity === "major").length} major)`;
+})()}
 - Grammar patterns: ${analysis.grammarPatterns.map((p) => `${p.pattern} (${p.frequency}x)`).join("; ") || "(none)"}
 - Filler words: ${analysis.fillerWords.perMinute.toFixed(1)}/min
 - Fluency: ${analysis.fluency.wordsPerMinute} WPM, ${analysis.fluency.selfCorrections} self-corrections, ${analysis.fluency.avgResponseLatencyMs}ms avg response latency

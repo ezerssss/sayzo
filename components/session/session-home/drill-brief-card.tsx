@@ -1,4 +1,4 @@
-import { ArrowRight, Loader2, Pause, Play } from "lucide-react";
+import { Loader2, Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { MarkdownBlock } from "@/components/session/markdown-block";
@@ -10,14 +10,6 @@ import type { SessionPlanType } from "@/types/sessions";
 
 type Props = {
     plan: SessionPlanType;
-    shouldShowResults: boolean;
-    loadingSession: boolean;
-    isCreatingDrill: boolean;
-    requiresRetry: boolean;
-    reflectionModalOpen: boolean;
-    reflectionSubmitting: boolean;
-    skipSubmitting: boolean;
-    onStartAnotherDrill: () => void;
 };
 
 const AUTOPLAY_STORAGE_KEY = "eloquy.drill.autoplay";
@@ -100,17 +92,7 @@ function normalizeMarkdownList(md: string): string {
 }
 
 export function DrillBriefCard(props: Readonly<Props>) {
-    const {
-        plan,
-        shouldShowResults,
-        loadingSession,
-        isCreatingDrill,
-        requiresRetry,
-        reflectionModalOpen,
-        reflectionSubmitting,
-        skipSubmitting,
-        onStartAnotherDrill,
-    } = props;
+    const { plan } = props;
 
     const question = plan.scenario.question?.trim() ?? "";
     const situationContext = plan.scenario.situationContext?.trim() ?? "";
@@ -284,79 +266,42 @@ export function DrillBriefCard(props: Readonly<Props>) {
 
     return (
         <div>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
-                    Today&apos;s drill
-                    {plan.scenario.title ? (
-                        <>
-                            <span className="mx-1.5 text-sky-700/50">
-                                ·
-                            </span>
-                            <span className="font-normal normal-case text-foreground/80">
-                                {plan.scenario.title}
-                            </span>
-                        </>
-                    ) : null}
-                </p>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                    {narrationText ? (
-                        <div className="flex items-center gap-1">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => void handleTogglePlayback()}
-                                disabled={playbackState === "loading"}
-                                aria-label={
-                                    playbackState === "playing"
-                                        ? "Pause prompt"
-                                        : "Listen to prompt"
-                                }
-                                className="h-7 gap-1.5 px-2 text-xs"
-                            >
-                                {playbackState === "loading" ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : playbackState === "playing" ? (
-                                    <Pause className="h-3.5 w-3.5" />
-                                ) : (
-                                    <Play className="h-3.5 w-3.5" />
-                                )}
-                                {playbackState === "playing"
-                                    ? "Pause"
-                                    : "Listen"}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleToggleAutoplay}
-                                aria-pressed={autoplayEnabled}
-                                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                            >
-                                Auto-play: {autoplayEnabled ? "on" : "off"}
-                            </Button>
-                        </div>
-                    ) : null}
-                    {shouldShowResults ? (
-                        <Button
-                            onClick={() => void onStartAnotherDrill()}
-                            disabled={
-                                loadingSession ||
-                                isCreatingDrill ||
-                                requiresRetry ||
-                                reflectionModalOpen ||
-                                reflectionSubmitting ||
-                                skipSubmitting
-                            }
-                        >
-                            <ArrowRight />
-                            {isCreatingDrill
-                                ? "Building next drill..."
-                                : "Start another drill"}
-                        </Button>
-                    ) : null}
+            {narrationText ? (
+                <div className="flex flex-wrap items-center justify-end gap-1">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleTogglePlayback()}
+                        disabled={playbackState === "loading"}
+                        aria-label={
+                            playbackState === "playing"
+                                ? "Pause prompt"
+                                : "Listen to prompt"
+                        }
+                        className="h-7 gap-1.5 px-2 text-xs"
+                    >
+                        {playbackState === "loading" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : playbackState === "playing" ? (
+                            <Pause className="h-3.5 w-3.5" />
+                        ) : (
+                            <Play className="h-3.5 w-3.5" />
+                        )}
+                        {playbackState === "playing" ? "Pause" : "Listen"}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleToggleAutoplay}
+                        aria-pressed={autoplayEnabled}
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                        Auto-play: {autoplayEnabled ? "on" : "off"}
+                    </Button>
                 </div>
-            </div>
+            ) : null}
 
             {/* The prompt itself — styled as something being said to you. */}
             {promptBody ? (

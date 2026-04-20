@@ -7,7 +7,7 @@ import {
     generateSessionFeedback,
     type ReplayContext,
 } from "@/services/analyzer";
-import type { CaptureType } from "@/types/captures";
+import type { CaptureTranscriptLine, CaptureType } from "@/types/captures";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
 import { measureSessionExpression } from "@/services/hume-expression";
@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
                         audioUrl: null,
                         audioObjectPath: null,
                         transcript: null,
+                        serverTranscript: null,
                         analysis: null,
                         feedback: null,
                         completionStatus: "pending",
@@ -315,6 +316,20 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Structured per-utterance transcript alongside the flat string.
+        // The flat string stays because analyzer / feedback prompts and
+        // feedback-chat all rely on its `[mm:ss] text` format. The structured
+        // form powers the drill transcript UI (per-line blue-accented rows +
+        // inline coaching-moment badges) and mirrors captures.
+        const serverTranscript: CaptureTranscriptLine[] = deepgramResult.utterances
+            .filter((u) => (u.transcript ?? "").trim().length > 0)
+            .map((u) => ({
+                speaker: "user",
+                start: u.start,
+                end: u.end,
+                text: u.transcript.trim(),
+            }));
+
         // 2) Upload audio to Firebase Storage + persist URL
         await sessionRef.set(
             {
@@ -357,6 +372,7 @@ export async function POST(request: NextRequest) {
                 audioUrl,
                 audioObjectPath: objectPath,
                 transcript,
+                serverTranscript,
                 processingStatus: "processing",
                 processingStage: "analyzing_expression",
                 processingJobId,
@@ -604,6 +620,7 @@ ${transcript}`,
                 audioUrl,
                 audioObjectPath: objectPath,
                 transcript,
+                serverTranscript,
                 analysis,
                 feedback,
                 completionStatus,

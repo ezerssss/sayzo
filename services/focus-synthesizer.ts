@@ -312,15 +312,20 @@ function condenseCapture(capture: CaptureType): string | null {
         parts.push(`Dimensional assessments:\n${dimensionalLines.join("\n")}`);
     }
 
-    const teachable = analysis.teachableMoments.slice(
-        0,
-        MAX_TEACHABLE_MOMENTS_PER_CAPTURE,
-    );
+    // Prefer new fixTheseFirst + moreMoments; fall back to legacy teachableMoments.
+    const allTeachable = [
+        ...(analysis.fixTheseFirst ?? []),
+        ...(analysis.moreMoments ?? []),
+    ];
+    const teachable = (allTeachable.length > 0
+        ? allTeachable
+        : analysis.teachableMoments ?? []
+    ).slice(0, MAX_TEACHABLE_MOMENTS_PER_CAPTURE);
     if (teachable.length > 0) {
-        const lines = teachable.map(
-            (m) =>
-                `- [${m.type}/${m.severity}] "${truncate(m.anchor, 100)}" — ${truncate(m.whyIssue, 120)}`,
-        );
+        const lines = teachable.map((m) => {
+            const why = (m.whyThisMatters ?? m.whyIssue ?? "").trim();
+            return `- [${m.type}/${m.severity}] "${truncate(m.anchor, 100)}" — ${truncate(why, 120)}`;
+        });
         parts.push(`Teachable moments:\n${lines.join("\n")}`);
     }
 

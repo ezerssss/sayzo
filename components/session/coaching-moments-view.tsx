@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { FeedbackChat } from "@/components/session/feedback-chat";
+import { InlineMarkdown } from "@/components/session/inline-markdown";
 import { cn } from "@/lib/utils";
 import {
     COACHING_SECTION_LABELS,
@@ -187,16 +188,20 @@ function TopFixContent({
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                         Try instead
                     </p>
-                    <p className="mt-1 text-sm text-foreground">
-                        {moment.betterOption}
-                    </p>
+                    <div className="mt-1">
+                        <InlineMarkdown
+                            text={moment.betterOption}
+                            tone="body"
+                        />
+                    </div>
                 </div>
             ) : null}
 
-            {moment.why ? (
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                    {moment.why}
-                </p>
+            {moment.whyThisMatters ? (
+                <InlineMarkdown
+                    text={moment.whyThisMatters}
+                    tone="small-muted"
+                />
             ) : null}
         </div>
     );
@@ -272,13 +277,16 @@ function MomentCard({
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                         Try instead
                     </p>
-                    <p className="mt-1 text-sm text-foreground">
-                        {primary.betterOption}
-                    </p>
+                    <div className="mt-1">
+                        <InlineMarkdown
+                            text={primary.betterOption}
+                            tone="body"
+                        />
+                    </div>
                 </div>
             ) : null}
 
-            {primary.why || supplementary.length > 0 ? (
+            {primary.whyThisMatters || supplementary.length > 0 ? (
                 <div className="mt-3">
                     <button
                         type="button"
@@ -294,10 +302,15 @@ function MomentCard({
                         {isExpanded ? "Hide why" : "Why this matters"}
                     </button>
                     {isExpanded ? (
-                        <div className="mt-2 space-y-2 text-xs leading-relaxed text-muted-foreground">
-                            {primary.why ? <p>{primary.why}</p> : null}
+                        <div className="mt-2 space-y-2">
+                            {primary.whyThisMatters ? (
+                                <InlineMarkdown
+                                    text={primary.whyThisMatters}
+                                    tone="small-muted"
+                                />
+                            ) : null}
                             {supplementary.map((occ) =>
-                                occ.why || occ.betterOption ? (
+                                occ.whyThisMatters || occ.betterOption ? (
                                     <div
                                         key={occ.id}
                                         className="rounded-md border border-border/50 p-2"
@@ -309,15 +322,23 @@ function MomentCard({
                                                 ]
                                             }
                                         </span>
-                                        {occ.why ? (
-                                            <p className="mt-1">{occ.why}</p>
+                                        {occ.whyThisMatters ? (
+                                            <div className="mt-1">
+                                                <InlineMarkdown
+                                                    text={occ.whyThisMatters}
+                                                    tone="small-muted"
+                                                />
+                                            </div>
                                         ) : null}
                                         {occ.betterOption &&
                                         occ.betterOption !==
                                             primary.betterOption ? (
-                                            <p className="mt-1 text-foreground">
-                                                Try: {occ.betterOption}
-                                            </p>
+                                            <div className="mt-1">
+                                                <InlineMarkdown
+                                                    text={`Try: ${occ.betterOption}`}
+                                                    tone="body"
+                                                />
+                                            </div>
                                         ) : null}
                                     </div>
                                 ) : null,
@@ -358,7 +379,7 @@ function priority(key: CoachingSectionKey): number {
 function score(moment: CoachingMoment): number {
     return (
         (moment.betterOption ? 2 : 0) +
-        (moment.why ? 1 : 0) +
+        (moment.whyThisMatters ? 1 : 0) +
         (moment.anchor ? 1 : 0)
     );
 }
@@ -538,7 +559,7 @@ function buildSectionContext(section: ParsedCoachingSection): string {
     for (const m of section.moments) {
         const head = m.timestampLabel ? `[${m.timestampLabel}]` : "—";
         const bits = [`${head} ${m.anchor}`.trim()];
-        if (m.why) bits.push(`Why: ${m.why}`);
+        if (m.whyThisMatters) bits.push(`Why this matters: ${m.whyThisMatters}`);
         if (m.betterOption) bits.push(`Better: ${m.betterOption}`);
         pieces.push(`- ${bits.join(" | ")}`);
     }

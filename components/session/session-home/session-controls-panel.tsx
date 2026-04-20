@@ -1,10 +1,9 @@
-import { Loader2, Lock, Mic, Play, RotateCcw, SkipForward, Square, X } from "lucide-react";
+import { Loader2, Mic, Play, RotateCcw, SkipForward, Square, X } from "lucide-react";
 import type { RefObject } from "react";
 
 import { AudioPlayer } from "@/components/session/audio-player";
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { DrillState } from "./types";
 
 type Props = {
@@ -27,11 +26,9 @@ type Props = {
     cancelSubmitting: boolean;
     playbackSrc: string | null;
     audioRef: RefObject<HTMLAudioElement | null>;
-    outOfCredits: boolean;
     onStartRecording: () => void;
     onStopRecording: () => void;
     onOpenSkipModal: () => void;
-    onRedoDrill: () => void;
     onCancelStuckDrill: () => void;
 };
 
@@ -56,16 +53,14 @@ export function SessionControlsPanel(props: Readonly<Props>) {
         cancelSubmitting,
         playbackSrc,
         audioRef,
-        outOfCredits,
         onStartRecording,
         onStopRecording,
         onOpenSkipModal,
-        onRedoDrill,
         onCancelStuckDrill,
     } = props;
 
     return (
-        <div className="mt-6 rounded-xl border border-border/70 p-4">
+        <div className="rounded-xl border border-border/70 p-4">
             <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">Session status</p>
                 <span className="font-mono text-sm">{`${mm}:${ss.toString().padStart(2, "0")}`}</span>
@@ -95,10 +90,18 @@ export function SessionControlsPanel(props: Readonly<Props>) {
                                         : onStartRecording())
                                 }
                             >
-                                {isRecording ? <Square /> : <Mic />}
+                                {isRecording ? (
+                                    <Square />
+                                ) : requiresRetry ? (
+                                    <RotateCcw />
+                                ) : (
+                                    <Mic />
+                                )}
                                 {isRecording
                                     ? "Stop recording"
-                                    : "Record response"}
+                                    : requiresRetry
+                                      ? "Redo this drill"
+                                      : "Record response"}
                             </Button>
                             {showSkipDrill ? (
                                 <Button
@@ -114,7 +117,6 @@ export function SessionControlsPanel(props: Readonly<Props>) {
                         </>
                     ) : null}
                     {showCompletionActions ? (
-                    <>
                         <Button
                             variant="outline"
                             onClick={() => {
@@ -125,21 +127,7 @@ export function SessionControlsPanel(props: Readonly<Props>) {
                             <Play />
                             Listen to response
                         </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => void onRedoDrill()}
-                            className={cn(outOfCredits && "opacity-60")}
-                            title={
-                                outOfCredits
-                                    ? "You're out of Sayzo credits"
-                                    : undefined
-                            }
-                        >
-                            {outOfCredits ? <Lock /> : <RotateCcw />}
-                            Redo this drill
-                        </Button>
-                    </>
-                ) : null}
+                    ) : null}
                 </div>
                 {showSkipDrill && showRecordAction ? (
                     <p className="text-xs leading-relaxed text-muted-foreground">
