@@ -7,7 +7,7 @@ import {
 } from "@/lib/credits/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { mergeInternalDrillSignalNotes } from "@/services/drill-signal-context";
-import { transcribeAudioFileToPlainText } from "@/services/openai-audio-transcription";
+import { transcribeAudioFileToPlainText } from "@/services/deepgram-audio-transcription";
 import {
     hasSessionFeedbackContent,
     type SessionType,
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Idempotency: skip Whisper entirely if this reflection was already recorded.
+        // Idempotency: skip transcription entirely if this reflection was already recorded.
         const userRef = db.collection(FirestoreCollections.users.path).doc(uid);
         const userSnap = await userRef.get();
         const profile = userSnap.data() as UserProfileType | undefined;

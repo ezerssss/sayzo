@@ -1,11 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
-
-import { requireAuth } from "@/lib/auth/require-auth";
-import {
-    assertHasCredit,
-    CreditLimitReachedError,
-    creditLimitResponse,
-} from "@/lib/credits/server";
+import "server-only";
 
 const DEEPGRAM_URL = "https://api.deepgram.com/v1/listen";
 
@@ -24,49 +17,17 @@ const REDACTION_ENTITIES: readonly string[] = [
     "password",
 ];
 
-export async function POST(request: NextRequest) {
+/**
+ * Plain-text transcription for short single-speaker clips (skip / reflection
+ * feedback). Uses Deepgram Nova-3 in batch mode. No multichannel or diarize —
+ * these clips are user-only voice input.
+ */
+export async function transcribeAudioFileToPlainText(
+    file: File,
+): Promise<string> {
     const apiKey = process.env.DEEPGRAM_API_KEY?.trim();
     if (!apiKey) {
-        return NextResponse.json(
-            {
-                error: "Missing DEEPGRAM_API_KEY. Add it in .env.local.",
-            },
-            { status: 500 },
-        );
-    }
-
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) return auth;
-    const { uid } = auth;
-
-    let formData: FormData;
-    try {
-        formData = await request.formData();
-    } catch {
-        return NextResponse.json(
-            { error: "Expected multipart form data." },
-            { status: 400 },
-        );
-    }
-
-    // assertHasCredit treats a missing user doc as "0 used" which is the
-    // correct behavior for onboarding (user doc is created only on onboarding
-    // complete).
-    try {
-        await assertHasCredit(uid);
-    } catch (err) {
-        if (err instanceof CreditLimitReachedError) {
-            return creditLimitResponse();
-        }
-        throw err;
-    }
-
-    const file = formData.get("file");
-    if (!(file instanceof File) || file.size === 0) {
-        return NextResponse.json(
-            { error: "Missing or empty audio file." },
-            { status: 400 },
-        );
+        throw new Error("Missing DEEPGRAM_API_KEY.");
     }
 
     const params = new URLSearchParams();
@@ -92,9 +53,8 @@ export async function POST(request: NextRequest) {
 
     if (!res.ok) {
         const detail = await res.text();
-        return NextResponse.json(
-            { error: "Transcription failed.", detail },
-            { status: res.status },
+        throw new Error(
+            `Transcription failed (${res.status}): ${detail.slice(0, 500)}`,
         );
     }
 
@@ -106,9 +66,7 @@ export async function POST(request: NextRequest) {
         };
     };
 
-    const text = (
+    return (
         body.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? ""
     ).trim();
-
-    return NextResponse.json({ text });
 }

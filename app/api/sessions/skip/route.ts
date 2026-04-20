@@ -7,7 +7,7 @@ import {
 } from "@/lib/credits/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { mergeInternalDrillSignalNotes } from "@/services/drill-signal-context";
-import { transcribeAudioFileToPlainText } from "@/services/openai-audio-transcription";
+import { transcribeAudioFileToPlainText } from "@/services/deepgram-audio-transcription";
 import type { SessionType } from "@/types/sessions";
 import type { UserProfileType } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";

@@ -104,15 +104,10 @@ export async function extractUserChannel(
 
 /**
  * Per-channel RMS energy envelope. Used by `retranscribeCapture` to
- *  (a) detect dead channels (skip work on a silent side), and
- *  (b) tag each Whisper segment's speaker by comparing left-vs-right
- *      energy during that segment's time window — the left channel is
- *      the user mic and the right channel is the system audio tap, so
- *      whichever side was louder in a given window is the speaker.
+ * detect dead channels and force all surviving utterances to the other
+ * side when one channel is silent. Left = user mic, right = system audio.
  *
- * Values are 0..1 full-scale. Binned envelope keeps memory bounded
- * (~600 KB for a 60-min capture at 50 ms bins) while allowing O(bins)
- * windowed RMS queries for each Whisper segment.
+ * Values are 0..1 full-scale.
  */
 export type ChannelEnergy = {
     totalMs: number;
@@ -248,126 +243,3 @@ export async function computeChannelEnergy(
     });
 }
 
-// ---------------------------------------------------------------------------
-// Windowed energy + mono downmix for Whisper
-// ---------------------------------------------------------------------------
-
-/**
- * Average RMS on each channel over the given time window. Used to tag a
- * Whisper segment's speaker: whichever channel was louder during the
- * segment's [start, end] is the speaker (left = user mic, right = system
- * audio).
- */
-export function rmsInWindow(
-    energy: ChannelEnergy,
-    startSecs: number,
-    endSecs: number,
-): { left: number; right: number } {
-    const totalBins = energy.leftRmsBins.length;
-    if (totalBins === 0) return { left: 0, right: 0 };
-
-    const startBin = Math.max(
-        0,
-        Math.floor((startSecs * 1000) / energy.binMs),
-    );
-    const endBin = Math.min(
-        totalBins,
-        Math.max(startBin + 1, Math.ceil((endSecs * 1000) / energy.binMs)),
-    );
-    const n = endBin - startBin;
-    if (n <= 0) return { left: 0, right: 0 };
-
-    let leftSumSq = 0;
-    let rightSumSq = 0;
-    for (let i = startBin; i < endBin; i++) {
-        const l = energy.leftRmsBins[i];
-        const r = energy.rightRmsBins[i];
-        leftSumSq += l * l;
-        rightSumSq += r * r;
-    }
-    return {
-        left: Math.sqrt(leftSumSq / n),
-        right: Math.sqrt(rightSumSq / n),
-    };
-}
-
-/**
- * Downmix stereo → mono + highpass + loudness-normalize, encode as OGG
- * Opus at 48 kbps for Whisper. Unlike per-channel isolation, the mono
- * mix preserves full conversation context (both speakers), which
- * Whisper relies on to decode reliably — isolated mono starves the
- * sequence model and causes it to miss whole sentences. Speaker
- * identity is recovered after the fact from per-channel energy via
- * `rmsInWindow()`.
- */
-export async function extractMixedMonoOpusForWhisper(
-    stereoBuffer: Buffer,
-): Promise<Buffer> {
-    const ffmpegPath = getFfmpegPath();
-    const filterChain = "highpass=f=80,loudnorm=I=-16:LRA=11:TP=-1.5";
-
-    return new Promise((resolve, reject) => {
-        const ffmpeg = spawn(ffmpegPath, [
-            "-loglevel",
-            "error",
-            "-i",
-            "pipe:0",
-            "-ac",
-            "1",
-            "-af",
-            filterChain,
-            "-c:a",
-            "libopus",
-            "-b:a",
-            "48k",
-            "-f",
-            "ogg",
-            "pipe:1",
-        ]);
-
-        const chunks: Buffer[] = [];
-        let stderr = "";
-        let settled = false;
-        const settle = (fn: () => void) => {
-            if (settled) return;
-            settled = true;
-            fn();
-        };
-
-        ffmpeg.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
-        ffmpeg.stderr.on("data", (chunk: Buffer) => {
-            stderr += chunk.toString();
-        });
-
-        ffmpeg.on("close", (code) => {
-            settle(() => {
-                if (code === 0) {
-                    resolve(Buffer.concat(chunks));
-                } else {
-                    reject(
-                        new Error(
-                            `ffmpeg exited with code ${code}: ${stderr.slice(-500).trim()}`,
-                        ),
-                    );
-                }
-            });
-        });
-
-        ffmpeg.on("error", (err) => {
-            settle(() =>
-                reject(new Error(`ffmpeg failed to start: ${err.message}`)),
-            );
-        });
-
-        ffmpeg.stdin.on("error", (err) => {
-            settle(() =>
-                reject(
-                    new Error(`ffmpeg stdin write failed: ${err.message}`),
-                ),
-            );
-        });
-
-        ffmpeg.stdin.write(stereoBuffer);
-        ffmpeg.stdin.end();
-    });
-}

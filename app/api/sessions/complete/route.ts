@@ -143,8 +143,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Idempotency / double-processing guards — the credit charged at drill
-        // creation is wasted if a client re-POSTs and we re-run Whisper + Hume
-        // + LLM on an already-analyzed (or in-flight) session.
+        // creation is wasted if a client re-POSTs and we re-run transcription
+        // + Hume + LLM on an already-analyzed (or in-flight) session.
         if (session.processingStatus === "processing") {
             return NextResponse.json(
                 {

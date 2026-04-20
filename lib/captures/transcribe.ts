@@ -2,50 +2,49 @@ import "server-only";
 
 import type { CaptureTranscriptLine } from "@/types/captures";
 
-import {
-    type ChannelEnergy,
-    computeChannelEnergy,
-    extractMixedMonoOpusForWhisper,
-    rmsInWindow,
-} from "./audio";
+import { type ChannelEnergy, computeChannelEnergy } from "./audio";
 
-const OPENAI_TRANSCRIPTIONS_URL =
-    "https://api.openai.com/v1/audio/transcriptions";
+const DEEPGRAM_URL = "https://api.deepgram.com/v1/listen";
 
-// Whisper's `prompt` is a style/vocabulary bias, not an instruction.
-// Anything instruction-shaped gets echoed verbatim during silent windows
-// (we watched "Do not rewrite, summarize, or correct grammar." appear as
-// transcript text at 0s/30s/60s). Seeding with disfluencies biases the
-// decoder toward preserving them rather than tidying them up.
-const VERBATIM_PROMPT = "Um, uh, yeah, hmm, well, like, you know, I mean.";
-
-// ---------------------------------------------------------------------------
-// Thresholds
-// ---------------------------------------------------------------------------
-
-/** Channel is silent across the whole capture → treat it as dead. */
+// Channel silent across the whole capture → treat as dead and force all
+// surviving utterances to the other side. Deepgram's own channel field is
+// usually correct, but this is a belt-and-braces guard against a vendor
+// hallucinating text on a silent channel.
 const DEAD_CHANNEL_FLOOR_RMS = 0.001; // -60 dBFS
-/** OpenAI combined drop condition — both signals must fire together. */
-const NO_SPEECH_PROB_DROP = 0.6;
-const AVG_LOGPROB_DROP = -1.0;
-/** Repetitive gibberish inside one segment. */
-const COMPRESSION_RATIO_DROP = 2.4;
-/** Cross-segment repetition — phrases this long repeated this many times
- *  are loop hallucinations (e.g. prompt echoes, "please subscribe"). */
+
+// Defensive safety net against ASR loop hallucinations. Rarely fires on
+// Deepgram — kept as belt-and-braces.
 const REPEATED_PHRASE_MIN_LENGTH = 20;
 const REPEATED_PHRASE_MIN_COUNT = 3;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// Credentials + payment + government ID only. No redact=pii because it
+// strips conversational content we need for coaching (names, locations,
+// ages, occupations, etc.).
+const REDACTION_ENTITIES: readonly string[] = [
+    "credit_card",
+    "credit_card_expiration",
+    "cvv",
+    "ssn",
+    "bank_account",
+    "routing_number",
+    "passport_number",
+    "password",
+];
 
-type WhisperSegment = {
+type DeepgramUtterance = {
     start: number;
     end: number;
-    text: string;
-    avgLogprob: number;
-    compressionRatio: number;
-    noSpeechProb: number;
+    transcript: string;
+    channel?: number;
+    speaker?: number;
+    confidence?: number;
+};
+
+type DeepgramResponse = {
+    metadata?: { duration?: number };
+    results?: {
+        utterances?: DeepgramUtterance[];
+    };
 };
 
 type TranscriptionResult = {
@@ -53,87 +52,29 @@ type TranscriptionResult = {
     durationSecs: number;
 };
 
-type MonoTranscribeResult = {
-    segments: WhisperSegment[];
-    durationSecs: number;
-};
-
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
-
 /**
- * Re-transcribe a capture with OpenAI Whisper, recovering speaker labels
- * from ground-truth per-channel audio.
+ * Re-transcribe a capture with Deepgram Nova-3 multichannel + diarization.
  *
- * Why the full-mix approach:
- * Earlier we transcribed each channel separately so speaker identity
- * would be immediate (left-channel segments = user). Whisper performed
- * badly on those isolated mono tracks — it's a sequence model that
- * relies on full conversational context, and a channel with lots of
- * silence (one speaker waiting on the other) starves it. Whole
- * sentences got dropped; mono silences bred prompt-echo hallucinations.
+ * Captures are stereo: left (c0) = user mic, right (c1) = system audio.
+ * Deepgram decodes each channel independently, so user-vs-other identity
+ * comes from the physical channel — no voice-embedding clustering or
+ * timestamp heuristics needed.
  *
- * Instead we:
- *   1. Downmix the stereo capture to mono, highpass + loudness-normalize.
- *   2. Send one Whisper call — the model sees the conversation as it
- *      was actually spoken, with both turns audible, and transcribes
- *      dramatically more reliably.
- *   3. For each returned segment, measure left-channel RMS vs
- *      right-channel RMS during its [start, end] window, using the
- *      original stereo audio. Whichever side was louder is the speaker:
- *        left louder  → "user" (left = user mic, always)
- *        right louder → one of "other_*" (disambiguated by overlap
- *                       against agent `other_*` lines; agent timing is
- *                       only consulted for `other_1` vs `other_2` vs
- *                       `other_unmic`, never to decide user-vs-other)
- *
- * We never depend on agent timing for the user-vs-other distinction —
- * that's what broke the original overlap-based approach.
- *
- * Hallucination defenses (kept from the per-channel version):
- *   - `temperature=0` pinned (kills Whisper's creative retry loop).
- *   - Disfluency-style prompt (instruction-style prompts get echoed).
- *   - Cross-segment repetition detector.
- *   - OpenAI combined `no_speech_prob > 0.6 AND avg_logprob < -1.0`.
- *   - `compression_ratio > 2.4`.
- *   - Short canonical denylist (exact-match).
+ * Within the right channel, Deepgram's diarization assigns integer speaker
+ * IDs which we map to `other_1`, `other_2`, ... in first-seen order.
  */
 export async function retranscribeCapture(
     audioBuffer: Buffer,
     agentTranscript: CaptureTranscriptLine[],
 ): Promise<TranscriptionResult> {
-    // Channel energy is mandatory — we need it for speaker tagging. If
-    // this fails the stage throws so retry logic can handle it.
     const energy: ChannelEnergy = await computeChannelEnergy(audioBuffer);
-
     const leftAlive = energy.maxLeftRms >= DEAD_CHANNEL_FLOOR_RMS;
     const rightAlive = energy.maxRightRms >= DEAD_CHANNEL_FLOOR_RMS;
 
-    console.log("[captures/transcribe] channel energy", {
-        maxLeftRms: energy.maxLeftRms,
-        maxRightRms: energy.maxRightRms,
-        leftAlive,
-        rightAlive,
-    });
+    const dg = await transcribeStereoWithDeepgram(audioBuffer);
 
-    if (!leftAlive) {
-        console.warn(
-            "[captures/transcribe] left (user) channel silent across whole capture — all segments will default to other_*",
-        );
-    }
-    if (!rightAlive) {
-        console.warn(
-            "[captures/transcribe] right (system audio) channel silent across whole capture — all segments will default to user",
-        );
-    }
-
-    const mixedBuffer = await extractMixedMonoOpusForWhisper(audioBuffer);
-    const whisper = await transcribeMono(mixedBuffer);
-
-    const serverTranscript = filterAndTagSegments(
-        whisper.segments,
-        energy,
+    const serverTranscript = mapUtterancesToLines(
+        dg.utterances,
         leftAlive,
         rightAlive,
         agentTranscript,
@@ -141,221 +82,147 @@ export async function retranscribeCapture(
 
     return {
         serverTranscript,
-        durationSecs: whisper.durationSecs,
+        durationSecs: dg.durationSecs,
     };
 }
 
-// ---------------------------------------------------------------------------
-// Whisper call
-// ---------------------------------------------------------------------------
-
-async function transcribeMono(
-    monoOggBuffer: Buffer,
-): Promise<MonoTranscribeResult> {
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
+async function transcribeStereoWithDeepgram(
+    stereoBuffer: Buffer,
+): Promise<{ utterances: DeepgramUtterance[]; durationSecs: number }> {
+    const apiKey = process.env.DEEPGRAM_API_KEY?.trim();
     if (!apiKey) {
-        throw new Error("Missing OPENAI_API_KEY");
+        throw new Error("Missing DEEPGRAM_API_KEY");
     }
-    const model =
-        process.env.CAPTURE_TRANSCRIBE_MODEL?.trim() || "whisper-1";
 
-    const blob = new Blob([new Uint8Array(monoOggBuffer)], {
+    const params = new URLSearchParams();
+    params.set("model", "nova-3");
+    params.set("language", "en");
+    params.set("multichannel", "true");
+    params.set("diarize", "true");
+    params.set("utterances", "true");
+    params.set("punctuate", "true");
+    params.set("smart_format", "true");
+    params.set("filler_words", "true");
+    for (const entity of REDACTION_ENTITIES) {
+        params.append("redact", entity);
+    }
+
+    const audioBlob = new Blob([new Uint8Array(stereoBuffer)], {
         type: "audio/ogg",
     });
-    const fd = new FormData();
-    fd.append("model", model);
-    fd.append("file", blob, "audio.ogg");
-    fd.append("response_format", "verbose_json");
-    fd.append("timestamp_granularities[]", "segment");
-    fd.append("temperature", "0");
-    fd.append("prompt", VERBATIM_PROMPT);
 
-    const res = await fetch(OPENAI_TRANSCRIPTIONS_URL, {
+    const res = await fetch(`${DEEPGRAM_URL}?${params.toString()}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: fd,
+        headers: {
+            Authorization: `Token ${apiKey}`,
+            "Content-Type": "audio/ogg",
+        },
+        body: audioBlob,
     });
 
     if (!res.ok) {
         const detail = await res.text();
-        throw new Error(`Transcription failed (${res.status}): ${detail}`);
+        throw new Error(
+            `Deepgram transcription failed (${res.status}): ${detail.slice(0, 500)}`,
+        );
     }
 
-    const body = (await res.json()) as {
-        duration?: number;
-        segments?: Array<{
-            start?: number;
-            end?: number;
-            text?: string;
-            avg_logprob?: number;
-            compression_ratio?: number;
-            no_speech_prob?: number;
-        }>;
+    const body = (await res.json()) as DeepgramResponse;
+    return {
+        utterances: body.results?.utterances ?? [],
+        durationSecs: body.metadata?.duration ?? 0,
     };
-
-    const segments: WhisperSegment[] = (body.segments ?? []).map((seg) => {
-        const start = seg.start ?? 0;
-        return {
-            start,
-            end: seg.end ?? start,
-            text: (seg.text ?? "").trim(),
-            avgLogprob: seg.avg_logprob ?? 0,
-            compressionRatio: seg.compression_ratio ?? 0,
-            noSpeechProb: seg.no_speech_prob ?? 0,
-        };
-    });
-
-    return { segments, durationSecs: body.duration ?? 0 };
 }
 
-// ---------------------------------------------------------------------------
-// Filter + speaker tagging
-// ---------------------------------------------------------------------------
-
-function filterAndTagSegments(
-    segments: WhisperSegment[],
-    energy: ChannelEnergy,
+function mapUtterancesToLines(
+    utterances: DeepgramUtterance[],
     leftAlive: boolean,
     rightAlive: boolean,
     agentTranscript: CaptureTranscriptLine[],
 ): CaptureTranscriptLine[] {
-    const repeated = detectRepeatedHallucinations(segments);
-
-    // Diagnostic: dump every Whisper segment with its quality signals AND
-    // per-channel RMS so we can see what the speaker-tagging decision is
-    // based on. Essential while this pipeline is new.
-    console.log(
-        `[captures/transcribe] raw Whisper segments (${segments.length})`,
-        segments.slice(0, 80).map((s) => {
-            const { left, right } = rmsInWindow(energy, s.start, s.end);
-            return {
-                start: Number(s.start.toFixed(2)),
-                end: Number(s.end.toFixed(2)),
-                text: s.text,
-                noSpeechProb: Number(s.noSpeechProb.toFixed(3)),
-                avgLogprob: Number(s.avgLogprob.toFixed(3)),
-                compressionRatio: Number(s.compressionRatio.toFixed(2)),
-                leftRms: Number(left.toFixed(4)),
-                rightRms: Number(right.toFixed(4)),
-            };
-        }),
-    );
-    if (repeated.size > 0) {
-        console.log(
-            "[captures/transcribe] repeated-loop phrases",
-            Array.from(repeated),
-        );
-    }
-
+    const repeated = detectRepeatedHallucinations(utterances);
+    const otherSpeakerMap = new Map<number, string>();
     const kept: CaptureTranscriptLine[] = [];
-    const dropReasons = new Map<string, number>();
-    const dropSamples = new Map<string, string[]>();
-    let userCount = 0;
-    let otherCount = 0;
 
-    for (const seg of segments) {
-        const reason = dropReason(seg, repeated);
-        if (reason) {
-            dropReasons.set(reason, (dropReasons.get(reason) ?? 0) + 1);
-            const samples = dropSamples.get(reason) ?? [];
-            if (samples.length < 3) {
-                samples.push(`"${seg.text}"`);
-                dropSamples.set(reason, samples);
-            }
-            continue;
-        }
+    for (const u of utterances) {
+        const text = (u.transcript ?? "").trim();
+        if (shouldDrop(text, repeated)) continue;
 
         const speaker = tagSpeaker(
-            seg,
-            energy,
+            u,
             leftAlive,
             rightAlive,
+            otherSpeakerMap,
             agentTranscript,
         );
-        if (speaker === "user") userCount++;
-        else otherCount++;
 
         kept.push({
             speaker,
-            start: seg.start,
-            end: seg.end,
-            text: seg.text,
+            start: u.start,
+            end: u.end,
+            text,
         });
     }
 
     kept.sort((a, b) => a.start - b.start);
-
-    console.log("[captures/transcribe] segment counts", {
-        whisperReturned: segments.length,
-        kept: kept.length,
-        userKept: userCount,
-        otherKept: otherCount,
-    });
-
-    if (dropReasons.size > 0) {
-        const breakdown: Record<string, { count: number; samples: string[] }> =
-            {};
-        for (const [reason, count] of dropReasons) {
-            breakdown[reason] = {
-                count,
-                samples: dropSamples.get(reason) ?? [],
-            };
-        }
-        console.log("[captures/transcribe] drop breakdown", breakdown);
-    }
-
     return kept;
 }
 
 function tagSpeaker(
-    seg: WhisperSegment,
-    energy: ChannelEnergy,
+    utterance: DeepgramUtterance,
     leftAlive: boolean,
     rightAlive: boolean,
+    otherSpeakerMap: Map<number, string>,
     agentTranscript: CaptureTranscriptLine[],
 ): string {
-    // Dead-channel shortcuts — if one side never had signal, every
-    // surviving segment belongs to the other side.
     if (!leftAlive && rightAlive) {
-        return disambiguateOther(seg.start, seg.end, agentTranscript);
+        return resolveOtherSpeaker(
+            utterance,
+            otherSpeakerMap,
+            agentTranscript,
+        );
     }
     if (leftAlive && !rightAlive) return "user";
+    if (!leftAlive && !rightAlive) return "user";
 
-    const { left, right } = rmsInWindow(energy, seg.start, seg.end);
-    return left > right
-        ? "user"
-        : disambiguateOther(seg.start, seg.end, agentTranscript);
+    if ((utterance.channel ?? 0) === 0) return "user";
+    return resolveOtherSpeaker(utterance, otherSpeakerMap, agentTranscript);
 }
 
-function dropReason(
-    seg: WhisperSegment,
-    repeated: Set<string>,
-): string | null {
-    if (!seg.text) return "empty";
-    if (repeated.has(normalizeForMatch(seg.text))) return "repeated-loop";
-    if (
-        seg.noSpeechProb > NO_SPEECH_PROB_DROP &&
-        seg.avgLogprob < AVG_LOGPROB_DROP
-    ) {
-        return "no-speech+low-logprob";
+function resolveOtherSpeaker(
+    utterance: DeepgramUtterance,
+    otherSpeakerMap: Map<number, string>,
+    agentTranscript: CaptureTranscriptLine[],
+): string {
+    const dgSpeakerId = utterance.speaker;
+    if (typeof dgSpeakerId === "number") {
+        const existing = otherSpeakerMap.get(dgSpeakerId);
+        if (existing) return existing;
+        const nextIdx = otherSpeakerMap.size + 1;
+        const label = `other_${nextIdx}`;
+        otherSpeakerMap.set(dgSpeakerId, label);
+        return label;
     }
-    if (seg.compressionRatio > COMPRESSION_RATIO_DROP) {
-        return "compression-ratio";
-    }
-    if (isShortKnownHallucination(seg.text)) return "short-denylist";
-    return null;
+    return disambiguateOtherByOverlap(
+        utterance.start,
+        utterance.end,
+        agentTranscript,
+    );
 }
 
-// ---------------------------------------------------------------------------
-// Cross-segment repetition
-// ---------------------------------------------------------------------------
+function shouldDrop(text: string, repeated: Set<string>): boolean {
+    if (!text) return true;
+    if (repeated.has(normalizeForMatch(text))) return true;
+    if (isShortKnownHallucination(text)) return true;
+    return false;
+}
 
 function detectRepeatedHallucinations(
-    segments: WhisperSegment[],
+    utterances: DeepgramUtterance[],
 ): Set<string> {
     const counts = new Map<string, number>();
-    for (const seg of segments) {
-        const norm = normalizeForMatch(seg.text);
+    for (const u of utterances) {
+        const norm = normalizeForMatch(u.transcript ?? "");
         if (norm.length < REPEATED_PHRASE_MIN_LENGTH) continue;
         counts.set(norm, (counts.get(norm) ?? 0) + 1);
     }
@@ -373,10 +240,6 @@ function normalizeForMatch(text: string): string {
         .replace(/\s+/g, " ")
         .trim();
 }
-
-// ---------------------------------------------------------------------------
-// Short known-hallucination denylist (exact-match only)
-// ---------------------------------------------------------------------------
 
 const SHORT_HALLUCINATION_PHRASES: ReadonlySet<string> = new Set([
     "thank you",
@@ -398,11 +261,7 @@ function isShortKnownHallucination(text: string): boolean {
     return SHORT_HALLUCINATION_PHRASES.has(normalizeForMatch(text));
 }
 
-// ---------------------------------------------------------------------------
-// other_* disambiguation — overlap against agent's other_* lines only
-// ---------------------------------------------------------------------------
-
-function disambiguateOther(
+function disambiguateOtherByOverlap(
     start: number,
     end: number,
     agentTranscript: CaptureTranscriptLine[],
