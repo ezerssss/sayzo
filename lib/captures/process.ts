@@ -142,16 +142,22 @@ async function runTranscription(
     const file = bucket.file(capture.audioStoragePath);
     const [audioBuffer] = await file.download();
 
-    const { serverTranscript, durationSecs } = await retranscribeCapture(
-        audioBuffer,
-        capture.agentTranscript,
-    );
+    const {
+        serverTranscript,
+        durationSecs,
+        echoLeakSuppressed,
+        echoLeakDroppedSpans,
+        echoLeakRuleVersion,
+    } = await retranscribeCapture(audioBuffer, capture.agentTranscript);
 
     await captureRef.set(
         {
             status: "transcribed",
             serverTranscript,
             durationSecs,
+            echoLeakSuppressed,
+            echoLeakDroppedSpans,
+            echoLeakRuleVersion,
             error: null,
         },
         { merge: true },

@@ -297,6 +297,17 @@ export type CaptureType = {
     durationSecs?: number;
 
     /**
+     * Count of channel-0 Deepgram utterances dropped as echo leaks during
+     * server re-transcription. Paired with `echoLeakDroppedSpans` for the
+     * actual time ranges. `echoLeakRuleVersion` records which tuning of the
+     * detector produced the drop so analytics stay comparable across tuning
+     * passes. See `lib/captures/echo-leak.ts`.
+     */
+    echoLeakSuppressed?: number;
+    echoLeakDroppedSpans?: [number, number][];
+    echoLeakRuleVersion?: string;
+
+    /**
      * Trimmed Hume expression measurement (prosody + bursts + language).
      * Stored on the capture so the analyzer can be re-run later without
      * paying for another Hume batch job.

@@ -3,6 +3,10 @@ import "server-only";
 import type { CaptureTranscriptLine } from "@/types/captures";
 
 import { type ChannelEnergy, computeChannelEnergy } from "./audio";
+import {
+    ECHO_LEAK_RULE_VERSION,
+    isEchoLeakUtterance,
+} from "./echo-leak";
 
 const DEEPGRAM_URL = "https://api.deepgram.com/v1/listen";
 
@@ -50,6 +54,9 @@ type DeepgramResponse = {
 type TranscriptionResult = {
     serverTranscript: CaptureTranscriptLine[];
     durationSecs: number;
+    echoLeakSuppressed: number;
+    echoLeakDroppedSpans: [number, number][];
+    echoLeakRuleVersion: string;
 };
 
 /**
@@ -73,16 +80,21 @@ export async function retranscribeCapture(
 
     const dg = await transcribeStereoWithDeepgram(audioBuffer);
 
-    const serverTranscript = mapUtterancesToLines(
-        dg.utterances,
-        leftAlive,
-        rightAlive,
-        agentTranscript,
-    );
+    const { lines, echoLeakSuppressed, echoLeakDroppedSpans } =
+        mapUtterancesToLines(
+            dg.utterances,
+            energy,
+            leftAlive,
+            rightAlive,
+            agentTranscript,
+        );
 
     return {
-        serverTranscript,
+        serverTranscript: lines,
         durationSecs: dg.durationSecs,
+        echoLeakSuppressed,
+        echoLeakDroppedSpans,
+        echoLeakRuleVersion: ECHO_LEAK_RULE_VERSION,
     };
 }
 
@@ -136,17 +148,51 @@ async function transcribeStereoWithDeepgram(
 
 function mapUtterancesToLines(
     utterances: DeepgramUtterance[],
+    energy: ChannelEnergy,
     leftAlive: boolean,
     rightAlive: boolean,
     agentTranscript: CaptureTranscriptLine[],
-): CaptureTranscriptLine[] {
+): {
+    lines: CaptureTranscriptLine[];
+    echoLeakSuppressed: number;
+    echoLeakDroppedSpans: [number, number][];
+} {
     const repeated = detectRepeatedHallucinations(utterances);
     const otherSpeakerMap = new Map<number, string>();
     const kept: CaptureTranscriptLine[] = [];
 
+    // Precomputed so overlap check is O(c1) per c0. Loud right-channel music
+    // doesn't transcribe, so it produces no c1 utterance → overlap gate fails
+    // → concurrent user speech is correctly preserved. Intentional.
+    const c1Intervals = utterances
+        .filter((u) => (u.channel ?? 0) === 1)
+        .map((u) => ({ start: u.start, end: u.end }));
+
+    const droppedSpans: [number, number][] = [];
+    const droppedPreviews: string[] = [];
+
     for (const u of utterances) {
         const text = (u.transcript ?? "").trim();
         if (shouldDrop(text, repeated)) continue;
+
+        // Echo suppression only runs when both channels are alive — the
+        // dead-channel branch of tagSpeaker already handles one-sided cases.
+        if (
+            (u.channel ?? 0) === 0 &&
+            leftAlive &&
+            rightAlive &&
+            isEchoLeakUtterance(
+                { start: u.start, end: u.end },
+                energy,
+                c1Intervals,
+            )
+        ) {
+            droppedSpans.push([u.start, u.end]);
+            if (droppedPreviews.length < 3) {
+                droppedPreviews.push(text.slice(0, 60));
+            }
+            continue;
+        }
 
         const speaker = tagSpeaker(
             u,
@@ -164,8 +210,18 @@ function mapUtterancesToLines(
         });
     }
 
+    if (droppedSpans.length > 0) {
+        console.info(
+            `[captures/transcribe] Suppressed ${droppedSpans.length} channel-0 echo-leak utterance(s). Samples: ${JSON.stringify(droppedPreviews)}`,
+        );
+    }
+
     kept.sort((a, b) => a.start - b.start);
-    return kept;
+    return {
+        lines: kept,
+        echoLeakSuppressed: droppedSpans.length,
+        echoLeakDroppedSpans: droppedSpans,
+    };
 }
 
 function tagSpeaker(
