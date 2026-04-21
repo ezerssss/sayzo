@@ -1,3 +1,4 @@
+import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { verifyAccessToken } from "@/lib/auth/jwt";
 import {
     IngestError,
@@ -5,10 +6,12 @@ import {
     parseAndValidateRecord,
 } from "@/lib/captures/ingest";
 import {
+    assertHasCredit,
     consumeCreditOrThrow,
     CreditLimitReachedError,
     creditLimitResponse,
 } from "@/lib/credits/server";
+import { getAdminFirestore } from "@/lib/firebase/admin";
 import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
@@ -63,10 +66,11 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // 3. Credit gate — block BEFORE multipart parsing / Storage write so we
-    // don't spend Firebase Storage bytes on an over-limit user.
+    // 3. Read-only credit gate — reject over-limit users BEFORE buffering the
+    // multipart body. The transactional consume runs after the dedup check
+    // (step 6) so a retry of an already-uploaded record doesn't burn a credit.
     try {
-        await consumeCreditOrThrow(uid);
+        await assertHasCredit(uid);
     } catch (err) {
         if (err instanceof CreditLimitReachedError) {
             return creditLimitResponse();
@@ -102,9 +106,63 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // 5. Validate and ingest
+    // 5. Validate record shape — we need record.id for the dedup check below.
+    let record;
     try {
-        const record = parseAndValidateRecord(recordRaw);
+        record = parseAndValidateRecord(recordRaw);
+    } catch (error) {
+        if (error instanceof IngestError) {
+            return NextResponse.json(
+                { error: error.code, message: error.message },
+                { status: 400 },
+            );
+        }
+        throw error;
+    }
+
+    // 6. Dedup — the desktop agent may re-send a record it already uploaded
+    // (retry, crash-recover, manual re-run). The agent is known to keep
+    // record.id stable across retries, so we can key dedup on (uid, record.id)
+    // instead of hashing audio bytes. Requires composite index
+    // (uid ASC, agentRecordId ASC) on the `captures` collection.
+    //
+    // On a hit we return a 201 with the same shape as a fresh success, so the
+    // agent can't tell the difference and marks its local record as shipped.
+    const db = getAdminFirestore();
+    const existing = await db
+        .collection(FirestoreCollections.captures.path)
+        .where("uid", "==", uid)
+        .where("agentRecordId", "==", record.id)
+        .limit(1)
+        .get();
+
+    if (!existing.empty) {
+        const doc = existing.docs[0];
+        const data = doc.data() as { status?: string };
+        console.info("[api/captures/upload] dedup_hit", {
+            uid,
+            agentRecordId: record.id,
+            captureId: doc.id,
+            existingStatus: data.status ?? null,
+        });
+        return NextResponse.json(
+            { capture_id: doc.id, status: data.status ?? "queued" },
+            { status: 201 },
+        );
+    }
+
+    // 7. Consume credit — only for fresh captures.
+    try {
+        await consumeCreditOrThrow(uid);
+    } catch (err) {
+        if (err instanceof CreditLimitReachedError) {
+            return creditLimitResponse();
+        }
+        throw err;
+    }
+
+    // 8. Ingest
+    try {
         const result = await ingestCapture(uid, record, audio);
 
         return NextResponse.json(
