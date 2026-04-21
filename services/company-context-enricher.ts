@@ -52,15 +52,21 @@ function trimList(items: string[], limit: number): string[] {
 
 async function fetchDuckDuckGo(companyName: string): Promise<SourceSnippet | null> {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(companyName)}&format=json&no_html=1&skip_disambig=1`;
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const data = (await response.json()) as {
+    let data: {
         AbstractText?: string;
         Heading?: string;
         AbstractURL?: string;
         Results?: Array<{ FirstURL?: string; Text?: string }>;
         RelatedTopics?: Array<{ Text?: string }>;
     };
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        data = await response.json();
+    } catch {
+        // DDG occasionally returns empty / non-JSON bodies (rate limits, odd queries).
+        return null;
+    }
     const related = Array.isArray(data.RelatedTopics)
         ? data.RelatedTopics
               .map((topic) => topic.Text)
@@ -82,20 +88,28 @@ async function fetchDuckDuckGo(companyName: string): Promise<SourceSnippet | nul
 
 async function fetchWikipedia(companyName: string): Promise<SourceSnippet | null> {
     const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(companyName)}&format=json&utf8=1&srlimit=1`;
-    const searchRes = await fetch(searchUrl);
-    if (!searchRes.ok) return null;
-    const searchBody = (await searchRes.json()) as {
-        query?: { search?: Array<{ title?: string }> };
-    };
+    let searchBody: { query?: { search?: Array<{ title?: string }> } };
+    try {
+        const searchRes = await fetch(searchUrl);
+        if (!searchRes.ok) return null;
+        searchBody = await searchRes.json();
+    } catch {
+        return null;
+    }
     const title = searchBody.query?.search?.[0]?.title?.trim();
     if (!title) return null;
     const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
-    const summaryRes = await fetch(summaryUrl);
-    if (!summaryRes.ok) return null;
-    const summaryBody = (await summaryRes.json()) as {
+    let summaryBody: {
         extract?: string;
         content_urls?: { desktop?: { page?: string } };
     };
+    try {
+        const summaryRes = await fetch(summaryUrl);
+        if (!summaryRes.ok) return null;
+        summaryBody = await summaryRes.json();
+    } catch {
+        return null;
+    }
     const text = summaryBody.extract?.trim();
     if (!text) return null;
     return {

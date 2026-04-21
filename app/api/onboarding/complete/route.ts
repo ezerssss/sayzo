@@ -117,16 +117,24 @@ export async function POST(request: NextRequest) {
             : emptyProfileFields();
 
         const profileNowIso = new Date().toISOString();
-        const companyResearch = profileFields.companyName
-            ? await enrichCompanyContext({
-                  companyName: profileFields.companyName,
-                  companyUrl: "",
-                  companyContext:
-                      profileFields.workplaceCommunicationContext,
-                  role: profileFields.role,
-                  industry: profileFields.industry,
-              })
-            : null;
+        let companyResearch = null;
+        if (profileFields.companyName) {
+            try {
+                companyResearch = await enrichCompanyContext({
+                    companyName: profileFields.companyName,
+                    companyUrl: "",
+                    companyContext:
+                        profileFields.workplaceCommunicationContext,
+                    role: profileFields.role,
+                    industry: profileFields.industry,
+                });
+            } catch (error) {
+                console.warn(
+                    "Company context enrichment failed, continuing without it.",
+                    error,
+                );
+            }
+        }
 
         const profile: UserProfileType = {
             uid,
