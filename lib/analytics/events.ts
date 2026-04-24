@@ -8,6 +8,7 @@ export type CreditFeature = "drill" | "capture" | "replay";
 export type LengthBucket = "short" | "medium" | "long";
 export type SignInSource = "login_page" | "install_page" | "nav" | "unknown";
 export type InstallPanelSource = "install_page" | "landing_panel";
+export type SupportCategoryEventValue = "bug" | "feature" | "question" | "other";
 
 export type AnalyticsEventParams = {
     // Page / navigation (fired by instrumentation-client.ts)
@@ -101,6 +102,13 @@ export type AnalyticsEventParams = {
         code?: string;
     };
     client_error: { message_bucket: string };
+
+    // Support
+    support_submitted: {
+        category: SupportCategoryEventValue;
+        has_agent_meta: boolean;
+        signed_in: boolean;
+    };
 };
 
 export type AnalyticsEventName = keyof AnalyticsEventParams;

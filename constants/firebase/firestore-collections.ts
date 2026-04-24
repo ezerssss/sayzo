@@ -28,4 +28,10 @@ export const FirestoreCollections = {
     accessRequests: {
         path: FirestoreCollectionName.ACCESS_REQUESTS,
     },
+    supportReports: {
+        path: FirestoreCollectionName.SUPPORT_REPORTS,
+    },
+    supportReportsRate: {
+        path: FirestoreCollectionName.SUPPORT_REPORTS_RATE,
+    },
 } as const;

@@ -8,4 +8,6 @@ export enum FirestoreCollectionName {
     AUTH_CODES = "auth_codes",
     REFRESH_TOKENS = "refresh_tokens",
     ACCESS_REQUESTS = "access_requests",
+    SUPPORT_REPORTS = "support_reports",
+    SUPPORT_REPORTS_RATE = "support_reports_rate",
 }

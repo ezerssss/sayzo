@@ -61,3 +61,34 @@ export async function requireAuth(
         return unauthorized("Invalid or expired token");
     }
 }
+
+/**
+ * Like `requireAuth`, but returns `null` instead of a 401 response when the
+ * caller is anonymous or the token is invalid. Use this for routes that accept
+ * both signed-in and anonymous requests (e.g. public support form).
+ */
+export async function tryAuth(
+    request: NextRequest,
+): Promise<AuthedUser | null> {
+    const header = request.headers.get("authorization") ?? "";
+    if (!header.startsWith("Bearer ")) return null;
+    const token = header.slice(7).trim();
+    if (!token) return null;
+
+    try {
+        const payload = await verifyAccessToken(token);
+        if (payload.sub) {
+            return { uid: payload.sub, email: payload.email ?? "" };
+        }
+    } catch {
+        // fall through to Firebase ID token verification
+    }
+
+    try {
+        const adminAuth = getAuth(getFirebaseAdminApp());
+        const decoded = await adminAuth.verifyIdToken(token);
+        return { uid: decoded.uid, email: decoded.email ?? "" };
+    } catch {
+        return null;
+    }
+}
