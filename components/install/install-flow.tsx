@@ -32,7 +32,7 @@ function windowsSteps(fileName: string): Step[] {
             body: (
                 <>
                     Click through the prompts — it takes about a minute. When
-                    it&apos;s done, Sayzo Agent opens on its own.
+                    it&apos;s done, Sayzo opens on its own.
                 </>
             ),
         },
@@ -40,7 +40,7 @@ function windowsSteps(fileName: string): Step[] {
             title: "Sign in and you’re set",
             body: (
                 <>
-                    Sign in with your Sayzo account. From then on, Sayzo Agent
+                    Sign in with your Sayzo account. From then on, Sayzo
                     starts automatically whenever you sign in to your computer.
                 </>
             ),
@@ -59,30 +59,29 @@ function macosSteps(fileName: string): Step[] {
                         {fileName}
                     </code>{" "}
                     in your Downloads folder. A small window pops up with the
-                    Sayzo Agent icon and a shortcut to your Applications
-                    folder.
+                    Sayzo icon and a shortcut to your Applications folder.
                 </>
             ),
         },
         {
-            title: "Drag Sayzo Agent into Applications",
+            title: "Drag Sayzo into Applications",
             body: (
                 <>
                     In that window, drag the{" "}
-                    <span className="text-foreground">Sayzo Agent</span> icon
-                    onto the{" "}
+                    <span className="text-foreground">Sayzo</span> icon onto
+                    the{" "}
                     <span className="text-foreground">Applications</span>{" "}
                     shortcut right next to it. That copies it onto your Mac.
                 </>
             ),
         },
         {
-            title: "Open Sayzo Agent from Applications",
+            title: "Open Sayzo from Applications",
             body: (
                 <>
                     Open your Applications folder and double-click{" "}
-                    <span className="text-foreground">Sayzo Agent</span>. When
-                    it asks for microphone access, allow it so Sayzo can learn
+                    <span className="text-foreground">Sayzo</span>. When it
+                    asks for microphone access, allow it so Sayzo can learn
                     from your real meetings.
                 </>
             ),
@@ -91,7 +90,7 @@ function macosSteps(fileName: string): Step[] {
             title: "Sign in and you’re set",
             body: (
                 <>
-                    Sign in with your Sayzo account. From then on, Sayzo Agent
+                    Sign in with your Sayzo account. From then on, Sayzo
                     starts automatically whenever you sign in to your Mac.
                 </>
             ),
