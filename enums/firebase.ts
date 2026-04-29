@@ -10,4 +10,5 @@ export enum FirestoreCollectionName {
     ACCESS_REQUESTS = "access_requests",
     SUPPORT_REPORTS = "support_reports",
     SUPPORT_REPORTS_RATE = "support_reports_rate",
+    AUDIT_LOG = "audit_log",
 }

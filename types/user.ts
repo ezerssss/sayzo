@@ -100,4 +100,12 @@ export type UserProfileType = {
     accessRequestNote?: string;
     /** ISO timestamp set by admin when full access is granted. */
     accessGrantedAt?: string | null;
+
+    /**
+     * Admin role flag. Server-checked on every admin endpoint via
+     * `requireAdmin()` — never trust the client value. Bootstrap by
+     * setting `true` manually in the Firestore console once; further
+     * promotions/demotions go through the admin dashboard.
+     */
+    isAdmin?: boolean;
 };

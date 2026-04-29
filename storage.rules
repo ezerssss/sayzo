@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// All Storage I/O happens server-side via the Firebase Admin SDK, which
+// bypasses these rules. The client — admin or non-admin — never touches the
+// bucket directly:
+//   - Non-admins consume time-limited signed URLs handed back by API routes
+//     (e.g. /api/captures/[id]/audio-url, session.audioUrl). Signed URLs
+//     authenticate via the signature, not Firebase Auth, so they aren't
+//     gated by these rules.
+//   - Admin features that need bucket access (audio playback, cascade
+//     delete, etc.) go through server endpoints which use the Admin SDK.
+//     There's no admin bypass here on purpose: a hijacked admin browser
+//     session shouldn't be able to enumerate or pull arbitrary user audio.
+//
+// Object layout (all written by the server):
+//   {uid}/{sessionId}/{uuid}.{ext}   — drill + scenario-replay audio
+//   captures/{uid}/{captureId}/audio.opus — captured conversation audio
+//   tts-cache/{hash}.mp3             — TTS cache (server-managed)
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

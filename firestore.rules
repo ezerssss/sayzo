@@ -1,0 +1,122 @@
+rules_version = '2';
+
+// All writes go through the Firebase Admin SDK on the server, which bypasses
+// these rules. The client — admin OR non-admin — never writes Firestore
+// directly, so every `allow write` here is `false`. Any state change must
+// hit a server route, which validates input, audit-logs, and uses the
+// Admin SDK to mutate.
+//
+// Reads: non-admin owners can read their own data via the client SDK
+// (existing webapp pattern). Admins additionally bypass per-collection read
+// rules so the admin dashboard can use Firestore listeners across users.
+// The `isAdmin()` flag is also enforced server-side in `requireAdmin()` —
+// defense in depth.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------
+    // Helpers
+    // ----------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function ownsResource() {
+      return isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ----------------------------------------------------------------
+    // Client-readable: owner-only (admin reads also pass)
+    // ----------------------------------------------------------------
+
+    // Profile, onboarding state, credits. Doc id is the user's uid.
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if false;
+    }
+
+    // Aggregated coaching view per user. Doc id is the user's uid.
+    match /user-focus-insights/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if false;
+    }
+
+    // Drills + scenario-replay sessions. Owner identified by `uid` field.
+    // Client queries always include `where("uid", "==", auth.uid)`.
+    match /sessions/{sessionId} {
+      allow read: if ownsResource() || isAdmin();
+      allow write: if false;
+    }
+
+    // Captured real-conversation records. Owner identified by `uid` field.
+    match /captures/{captureId} {
+      allow read: if ownsResource() || isAdmin();
+      allow write: if false;
+    }
+
+    // ----------------------------------------------------------------
+    // Server-only collections — admin can read, no one writes from client
+    // ----------------------------------------------------------------
+
+    // Internal coaching memory (raw strengths/weaknesses notes).
+    match /skill-memories/{userId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // OAuth / PKCE auth flow for the desktop companion login.
+    match /auth_sessions/{sessionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /auth_codes/{code} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // Stored as SHA-256 hashes; admin can read for cascade-delete cleanup.
+    match /refresh_tokens/{tokenHash} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Admin queues / cross-user submissions.
+    match /access_requests/{requestId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /support_reports/{reportId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /support_reports_rate/{key} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Append-only audit log for admin actions. Reads are admin-only; writes
+    // go through the server (Admin SDK) so the rule denial here keeps the
+    // log tamper-evident from any client.
+    match /audit_log/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ----------------------------------------------------------------
+    // Default deny: anything not explicitly allowed above is closed.
+    // ----------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

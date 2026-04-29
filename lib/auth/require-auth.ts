@@ -9,6 +9,17 @@ import { getFirebaseAdminApp } from "@/lib/firebase/admin";
 export interface AuthedUser {
     uid: string;
     email: string;
+    /**
+     * Which token type verified this caller.
+     * - `"firebase"`: Firebase ID token from the webapp client SDK.
+     * - `"agent"`: HS256 JWT issued by `/api/auth/token` to the desktop companion.
+     *
+     * Routes that should be webapp-only (e.g. admin endpoints) MUST check
+     * this and reject `"agent"`. Agent refresh tokens live 90 days, so
+     * blast radius from a leaked agent token is a lot bigger than a
+     * 1-hour Firebase ID token.
+     */
+    source: "firebase" | "agent";
 }
 
 function unauthorized(message: string): NextResponse {
@@ -47,7 +58,11 @@ export async function requireAuth(
     try {
         const payload = await verifyAccessToken(token);
         if (payload.sub) {
-            return { uid: payload.sub, email: payload.email ?? "" };
+            return {
+                uid: payload.sub,
+                email: payload.email ?? "",
+                source: "agent",
+            };
         }
     } catch {
         // Not a valid internal JWT — try Firebase ID token next.
@@ -56,7 +71,11 @@ export async function requireAuth(
     try {
         const adminAuth = getAuth(getFirebaseAdminApp());
         const decoded = await adminAuth.verifyIdToken(token);
-        return { uid: decoded.uid, email: decoded.email ?? "" };
+        return {
+            uid: decoded.uid,
+            email: decoded.email ?? "",
+            source: "firebase",
+        };
     } catch {
         return unauthorized("Invalid or expired token");
     }
@@ -78,7 +97,11 @@ export async function tryAuth(
     try {
         const payload = await verifyAccessToken(token);
         if (payload.sub) {
-            return { uid: payload.sub, email: payload.email ?? "" };
+            return {
+                uid: payload.sub,
+                email: payload.email ?? "",
+                source: "agent",
+            };
         }
     } catch {
         // fall through to Firebase ID token verification
@@ -87,7 +110,11 @@ export async function tryAuth(
     try {
         const adminAuth = getAuth(getFirebaseAdminApp());
         const decoded = await adminAuth.verifyIdToken(token);
-        return { uid: decoded.uid, email: decoded.email ?? "" };
+        return {
+            uid: decoded.uid,
+            email: decoded.email ?? "",
+            source: "firebase",
+        };
     } catch {
         return null;
     }

@@ -34,4 +34,7 @@ export const FirestoreCollections = {
     supportReportsRate: {
         path: FirestoreCollectionName.SUPPORT_REPORTS_RATE,
     },
+    auditLog: {
+        path: FirestoreCollectionName.AUDIT_LOG,
+    },
 } as const;
