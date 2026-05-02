@@ -53,10 +53,6 @@ export type CoachingMoment = {
     betterOption: string;
     /** Why this is an issue for the listener / goal / professional impact AND a reusable principle the learner can apply to future situations. One cohesive explanation — the single "Why this matters" field. */
     whyThisMatters: string;
-    /** @deprecated Merged into `whyThisMatters`. Kept so legacy analyses persisted before the schema change still render. */
-    whyIssue?: string;
-    /** @deprecated Merged into `whyThisMatters`. Kept so legacy analyses persisted before the schema change still render. */
-    keyTakeaway?: string;
 };
 
 /**
@@ -231,13 +227,11 @@ export type CaptureAnalysis = {
      */
     fixTheseFirst: TeachableMoment[];
     /**
-     * Additional coachable moments beyond the top priorities. Shown as a
-     * secondary list so the learner can explore more feedback without being
-     * overwhelmed up-front.
+     * Additional coachable moments beyond the top priorities. Currently kept
+     * on the schema for the planner / focus dashboards even though the new
+     * 2-tab feedback UI surfaces only `fixTheseFirst.slice(0, 2)`.
      */
     moreMoments: TeachableMoment[];
-    /** @deprecated Split into `fixTheseFirst` + `moreMoments`. Kept so legacy analyses persisted before the schema change still render. */
-    teachableMoments?: TeachableMoment[];
 
     // Pattern detection unique to captures (drills are too short for these
     // metrics to be meaningful)

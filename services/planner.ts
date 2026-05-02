@@ -64,7 +64,6 @@ export type PlannerInput = {
         | "additionalContext"
         | "companyResearch"
         | "internalLearnerContext"
-        | "internalDrillSignalNotes"
         | "internalCaptureContext"
         | "internalCaptureDeliveryNotes"
     >;
@@ -95,6 +94,65 @@ function readPlannerPrompt(): string {
     return readFileSync(join(PROMPTS_DIR, "create-session-plan.md"), "utf-8");
 }
 
+type SeedPrompt = {
+    category: string;
+    title: string;
+    question: string;
+    skillTarget: string;
+    framework: string;
+};
+
+let cachedSeedLibrary: SeedPrompt[] | null = null;
+
+function readSeedLibrary(): SeedPrompt[] {
+    if (cachedSeedLibrary) return cachedSeedLibrary;
+    const raw = readFileSync(
+        join(PROMPTS_DIR, "seed-prompt-library.json"),
+        "utf-8",
+    );
+    cachedSeedLibrary = JSON.parse(raw) as SeedPrompt[];
+    return cachedSeedLibrary;
+}
+
+/**
+ * A small rotating sample of seed prompts for few-shot shaping. Picks one per
+ * category (up to ~8) so the planner sees variety without flooding the
+ * context window. Random-ish rotation prevents the planner from anchoring on
+ * the first example.
+ */
+function pickSeedExamples(category?: string): SeedPrompt[] {
+    const library = readSeedLibrary();
+    const byCategory = new Map<string, SeedPrompt[]>();
+    for (const seed of library) {
+        const arr = byCategory.get(seed.category) ?? [];
+        arr.push(seed);
+        byCategory.set(seed.category, arr);
+    }
+    const picks: SeedPrompt[] = [];
+    for (const [, arr] of byCategory) {
+        const idx = Math.floor(Math.random() * arr.length);
+        const seed = arr[idx];
+        if (seed) picks.push(seed);
+    }
+    if (category) {
+        const cat = category.trim();
+        const matches = library.filter((s) => s.category === cat);
+        if (matches.length > 0) {
+            const extra =
+                matches[Math.floor(Math.random() * matches.length)];
+            if (extra && !picks.includes(extra)) picks.push(extra);
+        }
+    }
+    return picks;
+}
+
+function isFirstDrillForLearner(input: PlannerInput): boolean {
+    const noContext =
+        !input.userProfile.internalLearnerContext?.trim();
+    const noHistory = input.recentDrills.length === 0;
+    return noContext && noHistory;
+}
+
 function defaultPlannerModel(): string {
     return (
         process.env.PLANNER_MODEL?.trim() ||
@@ -106,8 +164,6 @@ function defaultPlannerModel(): string {
 function plannerUserMessage(input: PlannerInput): string {
     const { userProfile, skillMemory, recentDrills } = input;
     const internalCtx = userProfile.internalLearnerContext.trim() || "";
-    const drillSignalNotes =
-        (userProfile.internalDrillSignalNotes ?? "").trim() || "";
     const captureContext =
         (userProfile.internalCaptureContext ?? "").trim() || "";
     const captureDeliveryNotes =
@@ -139,9 +195,6 @@ function plannerUserMessage(input: PlannerInput): string {
 
 ## Accumulated learner context (backend only — never show to the user)
 ${internalCtx || "(none yet — nothing merged from past drill transcripts)"}
-
-## Drill signal notes (backend only — skip / optional reflection; never show to the user)
-${drillSignalNotes || "(none — no skip or reflection preferences recorded yet)"}
 
 ## Real-conversation capture context (backend only — extracted from real meetings/calls; never show to the user)
 ${captureContext || "(none — no real-conversation captures processed yet)"}
@@ -207,16 +260,18 @@ ${recentDrillsBlock}
 function normalizePlan(plan: SessionPlanType): SessionPlanType {
     const skillTarget = plan.skillTarget.trim() || "Structured speaking";
 
+    // Bite-sized drills: hard cap at 60s, never less than 30s.
     const maxDurationSeconds = Math.max(
-        120,
-        Math.min(1800, Math.round(plan.maxDurationSeconds || 0)),
+        30,
+        Math.min(60, Math.round(plan.maxDurationSeconds || 60)),
     );
 
     return {
         scenario: {
             title: plan.scenario.title.trim(),
             situationContext: plan.scenario.situationContext.trim(),
-            givenContent: plan.scenario.givenContent.trim(),
+            // 60s drills always have empty given content — the prompt is the whole experience.
+            givenContent: "",
             question: plan.scenario.question?.trim() ?? "",
             framework: plan.scenario.framework.trim(),
             category: toDrillCategorySlug(plan.scenario.category),
@@ -226,16 +281,31 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
     };
 }
 
+function buildSeedExamplesBlock(input: PlannerInput): string {
+    const examples = pickSeedExamples(input.requestedCategory);
+    if (examples.length === 0) return "";
+    const formatted = examples
+        .map(
+            (s, i) =>
+                `${i + 1}. category=${s.category} | title="${s.title}" | question="${s.question}" | skillTarget="${s.skillTarget}" | framework="${s.framework}"`,
+        )
+        .join("\n");
+    const coldStartHint = isFirstDrillForLearner(input)
+        ? "\n\nThis is the learner's first regular drill (no history yet, no merged context). It's safe — and preferred — to pick one of these seeds and lightly adjust pronouns/role to fit the user, rather than inventing a new prompt from scratch."
+        : "";
+    return `\n\n## Seed prompts (60-second shape examples — use as few-shot calibration)\n${formatted}${coldStartHint}\n`;
+}
+
 export async function planNextSession(input: PlannerInput): Promise<SessionPlanType> {
     const result = await generateText({
         model: openai(defaultPlannerModel()),
         output: Output.object({
             schema: zodSchema(sessionPlanSchema),
             name: "SessionPlan",
-            description: "One focused speaking drill plan for the next session.",
+            description: "One focused 60-second speaking drill plan for the next session.",
         }),
         system: readPlannerPrompt(),
-        prompt: plannerUserMessage(input),
+        prompt: `${plannerUserMessage(input)}${buildSeedExamplesBlock(input)}`,
         temperature: 0.25,
     });
 

@@ -22,6 +22,9 @@ export function useUserProfileExists(uid: string | undefined) {
     const [onboardingDrills, setOnboardingDrills] = useState<
         OnboardingDrillProgress[]
     >([]);
+    const [firstDrillCompletedAt, setFirstDrillCompletedAt] = useState<
+        string | null
+    >(null);
 
     useEffect(() => {
         if (!uid) {
@@ -42,10 +45,14 @@ export function useUserProfileExists(uid: string | undefined) {
                             ? data.onboardingDrills
                             : [],
                     );
+                    setFirstDrillCompletedAt(
+                        data.firstDrillCompletedAt ?? null,
+                    );
                 } else {
                     setOnboardingComplete(false);
                     setOnboardingStatus(null);
                     setOnboardingDrills([]);
+                    setFirstDrillCompletedAt(null);
                 }
                 setLoading(false);
             },
@@ -55,6 +62,7 @@ export function useUserProfileExists(uid: string | undefined) {
                 setOnboardingComplete(false);
                 setOnboardingStatus(null);
                 setOnboardingDrills([]);
+                setFirstDrillCompletedAt(null);
                 setLoading(false);
             },
         );
@@ -68,5 +76,6 @@ export function useUserProfileExists(uid: string | undefined) {
         onboardingComplete,
         onboardingStatus,
         onboardingDrills,
+        firstDrillCompletedAt,
     };
 }

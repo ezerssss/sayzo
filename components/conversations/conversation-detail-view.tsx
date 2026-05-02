@@ -407,17 +407,13 @@ export function ConversationDetailView(props: Readonly<Props>) {
                     <AudioPlayer src={audioUrl} audioRef={audioRef} />
                 ) : null}
 
-                {/* Tabbed content — mirrors drill SessionFeedbackSection layout */}
+                {/* Tabbed content — same 2-tab shape as drill feedback. */}
                 {isAnalyzed ? (
-                    <Tabs defaultValue="main">
+                    <Tabs defaultValue="now">
                         <TabsList className="w-full justify-start gap-1 overflow-x-auto">
-                            <TabsTrigger value="main" className="shrink-0">
+                            <TabsTrigger value="now" className="shrink-0">
                                 <FileText className="size-3.5" />
-                                Main
-                            </TabsTrigger>
-                            <TabsTrigger value="coaching" className="shrink-0">
-                                <Lightbulb className="size-3.5" />
-                                Coaching
+                                Now
                             </TabsTrigger>
                             <TabsTrigger value="rewrites" className="shrink-0">
                                 <Sparkles className="size-3.5" />
@@ -425,8 +421,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             </TabsTrigger>
                         </TabsList>
 
-                        {/* Main tab: overview + transcript */}
-                        <TabsContent value="main" className="mt-3 space-y-4">
+                        {/* Now tab: main issue + top 2 fix-firsts + transcript */}
+                        <TabsContent value="now" className="mt-3 space-y-4">
                             <AnalysisView
                                 analysis={analysis}
                                 onSeekToSecond={seekToSecond}
@@ -444,9 +440,10 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                     <div className="border-t border-border/50 px-4 pb-4 pt-3">
                                         <TranscriptView
                                             transcript={transcript}
-                                            teachableMoments={
-                                                analysis.teachableMoments
-                                            }
+                                            teachableMoments={[
+                                                ...(analysis.fixTheseFirst ?? []),
+                                                ...(analysis.moreMoments ?? []),
+                                            ]}
                                             turnRewrites={
                                                 analysis.turnRewrites
                                             }
@@ -457,18 +454,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             )}
                         </TabsContent>
 
-                        {/* Coaching tab: dimensional findings + teachable moments + metrics */}
-                        <TabsContent value="coaching" className="mt-3">
-                            <AnalysisView
-                                analysis={analysis}
-                                onSeekToSecond={seekToSecond}
-                                section="coaching"
-                                captureId={captureId}
-                                uid={uid}
-                            />
-                        </TabsContent>
-
-                        {/* Rewrites tab: flowing transcript with improved versions */}
+                        {/* Improved Version tab: per-turn rewrites + structural notes. */}
                         <TabsContent value="rewrites" className="mt-3">
                             <AnalysisView
                                 analysis={analysis}

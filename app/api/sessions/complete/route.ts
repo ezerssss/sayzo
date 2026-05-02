@@ -1,5 +1,10 @@
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { requireAuth } from "@/lib/auth/require-auth";
+import {
+    consumeCreditOrThrow,
+    CreditLimitReachedError,
+    creditLimitResponse,
+} from "@/lib/credits/server";
 import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
 import { openai } from "@ai-sdk/openai";
 import {
@@ -9,6 +14,7 @@ import {
 } from "@/services/analyzer";
 import type { CaptureTranscriptLine, CaptureType } from "@/types/captures";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
+import { pregenerateNextDrillFor } from "@/services/drill-pre-generator";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
@@ -170,10 +176,24 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // No credit gate here — the drill credit was charged at /new-drill
-        // and covers the full cycle (generation + analysis + any needs_retry
-        // re-submits). A user who spent their last credit creating a drill
-        // must be able to finish it.
+        // Credit charge moved here from /new-drill so pre-generated drills
+        // cost nothing until the user actually records. needs_retry
+        // re-submits are still covered by the original charge — we only
+        // consume a credit when this is the first record attempt for this
+        // session (no audio uploaded yet).
+        const isFirstRecordAttempt =
+            !session.audioObjectPath?.trim() &&
+            !session.transcript?.trim();
+        if (isFirstRecordAttempt) {
+            try {
+                await consumeCreditOrThrow(uid);
+            } catch (err) {
+                if (err instanceof CreditLimitReachedError) {
+                    return creditLimitResponse();
+                }
+                throw err;
+            }
+        }
 
         // Transactionally claim the "processing" slot so a parallel submit
         // that slipped past the check above lands on 409.
@@ -459,6 +479,7 @@ ${transcript}`,
                 mainIssue:
                     "Response was off-task or too limited for reliable drill analysis.",
                 secondaryIssues: [skipReason].filter((v) => v.length > 0),
+                fixTheseFirst: [],
                 structureAndFlow: [],
                 clarityAndConciseness: [],
                 relevanceAndFocus: [skipReason].filter((v) => v.length > 0),
@@ -470,22 +491,7 @@ ${transcript}`,
                 notes: "Skipped deep analysis to avoid hallucinated feedback.",
             };
             feedback = {
-                overview:
-                    "This attempt is not yet usable enough for deep coaching. Your next pass should focus on giving a complete, drill-aligned response so feedback can be more specific.",
-                momentsToTighten:
-                    "Not enough usable evidence from this attempt to give moment-level coaching.",
-                structureAndFlow:
-                    "This response is off-task or too limited, so structure and transitions cannot be evaluated reliably.",
-                clarityAndConciseness:
-                    "Please give a fuller answer so clarity, filler-word usage, and conciseness can be measured.",
-                relevanceAndFocus: `Reason: ${skipReason}`,
-                engagement:
-                    "Cannot evaluate audience engagement from this attempt due to limited relevant content.",
-                professionalism:
-                    "Cannot evaluate professional communication quality from this attempt yet.",
-                deliveryAndProsody:
-                    "Prosody interpretation is limited when the response is off-task or too limited.",
-                nativeSpeakerVersion: null,
+                improvedVersion: null,
             };
             completionStatus = "needs_retry";
             completionReason = skipReason;
@@ -671,6 +677,46 @@ ${transcript}`,
                 "[app/api/sessions/complete] internal learner context update failed",
                 learnerContextError,
             );
+        }
+
+        // Track first-drill milestone for the install nudge cadence (every
+        // drill in the first 7 days, then weekly until the desktop helper is
+        // installed). Only terminal statuses count.
+        try {
+            const userRef = db
+                .collection(FirestoreCollections.users.path)
+                .doc(uid);
+            const freshUserSnap = await userRef.get();
+            const freshProfile = freshUserSnap.data() as
+                | UserProfileType
+                | undefined;
+            if (freshProfile && !freshProfile.firstDrillCompletedAt) {
+                await userRef.set(
+                    {
+                        firstDrillCompletedAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    },
+                    { merge: true },
+                );
+            }
+        } catch (firstDrillError) {
+            console.error(
+                "[app/api/sessions/complete] firstDrillCompletedAt write failed",
+                firstDrillError,
+            );
+        }
+
+        // Pre-generate the user's next drill so the home page is never blank.
+        // Idempotent — if a pending drill already exists, this no-ops. Only
+        // fires on terminal status (skip on needs_retry; user must redo the
+        // current drill first).
+        if (completionStatus === "passed") {
+            void pregenerateNextDrillFor(uid).catch((preGenError) => {
+                console.error(
+                    "[app/api/sessions/complete] pre-generation failed",
+                    preGenError,
+                );
+            });
         }
 
         return NextResponse.json({

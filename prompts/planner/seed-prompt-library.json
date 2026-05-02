@@ -1,0 +1,324 @@
+[
+    {
+        "category": "status_update",
+        "title": "Monday standup",
+        "question": "Give your Monday standup in 60 seconds: what you shipped last week, what you're focused on this week, one blocker.",
+        "skillTarget": "Concise three-part standup",
+        "framework": "Shipped → focus → blocker."
+    },
+    {
+        "category": "status_update",
+        "title": "Meeting wrap-up",
+        "question": "Wrap up a meeting in 30 seconds — summarize what was decided and one next step.",
+        "skillTarget": "Decision recap with next step",
+        "framework": "Decision → owner → when."
+    },
+    {
+        "category": "status_update",
+        "title": "Blocker statement",
+        "question": "What are you blocked on right now, and what would unblock you?",
+        "skillTarget": "Direct blocker statement",
+        "framework": ""
+    },
+    {
+        "category": "status_update",
+        "title": "Async update",
+        "question": "Drop a 60-second async update for a teammate who was out yesterday — what they missed and what's still in flight.",
+        "skillTarget": "Async catch-up brief",
+        "framework": "What happened → what's open."
+    },
+    {
+        "category": "status_update",
+        "title": "End-of-week recap",
+        "question": "Recap your week in 60 seconds: one win, one challenge, one thing carrying into next week.",
+        "skillTarget": "Balanced weekly recap",
+        "framework": "Win → challenge → carry-over."
+    },
+    {
+        "category": "status_update",
+        "title": "Risk flag",
+        "question": "Flag a risk to your team in two sentences — what could slip and why.",
+        "skillTarget": "Direct risk surfacing",
+        "framework": ""
+    },
+    {
+        "category": "project_walkthrough",
+        "title": "Pitch the product",
+        "question": "Explain what your product or project actually does, like you're showing it to a friend, in 60 seconds.",
+        "skillTarget": "Plain-language product explanation",
+        "framework": "What it is → who it's for → what changes for them."
+    },
+    {
+        "category": "project_walkthrough",
+        "title": "Role intro for a new hire",
+        "question": "Explain what you do in your role to a new hire from another department, in 60 seconds.",
+        "skillTarget": "Cross-team role explanation",
+        "framework": "What you do → who relies on it → typical week."
+    },
+    {
+        "category": "project_walkthrough",
+        "title": "How it works",
+        "question": "Walk through how your product works, end-to-end, in under a minute.",
+        "skillTarget": "End-to-end flow narration",
+        "framework": "Trigger → middle → outcome."
+    },
+    {
+        "category": "project_walkthrough",
+        "title": "What changed this quarter",
+        "question": "In 60 seconds, walk a stakeholder through what shipped on your project this quarter and what's next.",
+        "skillTarget": "Quarterly recap",
+        "framework": "Shipped → impact → next."
+    },
+    {
+        "category": "project_walkthrough",
+        "title": "Architecture overview",
+        "question": "Give a 60-second architecture overview of the system you work on most.",
+        "skillTarget": "Top-down system explanation",
+        "framework": ""
+    },
+    {
+        "category": "project_walkthrough",
+        "title": "Tradeoff explanation",
+        "question": "Explain one tradeoff you made on your current project and why, in 45 seconds.",
+        "skillTarget": "Tradeoff articulation",
+        "framework": "Choice → alternative → reason."
+    },
+    {
+        "category": "stakeholder_alignment",
+        "title": "Pitch the project",
+        "question": "Pitch your current project in 60 seconds to someone outside your team.",
+        "skillTarget": "External-audience project pitch",
+        "framework": "Why it matters → what it does → what changes."
+    },
+    {
+        "category": "stakeholder_alignment",
+        "title": "Make the case",
+        "question": "Make the case in 60 seconds for a change you actually want at work — what to change, why, and what improves.",
+        "skillTarget": "Change advocacy",
+        "framework": "Recommendation first."
+    },
+    {
+        "category": "stakeholder_alignment",
+        "title": "Buy-in from leadership",
+        "question": "In 60 seconds, ask a senior leader to back your initiative — what you need from them, and why now.",
+        "skillTarget": "Executive ask",
+        "framework": "Ask → why now → what unlocks."
+    },
+    {
+        "category": "stakeholder_alignment",
+        "title": "Trade-off recommendation",
+        "question": "Recommend one trade-off your team should make this quarter and why, in under a minute.",
+        "skillTarget": "Recommendation under constraint",
+        "framework": "Recommendation → cost → benefit."
+    },
+    {
+        "category": "stakeholder_alignment",
+        "title": "Defend the priority",
+        "question": "You have a case for prioritizing your current work over what your team is pushing for — make it in 60 seconds.",
+        "skillTarget": "Priority defense",
+        "framework": ""
+    },
+    {
+        "category": "stakeholder_alignment",
+        "title": "One-sentence pitch",
+        "question": "Pitch what your team is working on in one sentence — then expand for 30 more seconds.",
+        "skillTarget": "Headline-first pitch",
+        "framework": "Sentence → reasons."
+    },
+    {
+        "category": "difficult_conversation",
+        "title": "Respectful disagreement",
+        "question": "Disagree with a teammate's idea respectfully in 2 sentences.",
+        "skillTarget": "Concise dissent",
+        "framework": ""
+    },
+    {
+        "category": "difficult_conversation",
+        "title": "Deadline pushback",
+        "question": "Tell your manager you can't ship by Friday — keep it under 30 seconds.",
+        "skillTarget": "Direct deadline reset",
+        "framework": "What slipped → why → new ask."
+    },
+    {
+        "category": "difficult_conversation",
+        "title": "Direct feedback",
+        "question": "Give a teammate direct feedback about something they did well — and one thing to do differently — in 60 seconds.",
+        "skillTarget": "Balanced peer feedback",
+        "framework": "Specific praise → specific change."
+    },
+    {
+        "category": "difficult_conversation",
+        "title": "Saying no",
+        "question": "Decline a request from a stakeholder in two sentences without burning the relationship.",
+        "skillTarget": "Graceful no",
+        "framework": ""
+    },
+    {
+        "category": "difficult_conversation",
+        "title": "Bad news to your team",
+        "question": "Deliver a piece of bad news to your team in 45 seconds — what happened and what's next.",
+        "skillTarget": "Composed bad-news delivery",
+        "framework": "What → context → what's next."
+    },
+    {
+        "category": "difficult_conversation",
+        "title": "Pushback to a senior",
+        "question": "Push back on a senior person's call in 30 seconds — name the concern and propose an alternative.",
+        "skillTarget": "Upward dissent",
+        "framework": "Concern → alternative."
+    },
+    {
+        "category": "self_introduction",
+        "title": "All-hands intro",
+        "question": "Introduce yourself at a new team's all-hands in 30 seconds.",
+        "skillTarget": "Memorable team intro",
+        "framework": "Name → role → one thing about you."
+    },
+    {
+        "category": "self_introduction",
+        "title": "Networking intro",
+        "question": "Introduce yourself like we just met at a conference.",
+        "skillTarget": "Conversational intro",
+        "framework": ""
+    },
+    {
+        "category": "self_introduction",
+        "title": "Tell me about yourself",
+        "question": "Walk me through your background in 60 seconds — what you do and why.",
+        "skillTarget": "Concise background",
+        "framework": "Now → before → why."
+    },
+    {
+        "category": "self_introduction",
+        "title": "Coffee chat opener",
+        "question": "You're starting a coffee chat with someone you want to learn from. Open in 30 seconds.",
+        "skillTarget": "Warm opener with intent",
+        "framework": ""
+    },
+    {
+        "category": "self_introduction",
+        "title": "Elevator pitch",
+        "question": "Give your 30-second elevator pitch — who you are and what you're working on.",
+        "skillTarget": "Compact elevator pitch",
+        "framework": ""
+    },
+    {
+        "category": "personal_reflection",
+        "title": "Why this work",
+        "question": "Why are you doing the work you're doing right now? Answer in 60 seconds.",
+        "skillTarget": "Purpose articulation",
+        "framework": ""
+    },
+    {
+        "category": "personal_reflection",
+        "title": "One strength",
+        "question": "Name one strength you bring at work — and a moment that proved it — in 60 seconds.",
+        "skillTarget": "Evidence-backed strength",
+        "framework": "Claim → moment."
+    },
+    {
+        "category": "personal_reflection",
+        "title": "Career inflection",
+        "question": "Talk through a moment that changed how you work, in 60 seconds.",
+        "skillTarget": "Reflective storytelling",
+        "framework": "Before → moment → after."
+    },
+    {
+        "category": "personal_reflection",
+        "title": "What you'd do over",
+        "question": "If you could redo one decision from the last year, what would it be and why? 60 seconds.",
+        "skillTarget": "Thoughtful self-critique",
+        "framework": ""
+    },
+    {
+        "category": "personal_reflection",
+        "title": "What you're learning",
+        "question": "What are you learning right now and why does it matter to you? 45 seconds.",
+        "skillTarget": "Growth narrative",
+        "framework": ""
+    },
+    {
+        "category": "interview_behavioral",
+        "title": "Project you led",
+        "question": "In 60 seconds, talk about a project you led — outcome first, process second.",
+        "skillTarget": "Outcome-led behavioral story",
+        "framework": "Outcome → role → process."
+    },
+    {
+        "category": "interview_behavioral",
+        "title": "Pushed back",
+        "question": "Tell me about a time you had to push back on a stakeholder. What happened? 60 seconds.",
+        "skillTarget": "Conflict story",
+        "framework": "Situation → what you did → outcome."
+    },
+    {
+        "category": "interview_behavioral",
+        "title": "Hard feedback",
+        "question": "Tell me about a time you got hard feedback. What did you do with it? 60 seconds.",
+        "skillTarget": "Feedback-receiving story",
+        "framework": "Feedback → action → result."
+    },
+    {
+        "category": "interview_behavioral",
+        "title": "Failed and recovered",
+        "question": "Tell me about a time something you owned failed — and what you did next. 60 seconds.",
+        "skillTarget": "Failure narrative",
+        "framework": "What happened → what you did → what you learned."
+    },
+    {
+        "category": "interview_behavioral",
+        "title": "Drove alignment",
+        "question": "Walk me through a time you got people aligned on something hard. 60 seconds.",
+        "skillTarget": "Alignment story",
+        "framework": ""
+    },
+    {
+        "category": "interview_behavioral",
+        "title": "Cross-team work",
+        "question": "Tell me about working across teams to ship something. 60 seconds.",
+        "skillTarget": "Cross-functional story",
+        "framework": "Goal → friction → resolution."
+    },
+    {
+        "category": "interview_situational",
+        "title": "Missed sprint",
+        "question": "What would you do if a teammate repeatedly missed sprint commitments?",
+        "skillTarget": "Performance-management thinking",
+        "framework": ""
+    },
+    {
+        "category": "interview_situational",
+        "title": "Productivity opinion",
+        "question": "What do you think about engineering productivity? 60 seconds.",
+        "skillTarget": "Position-taking on a familiar topic",
+        "framework": "Take → reasoning."
+    },
+    {
+        "category": "interview_situational",
+        "title": "First 30 days",
+        "question": "What would you focus on in your first 30 days in this role?",
+        "skillTarget": "Onboarding plan",
+        "framework": "Listen → quick wins → bigger plays."
+    },
+    {
+        "category": "interview_situational",
+        "title": "Conflicting priorities",
+        "question": "Two senior people give you conflicting priorities. What do you do? 60 seconds.",
+        "skillTarget": "Priority-arbitration thinking",
+        "framework": ""
+    },
+    {
+        "category": "interview_situational",
+        "title": "Team falling behind",
+        "question": "Your team is falling behind on a critical deliverable. Walk me through how you'd respond.",
+        "skillTarget": "Recovery-plan reasoning",
+        "framework": "Diagnose → re-scope → communicate."
+    },
+    {
+        "category": "interview_situational",
+        "title": "Feedback culture",
+        "question": "What do you think makes feedback actually land at work? 60 seconds.",
+        "skillTarget": "Considered opinion",
+        "framework": ""
+    }
+]

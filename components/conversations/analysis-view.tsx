@@ -41,15 +41,7 @@ type Props = {
  * change have the old `whyIssue` + `keyTakeaway` pair that we merge on read.
  */
 function resolveWhyThisMatters(moment: CoachingMoment): string {
-    if (moment.whyThisMatters && moment.whyThisMatters.trim()) {
-        return moment.whyThisMatters.trim();
-    }
-    const parts: string[] = [];
-    if (moment.whyIssue?.trim()) parts.push(moment.whyIssue.trim());
-    if (moment.keyTakeaway?.trim()) {
-        parts.push(`**Takeaway:** ${moment.keyTakeaway.trim()}`);
-    }
-    return parts.join("\n\n");
+    return moment.whyThisMatters?.trim() ?? "";
 }
 
 function formatCoachingMoment(moment: CoachingMoment): string {
@@ -126,48 +118,12 @@ function coachingToText(analysis: CaptureAnalysis): string {
     return parts.join("\n\n");
 }
 
-/**
- * Return the fix-these-first moments for the UI. New analyses populate
- * `fixTheseFirst` directly. Legacy analyses only have `teachableMoments` —
- * fall back to slicing the top 3 by severity (major → moderate → minor) so
- * old captures still get a sensible "Fix these first" list.
- */
 function getFixTheseFirst(analysis: CaptureAnalysis): TeachableMoment[] {
-    if (Array.isArray(analysis.fixTheseFirst) && analysis.fixTheseFirst.length) {
-        return analysis.fixTheseFirst;
-    }
-    const legacy = analysis.teachableMoments;
-    if (!Array.isArray(legacy) || legacy.length === 0) return [];
-    return [...legacy]
-        .sort(
-            (a, b) =>
-                SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
-                a.timestamp - b.timestamp,
-        )
-        .slice(0, 3);
+    return Array.isArray(analysis.fixTheseFirst) ? analysis.fixTheseFirst : [];
 }
 
-/**
- * Return the more-moments list for the UI. New analyses populate `moreMoments`
- * directly. Legacy analyses only have `teachableMoments` — fall back to
- * everything minus whatever the legacy `getFixTheseFirst` selection used.
- */
 function getMoreMoments(analysis: CaptureAnalysis): TeachableMoment[] {
-    if (Array.isArray(analysis.moreMoments) && analysis.moreMoments.length) {
-        return analysis.moreMoments;
-    }
-    // If new fixTheseFirst is populated but no moreMoments, nothing else to show.
-    if (
-        Array.isArray(analysis.fixTheseFirst) &&
-        analysis.fixTheseFirst.length > 0 &&
-        !Array.isArray(analysis.moreMoments)
-    ) {
-        return [];
-    }
-    const legacy = analysis.teachableMoments;
-    if (!Array.isArray(legacy) || legacy.length === 0) return [];
-    const fixFirstSet = new Set(getFixTheseFirst(analysis));
-    return legacy.filter((m) => !fixFirstSet.has(m));
+    return Array.isArray(analysis.moreMoments) ? analysis.moreMoments : [];
 }
 
 function rewritesToText(analysis: CaptureAnalysis): string {
@@ -1045,98 +1001,40 @@ export function AnalysisView(props: Readonly<Props>) {
     const topFixes = useMemo(() => getFixTheseFirst(analysis), [analysis]);
     const moreMoments = useMemo(() => getMoreMoments(analysis), [analysis]);
 
-    // ── Overview section (Main tab) ──────────────────────────────────
+    // ── "Now" section: main issue + top 2 fixes + chat ───────────────
     if (section === "overview") {
-        const overviewContent = overviewToText(analysis);
+        const fixContent = topFixes
+            .slice(0, 2)
+            .map((m) => formatCoachingMoment(m))
+            .join("\n\n");
+        const chatContext = [
+            analysis.mainIssue ? `# Main issue\n${analysis.mainIssue}` : "",
+            fixContent ? `# Fix these first\n${fixContent}` : "",
+        ]
+            .filter(Boolean)
+            .join("\n\n");
+
         return (
             <div className="space-y-4">
-                <div className="rounded-xl border border-border/70 p-4">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                        <Sparkles className="size-4" />
-                        Overview
-                    </div>
-                    <div className="mt-3 rounded-lg border border-border/50 bg-background/50 p-3">
-                        <p className="text-sm leading-relaxed text-muted-foreground">
-                            {analysis.overview}
+                {analysis.mainIssue ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300/80">
+                            Main issue
+                        </p>
+                        <p className="mt-1.5 text-sm font-medium text-foreground">
+                            {analysis.mainIssue}
                         </p>
                     </div>
-                    {renderChat("overview", "Overview", overviewContent)}
-                </div>
+                ) : null}
 
-                <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-800">
-                        Main issue
-                    </p>
-                    <p className="mt-1.5 text-sm font-medium text-foreground">
-                        {analysis.mainIssue}
-                    </p>
-                    {analysis.secondaryIssues.length > 0 && (
-                        <ul className="mt-3 space-y-1.5 border-t border-amber-200/60 pt-3">
-                            {analysis.secondaryIssues.map((issue, i) => (
-                                <li
-                                    key={i}
-                                    className="text-sm leading-relaxed text-muted-foreground"
-                                >
-                                    <span className="mr-1.5 text-amber-700/70">
-                                        &bull;
-                                    </span>
-                                    {issue}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
+                {topFixes.length > 0 ? (
+                    <TopFixesCard
+                        moments={topFixes.slice(0, 2)}
+                        onSeek={onSeekToSecond}
+                    />
+                ) : null}
 
-                {(analysis.improvements.length > 0 ||
-                    analysis.regressions.length > 0) && (
-                    <div className="rounded-xl border border-border/70 p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Progress
-                        </p>
-                        {analysis.improvements.length > 0 && (
-                            <div className="mt-3 space-y-1">
-                                <p className="text-xs font-medium text-emerald-700">
-                                    Improvements
-                                </p>
-                                {analysis.improvements.map((item, i) => (
-                                    <p
-                                        key={i}
-                                        className="text-sm leading-relaxed text-muted-foreground"
-                                    >
-                                        <span className="text-emerald-600">
-                                            +
-                                        </span>{" "}
-                                        {item}
-                                    </p>
-                                ))}
-                            </div>
-                        )}
-                        {analysis.regressions.length > 0 && (
-                            <div className="mt-3 space-y-1">
-                                <p className="text-xs font-medium text-amber-700">
-                                    Regressions
-                                </p>
-                                {analysis.regressions.map((item, i) => (
-                                    <p
-                                        key={i}
-                                        className="text-sm leading-relaxed text-muted-foreground"
-                                    >
-                                        <span className="text-amber-600">
-                                            -
-                                        </span>{" "}
-                                        {item}
-                                    </p>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {analysis.notes?.trim() && (
-                    <p className="px-1 text-xs italic leading-relaxed text-muted-foreground">
-                        {analysis.notes}
-                    </p>
-                )}
+                {renderChat("now", "Now", chatContext)}
             </div>
         );
     }

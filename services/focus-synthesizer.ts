@@ -233,21 +233,10 @@ function condenseSession(session: SessionType): string | null {
     if (dimensionalLines.length > 0) {
         parts.push(`Dimensional findings:\n${dimensionalLines.join("\n")}`);
     }
-    if (feedback) {
-        const feedbackExcerpts: string[] = [];
-        if (feedback.momentsToTighten?.trim()) {
-            feedbackExcerpts.push(
-                `- moments: ${truncate(feedback.momentsToTighten, MAX_FEEDBACK_EXCERPT_CHARS)}`,
-            );
-        }
-        if (feedback.overview?.trim()) {
-            feedbackExcerpts.push(
-                `- overview: ${truncate(feedback.overview, MAX_FEEDBACK_EXCERPT_CHARS)}`,
-            );
-        }
-        if (feedbackExcerpts.length > 0) {
-            parts.push(`Feedback excerpts:\n${feedbackExcerpts.join("\n")}`);
-        }
+    if (feedback?.improvedVersion?.trim()) {
+        parts.push(
+            `Improved-version excerpt:\n- ${truncate(feedback.improvedVersion, MAX_FEEDBACK_EXCERPT_CHARS)}`,
+        );
     }
     return parts.join("\n");
 }
@@ -312,18 +301,13 @@ function condenseCapture(capture: CaptureType): string | null {
         parts.push(`Dimensional assessments:\n${dimensionalLines.join("\n")}`);
     }
 
-    // Prefer new fixTheseFirst + moreMoments; fall back to legacy teachableMoments.
-    const allTeachable = [
+    const teachable = [
         ...(analysis.fixTheseFirst ?? []),
         ...(analysis.moreMoments ?? []),
-    ];
-    const teachable = (allTeachable.length > 0
-        ? allTeachable
-        : analysis.teachableMoments ?? []
-    ).slice(0, MAX_TEACHABLE_MOMENTS_PER_CAPTURE);
+    ].slice(0, MAX_TEACHABLE_MOMENTS_PER_CAPTURE);
     if (teachable.length > 0) {
         const lines = teachable.map((m) => {
-            const why = (m.whyThisMatters ?? m.whyIssue ?? "").trim();
+            const why = (m.whyThisMatters ?? "").trim();
             return `- [${m.type}/${m.severity}] "${truncate(m.anchor, 100)}" — ${truncate(why, 120)}`;
         });
         parts.push(`Teachable moments:\n${lines.join("\n")}`);

@@ -1,11 +1,14 @@
-import type { SessionFeedbackType, SessionPlanType } from "@/types/sessions";
+import type { SessionPlanType } from "@/types/sessions";
 
-export const DEFAULT_MAX_SECONDS = 5 * 60;
-export const HARD_MAX_SECONDS = 30 * 60;
+/**
+ * Bite-sized drill format: a single 60-second response. Both the default
+ * and the hard cap are 60s — the planner can never request more, the UI
+ * auto-stops the recorder at 60s.
+ */
+export const DEFAULT_MAX_SECONDS = 60;
+export const HARD_MAX_SECONDS = 60;
+export const MIN_MAX_SECONDS = 30;
 export const EMPTY_CAPTIONS_VTT = "data:text/vtt,WEBVTT";
-
-/** Client-side chance to show post-drill reflection before creating the next session. */
-export const REFLECTION_BEFORE_NEW_DRILL_PROBABILITY = 0.15;
 
 export const FALLBACK_PLAN: SessionPlanType = {
     scenario: {
@@ -14,24 +17,9 @@ export const FALLBACK_PLAN: SessionPlanType = {
         givenContent: "",
         question:
             "What are you working on this week, and where are you stuck?",
-        framework:
-            "PREP — Point (the headline), Reason (why it matters), Example (what you did), Point (what's next).",
+        framework: "",
         category: "status_update",
     },
     skillTarget: "Concise structure",
     maxDurationSeconds: DEFAULT_MAX_SECONDS,
-};
-
-export const FEEDBACK_SECTION_LABELS: Partial<
-    Record<keyof SessionFeedbackType, string>
-> = {
-    overview: "Overview",
-    momentsToTighten: "Moments",
-    structureAndFlow: "Structure",
-    clarityAndConciseness: "Clarity",
-    relevanceAndFocus: "Relevance",
-    engagement: "Engagement",
-    professionalism: "Professionalism",
-    deliveryAndProsody: "Voice & tone",
-    nativeSpeakerVersion: "Improved Version",
 };

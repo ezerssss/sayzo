@@ -110,20 +110,16 @@ function formatDimensionalAssessment(
 }
 
 function formatTeachableMoments(analysis: CaptureAnalysis): string {
-    // Prefer the new fix-first + more fields; fall back to legacy teachableMoments.
-    const combined = [
+    const moments = [
         ...(analysis.fixTheseFirst ?? []),
         ...(analysis.moreMoments ?? []),
-    ];
-    const moments = (combined.length > 0
-        ? combined
-        : analysis.teachableMoments ?? []
-    ).slice(0, 6);
+    ].slice(0, 6);
     if (moments.length === 0) return "(none flagged)";
     return moments
-        .map((m, i) => {
-            return `${i + 1}. [idx ${m.transcriptIdx}, ${m.severity}] anchor: ${m.anchor.trim()} | why: ${findingWhy(m)} | better: ${m.betterOption.trim()}`;
-        })
+        .map(
+            (m, i) =>
+                `${i + 1}. [idx ${m.transcriptIdx}, ${m.severity}] anchor: ${m.anchor.trim()} | why: ${findingWhy(m)} | better: ${m.betterOption.trim()}`,
+        )
         .join("\n");
 }
 
@@ -182,9 +178,11 @@ ${formatTranscript(transcript)}
 function normalizePlan(plan: SessionPlanType): SessionPlanType {
     const skillTarget = plan.skillTarget.trim() || "Structured speaking";
 
+    // Bite-sized replay: same 60s cap as the main planner. Enforce here even
+    // if the LLM ignores instructions — replays must fit the new drill shape.
     const maxDurationSeconds = Math.max(
-        120,
-        Math.min(1800, Math.round(plan.maxDurationSeconds || 0)),
+        30,
+        Math.min(60, Math.round(plan.maxDurationSeconds || 60)),
     );
 
     // Category may be garbled by smaller models — truncate to first valid
@@ -200,7 +198,8 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
         scenario: {
             title: plan.scenario.title.trim(),
             situationContext: plan.scenario.situationContext.trim(),
-            givenContent: plan.scenario.givenContent.trim(),
+            // 60s replays always have empty given content — the prompt is the whole experience.
+            givenContent: "",
             question: plan.scenario.question?.trim() ?? "",
             framework: plan.scenario.framework.trim(),
             category,

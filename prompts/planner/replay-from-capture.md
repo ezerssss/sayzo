@@ -38,7 +38,9 @@ Every scenario field must come from the actual capture. Do **not** invent stakeh
 - **`scenario.category`** — pick the snake_case slug from the recommended catalog that best matches the actual conversation type (`status_update`, `project_walkthrough`, `stakeholder_alignment`, `difficult_conversation`, `self_introduction`, `personal_reflection`, `interview_behavioral`, `interview_situational`), or invent a new one in valid format if none fit.
 - **`skillTarget`** — derived from the capture's `analysis.mainIssue`. One concise improvement-oriented phrase (e.g., "Structured recommendations", "Confident pacing under pressure", "Clear trade-off communication"). The replay exists to give the learner a second chance at the **specific** thing the analysis flagged as their main issue in this conversation.
 - **`scenario.framework`** — choose a speaking structure that **specifically targets the main issue in this capture**. If the analysis said the user rambled, pick a tight structural framework (SCQA, PREP, Claim → Support → Impact). If the analysis said the user was too brief, pick a framework that forces development (Problem → Solution → Benefit, Intro → 3 points → Conclusion). If the analysis flagged hedging, pick Claim → Support → Impact and add a "no hedging language" cue. Reference the actual facts from the capture in the framework's bullet steps so the learner can follow it concretely.
-- **`maxDurationSeconds`** — choose based on how long a strong, targeted response would take for this specific topic. Roughly match the original user speaking time within the 120-1800 range; bias slightly higher to give the learner room to develop the better version.
+- **`maxDurationSeconds`** — **always 60**. Every drill in this product is a 60-second focused response, including replays. If the original conversation was much longer, narrow the scope (pick the single sharpest moment to redo) rather than raising the duration.
+- **`scenario.framework`** is **optional and brief** — at most a single short hint (e.g. *"Lead with the recommendation, then one supporting reason."*) or empty string. Sixty seconds is too short for a multi-step framework.
+- **`scenario.givenContent`** is **always an empty string** for the new 60s drill shape — replays don't load reference material.
 
 ### 2. Framework should fix the main issue
 
@@ -100,7 +102,7 @@ Return one JSON object with:
 - `scenario.framework` — a practical speaking structure tailored to fix the capture's `analysis.mainIssue`, with 2–5 steps that reference the actual content.
 - `scenario.category` — short snake_case slug (use the recommended catalog or invent).
 - `skillTarget` — one concise improvement-oriented phrase, derived from `analysis.mainIssue`.
-- `maxDurationSeconds` — 120 to 1800.
+- `maxDurationSeconds` — always 60.
 
 ## Required quality checklist
 

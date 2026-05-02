@@ -185,7 +185,6 @@ Summary: ${summary}
     const all = [
         ...(analysis.fixTheseFirst ?? []),
         ...(analysis.moreMoments ?? []),
-        ...(analysis.teachableMoments ?? []),
     ];
     return `${all.length} (${all.filter((m) => m.severity === "major").length} major)`;
 })()}

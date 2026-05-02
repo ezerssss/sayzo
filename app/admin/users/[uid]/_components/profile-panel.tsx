@@ -150,7 +150,6 @@ export function ProfilePanel({
             </div>
 
             {profile?.internalLearnerContext ||
-            profile?.internalDrillSignalNotes ||
             profile?.internalCaptureContext ||
             profile?.internalCaptureDeliveryNotes ? (
                 <CollapsibleNotes
@@ -217,10 +216,6 @@ function CollapsibleNotes({
                     <NoteBlock
                         title="Learner context"
                         body={profile.internalLearnerContext}
-                    />
-                    <NoteBlock
-                        title="Drill signal notes"
-                        body={profile.internalDrillSignalNotes}
                     />
                     <NoteBlock
                         title="Capture context"

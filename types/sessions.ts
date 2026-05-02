@@ -1,3 +1,8 @@
+import type {
+    CaptureTranscriptLine,
+    TeachableMoment,
+} from "@/types/captures";
+
 /**
  * Default catalog for the planner (documented in `prompts/planner`); the model may
  * also emit new `snake_case` slugs when none of these fit.
@@ -29,7 +34,8 @@ export type ScenarioType = {
     givenContent: string; // Specific details of the situation that are relevant to the session.
     /** The actual question or prompt the learner must respond to, written in second person as if the interviewer/audience is asking them directly. */
     question?: string;
-    framework: string; // Recommended speaking framework/structure for this context.
+    /** Optional one-line speaking hint. Empty string when the prompt is self-explanatory; never a multi-step list. */
+    framework: string;
     /** Speaking-situation slug: prefer built-ins in `RECOMMENDED_SPEAKING_DRILL_CATEGORIES`, or a new concise snake_case slug. */
     category: string;
 };
@@ -38,7 +44,7 @@ export type SessionPlanType = {
     scenario: ScenarioType;
     /** Primary user skill this drill aims to improve. */
     skillTarget: string;
-    /** Maximum recording duration for this drill (seconds). */
+    /** Maximum recording duration for this drill (seconds). 60s for the new bite-sized drill shape. */
     maxDurationSeconds: number;
 };
 
@@ -52,10 +58,22 @@ export type PlannerRecentDrillSummary = {
     skillTarget: string;
 };
 
+/**
+ * Internal AI analysis of a finished drill. Stays rich — feeds the planner's
+ * skill memory, learner-context updater, focus dashboard, and replay
+ * comparison. The user-facing surface is a thin projection over this object;
+ * see `SessionFeedbackType` (which now only carries the polished rewrite).
+ */
 export type SessionAnalysisType = {
     overview: string;
     mainIssue: string;
     secondaryIssues: string[];
+    /**
+     * Top 2-3 ranked coachable moments — what the learner sees in the new
+     * "Fix these first" card on the feedback page. Reuses the captures-side
+     * `TeachableMoment` shape so the same renderer covers both surfaces.
+     */
+    fixTheseFirst: TeachableMoment[];
     structureAndFlow: string[];
     clarityAndConciseness: string[];
     relevanceAndFocus: string[];
@@ -67,31 +85,22 @@ export type SessionAnalysisType = {
     notes: string;
 };
 
+/**
+ * User-facing feedback — collapsed to just the polished rewrite. The
+ * "Main Issue + Fix These First" card on the new feedback page reads
+ * directly from `SessionAnalysisType` (one source of truth). Any
+ * structured coaching content lives on the analysis object; this type
+ * carries the prose rewrite the user reads on Tab 2 ("Improved Version").
+ */
 export type SessionFeedbackType = {
-    overview: string;
-    momentsToTighten: string;
-    structureAndFlow: string;
-    clarityAndConciseness: string;
-    relevanceAndFocus: string;
-    engagement: string;
-    professionalism: string;
-    deliveryAndProsody: string;
-    nativeSpeakerVersion: string | null;
-    /** @deprecated Folded into overview. Kept for backward compat with old sessions. */
-    betterOptions?: string | null;
-    /** @deprecated Removed. Kept for backward compat with old sessions. */
-    nextRepetition?: string;
-    /** @deprecated Folded into overview. Kept for backward compat with old sessions. */
-    whatWorkedWell?: string | null;
+    /** Renamed from `nativeSpeakerVersion`. Full rewrite of the user's drill response with `> **Note:**` annotations after each paragraph explaining what changed and why. Null when transcript was unusable. */
+    improvedVersion: string | null;
 };
 
 export function hasSessionFeedbackContent(
     feedback: SessionFeedbackType | null | undefined,
 ): boolean {
-    if (!feedback) return false;
-    return Object.values(feedback).some(
-        (value) => typeof value === "string" && value.trim().length > 0,
-    );
+    return Boolean(feedback?.improvedVersion?.trim());
 }
 
 export type SessionCompletionStatus =
@@ -99,8 +108,6 @@ export type SessionCompletionStatus =
     | "passed"
     | "needs_retry"
     | "skipped";
-
-import type { CaptureTranscriptLine } from "@/types/captures";
 
 export type SessionType = {
     id: string;
@@ -115,8 +122,7 @@ export type SessionType = {
      * Structured per-utterance transcript (one line per Deepgram utterance)
      * with start/end timings and `speaker: "user"` on every line (drills are
      * monologues). Reuses the capture transcript shape so one renderer can
-     * serve both surfaces. Nullable on legacy drills persisted before this
-     * field was added — UI falls back to parsing `transcript` in that case.
+     * serve both surfaces.
      */
     serverTranscript?: CaptureTranscriptLine[] | null;
 

@@ -1,12 +1,18 @@
 "use client";
 
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, Mic, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { STALE_PROCESSING_MS } from "@/constants/session-processing";
+import { CreditsBanner } from "@/components/credits/credits-banner";
+import { useCreditGate } from "@/components/credits/credit-gate-provider";
+import { AudioPlayer } from "@/components/session/audio-player";
+import { Button } from "@/components/ui/button";
+import { useAllCaptures } from "@/hooks/use-all-captures";
 import { useLatestSession } from "@/hooks/use-latest-session";
 import { useSession } from "@/hooks/use-session";
+import { useUserProfileExists } from "@/hooks/use-user-profile-exists";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { track } from "@/lib/analytics/client";
 import { api } from "@/lib/api-client";
 import {
@@ -14,33 +20,13 @@ import {
     isKyHttpStatus,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
-import { Button } from "@/components/ui/button";
-import { useCreditGate } from "@/components/credits/credit-gate-provider";
-import { CreditsBanner } from "@/components/credits/credits-banner";
-import {
-    hasSessionFeedbackContent,
-    type SessionFeedbackType,
-} from "@/types/sessions";
+import type { SessionFeedbackType } from "@/types/sessions";
 
-import { AudioPlayer } from "@/components/session/audio-player";
-
-import {
-    DEFAULT_MAX_SECONDS,
-    FALLBACK_PLAN,
-    HARD_MAX_SECONDS,
-    REFLECTION_BEFORE_NEW_DRILL_PROBABILITY,
-} from "./constants";
+import { DEFAULT_MAX_SECONDS, FALLBACK_PLAN, HARD_MAX_SECONDS } from "./constants";
 import { DrillBriefCard } from "./drill-brief-card";
-import { NewDrillReflectionModal } from "./new-drill-reflection-modal";
-import { SessionControlsPanel } from "./session-controls-panel";
 import { SessionFeedbackSection } from "./session-feedback-section";
 import { SessionHomeHeader } from "./session-home-header";
-import { SkipDrillModal } from "./skip-drill-modal";
-import type {
-    DrillState,
-    PreNewDrillReflectionState,
-    SessionHomeProps,
-} from "./types";
+import type { DrillState, SessionHomeProps } from "./types";
 
 export type { SessionHomeProps } from "./types";
 
@@ -62,6 +48,7 @@ function formatReviewDate(dateStr: string): string {
 export function SessionHome(props: Readonly<SessionHomeProps>) {
     const { uid, authError, sessionId } = props;
     const creditGate = useCreditGate();
+
     const [drillState, setDrillState] = useState<DrillState>("idle");
     const [seconds, setSeconds] = useState(DEFAULT_MAX_SECONDS);
     const [drillError, setDrillError] = useState<string | null>(null);
@@ -71,32 +58,11 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     );
     const [hasPendingAnalysisRequest, setHasPendingAnalysisRequest] =
         useState(false);
-    const [skipModalOpen, setSkipModalOpen] = useState(false);
-    const [reflectionModalOpen, setReflectionModalOpen] = useState(false);
-    const [skipFeedbackText, setSkipFeedbackText] = useState("");
-    const [reflectionFeedbackText, setReflectionFeedbackText] = useState("");
-    const [skipSubmitting, setSkipSubmitting] = useState(false);
-    const [reflectionSubmitting, setReflectionSubmitting] = useState(false);
-    const [skipTranscribing, setSkipTranscribing] = useState(false);
-    const [skipTranscribeError, setSkipTranscribeError] = useState<
-        string | null
-    >(null);
-    const [reflectionTranscribing, setReflectionTranscribing] =
-        useState(false);
-    const [reflectionTranscribeError, setReflectionTranscribeError] = useState<
-        string | null
-    >(null);
-    const [preNewDrillReflection, setPreNewDrillReflection] =
-        useState<PreNewDrillReflectionState | null>(null);
-    const [cancelSubmitting, setCancelSubmitting] = useState(false);
-    const [nowTick, setNowTick] = useState(() => Date.now());
     const [promptOpen, setPromptOpen] = useState(true);
+
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const { isRecording, stream, start, stop } = useVoiceRecorder();
-    const modalRecorder = useVoiceRecorder();
-    // Both hooks called unconditionally (rules of hooks).
-    // When sessionId is set, useLatestSession gets undefined uid and no-ops.
-    // When sessionId is absent, useSession(undefined) no-ops.
+
     const latestHook = useLatestSession(sessionId ? undefined : uid);
     const specificHook = useSession(sessionId);
     const {
@@ -105,14 +71,18 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         error: latestSessionError,
     } = sessionId ? specificHook : latestHook;
 
+    const { captures } = useAllCaptures(uid);
+    const { firstDrillCompletedAt } = useUserProfileExists(uid);
+
     const currentPlan = session?.plan ?? FALLBACK_PLAN;
     const maxSeconds = Math.max(
-        120,
+        15,
         Math.min(
             HARD_MAX_SECONDS,
             Math.round(currentPlan.maxDurationSeconds ?? DEFAULT_MAX_SECONDS),
         ),
     );
+
     const currentTranscript = useMemo(() => {
         return session?.transcript?.trim() ?? "";
     }, [session?.transcript]);
@@ -121,29 +91,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         return session?.feedback ?? null;
     }, [session?.feedback]);
 
-    const hasFeedback = useMemo(() => {
-        if (!currentFeedback) return false;
-        return Object.values(currentFeedback).some(
-            (value) => typeof value === "string" && value.trim().length > 0,
-        );
-    }, [currentFeedback]);
-    const hasMainOverview = Boolean(currentFeedback?.overview?.trim());
-    const coachingSectionKeys = useMemo<Array<keyof SessionFeedbackType>>(() => {
-        if (!currentFeedback) return [];
-        const keys: Array<keyof SessionFeedbackType> = [
-            "momentsToTighten",
-            "structureAndFlow",
-            "clarityAndConciseness",
-            "relevanceAndFocus",
-            "engagement",
-            "professionalism",
-            "deliveryAndProsody",
-        ];
-        return keys.filter((key) => {
-            const value = currentFeedback[key];
-            return typeof value === "string" && value.trim().length > 0;
-        });
-    }, [currentFeedback]);
     const playbackSrc = recordedAudioUrl ?? session?.audioUrl ?? null;
     const isRecordingNow = isRecording || drillState === "recording";
     const isServerProcessing = session?.processingStatus === "processing";
@@ -154,6 +101,9 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         drillState !== "analyzing";
     const processingStage = session?.processingStage;
     const isSkipped = session?.completionStatus === "skipped";
+    const hasFeedback = Boolean(
+        session?.feedback?.improvedVersion?.trim() || session?.analysis,
+    );
     const hasServerResults = Boolean(
         session?.completionStatus !== "pending" &&
             (isSkipped ||
@@ -164,27 +114,11 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     const showRecordAction =
         !isSkipped &&
         (isRecordingNow || !shouldShowResults || requiresRetry);
-    const showCompletionActions =
-        shouldShowResults &&
-        !isSkipped &&
-        !isRecordingNow &&
-        drillState !== "analyzing" &&
-        !requiresRetry;
     const shouldShowAnalyzingState =
         !shouldShowResults &&
         (isServerProcessing ||
             drillState === "analyzing" ||
             hasPendingAnalysisRequest);
-    const processingUpdatedAtMs = useMemo(() => {
-        const raw = session?.processingUpdatedAt;
-        if (!raw) return null;
-        const t = Date.parse(raw);
-        return Number.isFinite(t) ? t : null;
-    }, [session?.processingUpdatedAt]);
-    const processingAppearsStuck =
-        isServerProcessing &&
-        processingUpdatedAtMs !== null &&
-        nowTick - processingUpdatedAtMs > STALE_PROCESSING_MS;
 
     const mm = Math.floor(seconds / 60);
     const ss = seconds % 60;
@@ -201,10 +135,12 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
 
     useEffect(() => {
         if (!session) return;
-        if (isRecording || drillState === "recording") {
-            return;
-        }
-        if (hasPendingAnalysisRequest && !isServerProcessing && !hasServerResults) {
+        if (isRecording || drillState === "recording") return;
+        if (
+            hasPendingAnalysisRequest &&
+            !isServerProcessing &&
+            !hasServerResults
+        ) {
             setDrillState("analyzing");
             return;
         }
@@ -235,7 +171,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         }
     }, [hasServerResults, isServerProcessing]);
 
-    // Fire drill_completed once per session when it first settles into a terminal status.
     const completedSessionIdRef = useRef<string | null>(null);
     useEffect(() => {
         const id = session?.id;
@@ -246,28 +181,23 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         track("drill_completed", { completion_status: status });
     }, [session?.id, session?.completionStatus]);
 
+    // Auto-stop at 0:00. The recorder is still running when the timer ticks
+    // down, so we trigger stopRecording() (which posts the audio) instead of
+    // just flipping the state — otherwise the audio never makes it server-side.
+    const stopRecordingRef = useRef<() => Promise<void>>(async () => {});
     useEffect(() => {
-        if (!isServerProcessing) return;
-        setNowTick(Date.now());
-        const id = setInterval(() => setNowTick(Date.now()), 5000);
-        return () => clearInterval(id);
-    }, [isServerProcessing]);
-
-    useEffect(() => {
-        if (drillState !== "recording") {
-            return;
-        }
+        if (drillState !== "recording") return;
         const id = setInterval(() => {
             setSeconds((s) => {
                 if (s <= 1) {
-                    setDrillState("analyzing");
+                    void stopRecordingRef.current();
                     return 0;
                 }
                 return s - 1;
             });
         }, 1000);
         return () => clearInterval(id);
-    }, [drillState, isRecording]);
+    }, [drillState]);
 
     useEffect(() => {
         return () => {
@@ -278,46 +208,33 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     }, [recordedAudioUrl]);
 
     const stateLabel = useMemo(() => {
-        if (skipSubmitting) {
-            return "Skipping this drill…";
-        }
-        if (isCreatingDrill) {
-            return "Creating your next drill…";
-        }
+        if (isCreatingDrill) return "Creating your next drill…";
         if (isRecording || drillState === "recording") {
-            return "Recording your response...";
+            return "Recording your response…";
         }
-        if (hasPendingAnalysisRequest) {
-            return "Starting analysis...";
-        }
+        if (hasPendingAnalysisRequest) return "Starting analysis…";
         if (isServerProcessing) {
-            if (processingStage === "transcribing") {
-                return "Transcribing your response...";
+            switch (processingStage) {
+                case "transcribing":
+                    return "Transcribing your response…";
+                case "uploading":
+                    return "Uploading your audio…";
+                case "analyzing_expression":
+                    return "Analyzing your tone and pace…";
+                case "analyzing":
+                    return "Analyzing your transcript…";
+                case "combining":
+                    return "Wrapping up your feedback…";
+                default:
+                    return "Still processing…";
             }
-            if (processingStage === "uploading") {
-                return "Uploading your audio...";
-            }
-            if (processingStage === "analyzing_expression") {
-                return "Analyzing your prosody and tone...";
-            }
-            if (processingStage === "analyzing") {
-                return "Analyzing your transcript...";
-            }
-            if (processingStage === "combining") {
-                return "Combining signals and generating coaching...";
-            }
-            return "Still processing on the server...";
         }
-        if (drillState === "analyzing") {
-            return "Syncing latest session status...";
-        }
+        if (drillState === "analyzing") return "Syncing latest status…";
         if (drillState === "complete") {
-            if (isSkipped) {
-                return "This drill was skipped.";
-            }
+            if (isSkipped) return "This drill was skipped.";
             return "Session complete. Review your feedback below.";
         }
-        return "Ready when you are.";
+        return "Tap to start when you're ready.";
     }, [
         drillState,
         hasPendingAnalysisRequest,
@@ -326,13 +243,10 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         isServerProcessing,
         processingStage,
         isSkipped,
-        skipSubmitting,
     ]);
 
     const startRecording = async () => {
-        if (session?.completionStatus === "skipped") {
-            return;
-        }
+        if (session?.completionStatus === "skipped") return;
         setHasPendingAnalysisRequest(false);
         if (recordedAudioUrl) {
             URL.revokeObjectURL(recordedAudioUrl);
@@ -344,16 +258,12 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     };
 
     const stopRecording = async () => {
-        if (session?.completionStatus === "skipped") {
-            return;
-        }
+        if (session?.completionStatus === "skipped") return;
         const durationSec = Math.max(0, maxSeconds - seconds);
         setHasPendingAnalysisRequest(true);
         const result = await stop();
         if (result?.blob.size) {
-            if (recordedAudioUrl) {
-                URL.revokeObjectURL(recordedAudioUrl);
-            }
+            if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
             setRecordedAudioUrl(URL.createObjectURL(result.blob));
         }
         setSeconds(0);
@@ -396,7 +306,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             );
             if (isKyTimeoutLikeError(error)) {
                 setDrillError(
-                    "Still processing in the background. We will update once results are ready.",
+                    "Still processing in the background. We'll update once results are ready.",
                 );
                 return;
             }
@@ -411,137 +321,22 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         }
     };
 
-    const sessionHasDrillRecordingOnServer = Boolean(
-        session?.audioUrl?.trim() ||
-            session?.audioObjectPath?.trim() ||
-            session?.transcript?.trim(),
-    );
-    const showSkipDrill =
-        session?.completionStatus === "pending" &&
-        !isServerProcessing &&
-        !requiresRetry &&
-        !isRecordingNow &&
-        !hasPendingAnalysisRequest &&
-        !sessionHasDrillRecordingOnServer &&
-        !recordedAudioUrl;
-
-    const toggleSkipVoiceNote = async () => {
-        modalRecorder.clearError();
-        setSkipTranscribeError(null);
-        if (modalRecorder.isRecording) {
-            const result = await modalRecorder.stop();
-            if (result?.blob.size) {
-                setSkipTranscribing(true);
-                try {
-                    const fd = new FormData();
-                    fd.append(
-                        "file",
-                        new File([result.blob], "skip-note.webm", {
-                            type: result.mimeType,
-                        }),
-                    );
-                    const data = await api
-                        .post("/api/transcribe", {
-                            body: fd,
-                            timeout: 180_000,
-                        })
-                        .json<{ text?: string }>();
-                    const next = data.text?.trim() ?? "";
-                    if (next) {
-                        setSkipFeedbackText((prev) => {
-                            const p = prev.trim();
-                            return p ? `${p}\n\n${next}` : next;
-                        });
-                    } else {
-                        setSkipTranscribeError(
-                            "We couldn't pick up any words—try again or type below.",
-                        );
-                    }
-                } catch (error) {
-                    setSkipTranscribeError(
-                        await getKyErrorMessage(
-                            error,
-                            "Transcription failed.",
-                        ),
-                    );
-                } finally {
-                    setSkipTranscribing(false);
-                }
-            }
-            return;
-        }
-        await modalRecorder.start();
-    };
-
-    const toggleReflectionVoiceNote = async () => {
-        modalRecorder.clearError();
-        setReflectionTranscribeError(null);
-        if (modalRecorder.isRecording) {
-            const result = await modalRecorder.stop();
-            if (result?.blob.size) {
-                setReflectionTranscribing(true);
-                try {
-                    const fd = new FormData();
-                    fd.append(
-                        "file",
-                        new File([result.blob], "reflection-note.webm", {
-                            type: result.mimeType,
-                        }),
-                    );
-                    const data = await api
-                        .post("/api/transcribe", {
-                            body: fd,
-                            timeout: 180_000,
-                        })
-                        .json<{ text?: string }>();
-                    const next = data.text?.trim() ?? "";
-                    if (next) {
-                        setReflectionFeedbackText((prev) => {
-                            const p = prev.trim();
-                            return p ? `${p}\n\n${next}` : next;
-                        });
-                    } else {
-                        setReflectionTranscribeError(
-                            "We couldn't pick up any words—try again or type below.",
-                        );
-                    }
-                } catch (error) {
-                    setReflectionTranscribeError(
-                        await getKyErrorMessage(
-                            error,
-                            "Transcription failed.",
-                        ),
-                    );
-                } finally {
-                    setReflectionTranscribing(false);
-                }
-            }
-            return;
-        }
-        await modalRecorder.start();
-    };
+    // Keep the latest stopRecording reachable from the timer effect without
+    // re-firing the interval on every render.
+    useEffect(() => {
+        stopRecordingRef.current = stopRecording;
+    });
 
     const createNewDrillRequest = async () => {
-        if (!creditGate.guard()) {
-            track("credit_limit_reached", { feature: "drill" });
-            setIsCreatingDrill(false);
-            return;
-        }
         setIsCreatingDrill(true);
-        setDrillError(null);
         try {
-            await api.post("/api/sessions/new-drill", {
-                json: {},
-                timeout: 330_000,
-            });
-            track("drill_started", { skill_target: null, category: null });
-            track("credit_consumed", { feature: "drill" });
-            setSeconds(maxSeconds);
-            setDrillState("idle");
-            setPromptOpen(true);
-            if (recordedAudioUrl) {
-                URL.revokeObjectURL(recordedAudioUrl);
-                setRecordedAudioUrl(null);
+            const data = await api
+                .post("/api/sessions/new-drill", { json: {} })
+                .json<{ session?: { id?: string } }>();
+            if (data.session?.id) {
+                window.location.href = `/app/drills/${data.session.id}`;
+            } else {
+                window.location.href = "/app/drills/latest";
             }
         } catch (error) {
             if (isKyHttpStatus(error, 402)) {
@@ -549,359 +344,199 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 creditGate.openLimitDialog();
                 return;
             }
-            console.error(
-                "[components/session/session-home] createNewDrillRequest failed",
-                error,
-            );
             setDrillError(
-                await getKyErrorMessage(error, "Could not create a new drill."),
+                await getKyErrorMessage(
+                    error,
+                    "Could not start a new drill.",
+                ),
             );
         } finally {
             setIsCreatingDrill(false);
         }
     };
 
-    const submitSkipDrill = async (opts: { withoutSharing: boolean }) => {
-        if (!session?.id) return;
-        setSkipSubmitting(true);
-        setDrillError(null);
-        try {
-            if (modalRecorder.isRecording) {
-                await modalRecorder.stop();
-            }
-            const fd = new FormData();
-            fd.append("sessionId", session.id);
-            if (opts.withoutSharing) {
-                fd.append("skipWithoutFeedback", "1");
-            } else {
-                const text = skipFeedbackText.trim();
-                if (!text) {
-                    setDrillError(
-                        "Say or type why you’re skipping before you continue.",
-                    );
-                    return;
-                }
-                fd.append("feedbackText", text);
-            }
-            await api.post("/api/sessions/skip", {
-                body: fd,
-                timeout: 120_000,
-            });
-            setSkipModalOpen(false);
-            setSkipFeedbackText("");
-        } catch (error) {
-            console.error(
-                "[components/session/session-home] submitSkipDrill failed",
-                error,
-            );
-            setDrillError(
-                await getKyErrorMessage(error, "Could not skip this drill."),
-            );
-            return;
-        } finally {
-            setSkipSubmitting(false);
-        }
-        await createNewDrillRequest();
-    };
-
-    const submitReflectionThenNewDrill = async (opts: {
-        mode: "share" | "decline" | "clear";
-    }) => {
-        const ctx = preNewDrillReflection;
-        if (!ctx) return;
-        setReflectionSubmitting(true);
-        setDrillError(null);
-        try {
-            if (opts.mode === "clear") {
-                if (modalRecorder.isRecording) {
-                    await modalRecorder.stop();
-                }
-                setReflectionModalOpen(false);
-                setReflectionFeedbackText("");
-                setPreNewDrillReflection(null);
-                await createNewDrillRequest();
-                return;
-            }
-
-            if (opts.mode === "decline" && modalRecorder.isRecording) {
-                await modalRecorder.stop();
-            }
-
-            const fd = new FormData();
-            fd.append("priorSessionId", ctx.priorSessionId);
-            if (opts.mode === "decline") {
-                fd.append("dismissWithoutSharing", "1");
-            } else {
-                const text = reflectionFeedbackText.trim();
-                if (!text) {
-                    setDrillError(
-                        "Say or type your answer before you continue.",
-                    );
-                    return;
-                }
-                fd.append("feedbackText", text);
-            }
-            await api.post("/api/sessions/reflection", {
-                body: fd,
-                timeout: 120_000,
-            });
-            setReflectionModalOpen(false);
-            setReflectionFeedbackText("");
-            setPreNewDrillReflection(null);
-            await createNewDrillRequest();
-        } catch (error) {
-            console.error(
-                "[components/session/session-home] submitReflectionThenNewDrill failed",
-                error,
-            );
-            setDrillError(
-                await getKyErrorMessage(
-                    error,
-                    "Could not save your reflection.",
-                ),
-            );
-        } finally {
-            setReflectionSubmitting(false);
-        }
-    };
-
-    const cancelStuckDrill = async () => {
-        if (!session?.id || cancelSubmitting) return;
-        setCancelSubmitting(true);
-        setDrillError(null);
-        try {
-            await api.post("/api/sessions/cancel", {
-                json: { sessionId: session.id },
-                timeout: 30_000,
-            });
-            setHasPendingAnalysisRequest(false);
-            setDrillState("idle");
-        } catch (error) {
-            console.error(
-                "[components/session/session-home] cancelStuckDrill failed",
-                error,
-            );
-            setDrillError(
-                await getKyErrorMessage(
-                    error,
-                    "Could not cancel this drill.",
-                ),
-            );
-        } finally {
-            setCancelSubmitting(false);
-        }
-    };
-
-    const startAnotherDrill = async () => {
-        setDrillError(null);
-        setHasPendingAnalysisRequest(false);
-        const s = session;
-        if (
-            s?.id &&
-            s.completionStatus === "passed" &&
-            hasSessionFeedbackContent(s.feedback) &&
-            Math.random() < REFLECTION_BEFORE_NEW_DRILL_PROBABILITY
-        ) {
-            setReflectionTranscribeError(null);
-            setPreNewDrillReflection({
-                priorSessionId: s.id,
-                scenarioTitle:
-                    s.plan.scenario.title.trim() || "your last drill",
-            });
-            setReflectionModalOpen(true);
-            return;
-        }
-        await createNewDrillRequest();
-    };
-
-    const seekToSecond = (seconds: number) => {
+    const seekToSecond = (s: number) => {
         const el = audioRef.current;
-        if (!el || !Number.isFinite(seconds)) return;
-        el.currentTime = Math.max(0, seconds);
+        if (!el || !Number.isFinite(s)) return;
+        el.currentTime = Math.max(0, s);
         void el.play();
     };
 
     return (
         <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
             <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
-            <CreditsBanner />
-            <SessionHomeHeader />
+                <CreditsBanner />
+                <SessionHomeHeader />
 
-            {/* Persistent sky hero — always shown for any drill so the chrome
-                matches the captures detail page. For completed drills it
-                carries the Start-another-drill action. The prompt used to
-                live behind a view toggle; it's now inline below so the
-                feedback and the prompt coexist on the same page. */}
-            {session ? (
-                <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-6 shadow-sm">
-                    <div
-                        aria-hidden
-                        className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
-                    />
-                    <div className="relative flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
-                                {isSkipped
-                                    ? "Skipped drill"
-                                    : shouldShowResults
-                                      ? "Drill feedback"
-                                      : "Today's drill"}
-                                {session.createdAt ? (
-                                    <>
-                                        <span className="mx-1.5 text-sky-700/50">
-                                            &middot;
-                                        </span>
-                                        <span className="font-normal normal-case text-foreground/80">
-                                            {formatReviewDate(
-                                                session.createdAt,
-                                            )}
-                                        </span>
-                                    </>
-                                ) : null}
-                            </p>
-                            <h2 className="mt-2 text-lg font-semibold tracking-tight">
-                                {currentPlan.scenario.title}
-                            </h2>
-                            {currentPlan.skillTarget ? (
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {currentPlan.skillTarget}
+                {session ? (
+                    <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-6 shadow-sm">
+                        <div
+                            aria-hidden
+                            className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
+                        />
+                        <div className="relative flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                                    {isSkipped
+                                        ? "Skipped drill"
+                                        : shouldShowResults
+                                          ? "Drill feedback"
+                                          : "Today's drill"}
+                                    {session.createdAt ? (
+                                        <>
+                                            <span className="mx-1.5 text-sky-700/50">
+                                                &middot;
+                                            </span>
+                                            <span className="font-normal normal-case text-foreground/80">
+                                                {formatReviewDate(
+                                                    session.createdAt,
+                                                )}
+                                            </span>
+                                        </>
+                                    ) : null}
                                 </p>
+                                <h2 className="mt-2 text-lg font-semibold tracking-tight">
+                                    {currentPlan.scenario.title}
+                                </h2>
+                                {currentPlan.skillTarget ? (
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        {currentPlan.skillTarget}
+                                    </p>
+                                ) : null}
+                            </div>
+                            {shouldShowResults && !isSkipped ? (
+                                <div className="relative flex shrink-0 flex-wrap items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        onClick={() =>
+                                            void createNewDrillRequest()
+                                        }
+                                        disabled={
+                                            loadingSession ||
+                                            isCreatingDrill ||
+                                            requiresRetry
+                                        }
+                                    >
+                                        <ArrowRight />
+                                        {isCreatingDrill
+                                            ? "Building next drill…"
+                                            : "Start another drill"}
+                                    </Button>
+                                </div>
                             ) : null}
                         </div>
-                        {shouldShowResults && !isSkipped ? (
-                            <div className="relative flex shrink-0 flex-wrap items-center gap-2">
-                                <Button
-                                    size="sm"
-                                    onClick={() => void startAnotherDrill()}
-                                    disabled={
-                                        loadingSession ||
-                                        isCreatingDrill ||
-                                        requiresRetry ||
-                                        reflectionModalOpen ||
-                                        reflectionSubmitting ||
-                                        skipSubmitting
-                                    }
-                                >
-                                    <ArrowRight />
-                                    {isCreatingDrill
-                                        ? "Building next drill..."
-                                        : "Start another drill"}
-                                </Button>
-                            </div>
-                        ) : null}
                     </div>
-                </div>
-            ) : null}
+                ) : null}
 
-            {/* Active drill — prompt is the main focus; full DrillBriefCard shown */}
-            {!shouldShowResults && !isSkipped ? (
-                <>
-                    <DrillBriefCard plan={currentPlan} />
+                {/* Active drill — prompt + record button */}
+                {!shouldShowResults && !isSkipped ? (
+                    <>
+                        <DrillBriefCard plan={currentPlan} />
 
-                    {loadingSession ? (
-                        <p className="text-sm text-muted-foreground">
-                            Syncing your latest drill...
-                        </p>
-                    ) : null}
-                    {drillError ? (
-                        <p className="text-sm text-destructive" role="alert">
-                            {drillError}
-                        </p>
-                    ) : null}
-
-                    <SessionControlsPanel
-                        mm={mm}
-                        ss={ss}
-                        stateLabel={stateLabel}
-                        requiresRetry={requiresRetry}
-                        isRecording={isRecording}
-                        stream={stream}
-                        showRecordAction={showRecordAction}
-                        showCompletionActions={showCompletionActions}
-                        showSkipDrill={showSkipDrill}
-                        skipSubmitting={skipSubmitting}
-                        isCreatingDrill={isCreatingDrill}
-                        drillState={drillState}
-                        hasPendingAnalysisRequest={hasPendingAnalysisRequest}
-                        shouldShowResults={shouldShowResults}
-                        shouldShowAnalyzingState={shouldShowAnalyzingState}
-                        processingAppearsStuck={processingAppearsStuck}
-                        cancelSubmitting={cancelSubmitting}
-                        playbackSrc={playbackSrc}
-                        audioRef={audioRef}
-                        onStartRecording={() => void startRecording()}
-                        onStopRecording={() => void stopRecording()}
-                        onOpenSkipModal={() => {
-                            modalRecorder.clearError();
-                            setSkipTranscribeError(null);
-                            setSkipFeedbackText("");
-                            setSkipModalOpen(true);
-                        }}
-                        onCancelStuckDrill={() => void cancelStuckDrill()}
-                    />
-                </>
-            ) : null}
-
-            {/* Completed drill — prompt as collapsible section + feedback */}
-            {shouldShowResults && !isSkipped ? (
-                <>
-                    <div className="rounded-xl border border-border/70">
-                        <button
-                            type="button"
-                            onClick={() => setPromptOpen((v) => !v)}
-                            className="flex w-full items-center justify-between p-4"
-                        >
-                            <span className="text-sm font-medium">
-                                Drill prompt
-                            </span>
-                            <ChevronDown
-                                className={`size-4 text-muted-foreground transition-transform ${
-                                    promptOpen ? "rotate-180" : ""
-                                }`}
-                            />
-                        </button>
-                        {promptOpen ? (
-                            <div className="border-t border-border/50 p-4">
-                                <DrillBriefCard plan={currentPlan} />
-                            </div>
+                        {loadingSession ? (
+                            <p className="text-sm text-muted-foreground">
+                                Syncing your latest drill…
+                            </p>
                         ) : null}
-                    </div>
+                        {drillError ? (
+                            <p
+                                className="text-sm text-destructive"
+                                role="alert"
+                            >
+                                {drillError}
+                            </p>
+                        ) : null}
 
-                    {requiresRetry ? (
-                        <SessionControlsPanel
+                        <RecordPanel
                             mm={mm}
                             ss={ss}
                             stateLabel={stateLabel}
-                            requiresRetry={requiresRetry}
                             isRecording={isRecording}
                             stream={stream}
+                            requiresRetry={requiresRetry}
                             showRecordAction={showRecordAction}
-                            showCompletionActions={showCompletionActions}
-                            showSkipDrill={showSkipDrill}
-                            skipSubmitting={skipSubmitting}
-                            isCreatingDrill={isCreatingDrill}
+                            shouldShowAnalyzingState={
+                                shouldShowAnalyzingState
+                            }
                             drillState={drillState}
-                            hasPendingAnalysisRequest={hasPendingAnalysisRequest}
-                            shouldShowResults={shouldShowResults}
-                            shouldShowAnalyzingState={shouldShowAnalyzingState}
-                            processingAppearsStuck={processingAppearsStuck}
-                            cancelSubmitting={cancelSubmitting}
-                            playbackSrc={playbackSrc}
-                            audioRef={audioRef}
                             onStartRecording={() => void startRecording()}
                             onStopRecording={() => void stopRecording()}
-                            onOpenSkipModal={() => {
-                                modalRecorder.clearError();
-                                setSkipTranscribeError(null);
-                                setSkipFeedbackText("");
-                                setSkipModalOpen(true);
-                            }}
-                            onCancelStuckDrill={() => void cancelStuckDrill()}
                         />
-                    ) : playbackSrc ? (
-                        <AudioPlayer src={playbackSrc} audioRef={audioRef} />
-                    ) : null}
+                    </>
+                ) : null}
 
+                {/* Completed drill — collapsible prompt + audio + feedback */}
+                {shouldShowResults && !isSkipped ? (
+                    <>
+                        <div className="rounded-xl border border-border/70">
+                            <button
+                                type="button"
+                                onClick={() => setPromptOpen((v) => !v)}
+                                className="flex w-full items-center justify-between p-4"
+                            >
+                                <span className="text-sm font-medium">
+                                    Drill prompt
+                                </span>
+                                <ChevronDown
+                                    className={`size-4 text-muted-foreground transition-transform ${
+                                        promptOpen ? "rotate-180" : ""
+                                    }`}
+                                />
+                            </button>
+                            {promptOpen ? (
+                                <div className="border-t border-border/50 p-4">
+                                    <DrillBriefCard plan={currentPlan} />
+                                </div>
+                            ) : null}
+                        </div>
+
+                        {requiresRetry ? (
+                            <RecordPanel
+                                mm={mm}
+                                ss={ss}
+                                stateLabel={stateLabel}
+                                isRecording={isRecording}
+                                stream={stream}
+                                requiresRetry={requiresRetry}
+                                showRecordAction={showRecordAction}
+                                shouldShowAnalyzingState={
+                                    shouldShowAnalyzingState
+                                }
+                                drillState={drillState}
+                                onStartRecording={() => void startRecording()}
+                                onStopRecording={() => void stopRecording()}
+                            />
+                        ) : playbackSrc ? (
+                            <AudioPlayer
+                                src={playbackSrc}
+                                audioRef={audioRef}
+                            />
+                        ) : null}
+
+                        <SessionFeedbackSection
+                            shouldShowResults={shouldShowResults}
+                            isSkipped={isSkipped}
+                            currentTranscript={currentTranscript}
+                            currentServerTranscript={
+                                session?.serverTranscript ?? null
+                            }
+                            currentAnalysis={session?.analysis ?? null}
+                            currentFeedback={currentFeedback}
+                            requiresRetry={requiresRetry}
+                            completionReason={
+                                session?.completionReason ?? null
+                            }
+                            onSeekToSecond={seekToSecond}
+                            sessionId={session?.id}
+                            uid={uid}
+                            captureCount={captures.length}
+                            firstDrillCompletedAt={firstDrillCompletedAt}
+                            drillCreatedAt={session?.createdAt ?? null}
+                        />
+                    </>
+                ) : null}
+
+                {isSkipped ? (
                     <SessionFeedbackSection
                         shouldShowResults={shouldShowResults}
                         isSkipped={isSkipped}
@@ -911,71 +546,103 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                         }
                         currentAnalysis={session?.analysis ?? null}
                         currentFeedback={currentFeedback}
-                        hasMainOverview={hasMainOverview}
-                        coachingSectionKeys={coachingSectionKeys}
                         requiresRetry={requiresRetry}
                         completionReason={session?.completionReason ?? null}
                         onSeekToSecond={seekToSecond}
                         sessionId={session?.id}
                         uid={uid}
+                        captureCount={captures.length}
+                        firstDrillCompletedAt={firstDrillCompletedAt}
+                        drillCreatedAt={session?.createdAt ?? null}
                     />
-                </>
-            ) : null}
+                ) : null}
 
-            {/* Skipped drill — SessionFeedbackSection handles the skipped UI */}
-            {isSkipped ? (
-                <SessionFeedbackSection
-                    shouldShowResults={shouldShowResults}
-                    isSkipped={isSkipped}
-                    currentTranscript={currentTranscript}
-                    currentServerTranscript={session?.serverTranscript ?? null}
-                    currentAnalysis={session?.analysis ?? null}
-                    currentFeedback={currentFeedback}
-                    hasMainOverview={hasMainOverview}
-                    coachingSectionKeys={coachingSectionKeys}
-                    requiresRetry={requiresRetry}
-                    completionReason={session?.completionReason ?? null}
-                    onSeekToSecond={seekToSecond}
-                    sessionId={session?.id}
-                    uid={uid}
-                />
-            ) : null}
-
-            <SkipDrillModal
-                open={skipModalOpen}
-                skipFeedbackText={skipFeedbackText}
-                onSkipFeedbackTextChange={setSkipFeedbackText}
-                skipSubmitting={skipSubmitting}
-                isTranscribing={skipTranscribing}
-                transcribeError={skipTranscribeError}
-                modalRecorder={modalRecorder}
-                onToggleSpeak={() => void toggleSkipVoiceNote()}
-                onSubmit={(o) => void submitSkipDrill(o)}
-                onCancel={() => {
-                    setSkipTranscribeError(null);
-                    setSkipModalOpen(false);
-                }}
-            />
-
-            <NewDrillReflectionModal
-                open={reflectionModalOpen}
-                context={preNewDrillReflection}
-                reflectionFeedbackText={reflectionFeedbackText}
-                onReflectionFeedbackTextChange={setReflectionFeedbackText}
-                reflectionSubmitting={reflectionSubmitting}
-                isTranscribing={reflectionTranscribing}
-                transcribeError={reflectionTranscribeError}
-                modalRecorder={modalRecorder}
-                onToggleSpeak={() => void toggleReflectionVoiceNote()}
-                onAction={(mode) => void submitReflectionThenNewDrill({ mode })}
-            />
-
-            {authError ? (
-                <p className="mt-4 text-xs text-destructive" role="alert">
-                    {authError}
-                </p>
-            ) : null}
+                {authError ? (
+                    <p
+                        className="mt-4 text-xs text-destructive"
+                        role="alert"
+                    >
+                        {authError}
+                    </p>
+                ) : null}
             </div>
         </section>
+    );
+}
+
+type RecordPanelProps = {
+    mm: number;
+    ss: number;
+    stateLabel: string;
+    isRecording: boolean;
+    stream: MediaStream | null;
+    requiresRetry: boolean;
+    showRecordAction: boolean;
+    shouldShowAnalyzingState: boolean;
+    drillState: DrillState;
+    onStartRecording: () => void;
+    onStopRecording: () => void;
+};
+
+function RecordPanel(props: Readonly<RecordPanelProps>) {
+    const {
+        mm,
+        ss,
+        stateLabel,
+        isRecording,
+        stream,
+        requiresRetry,
+        showRecordAction,
+        shouldShowAnalyzingState,
+        drillState,
+        onStartRecording,
+        onStopRecording,
+    } = props;
+
+    const isAnalyzing = shouldShowAnalyzingState || drillState === "analyzing";
+
+    return (
+        <div className="rounded-2xl border border-border/70 bg-background p-6">
+            <div className="flex items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">{stateLabel}</p>
+                {/* Tiny ambient timer — only shown while recording, never as
+                    a heavy "10:00" countdown. */}
+                {isRecording ? (
+                    <span className="font-mono text-xs text-muted-foreground">
+                        {mm}:{ss.toString().padStart(2, "0")}
+                    </span>
+                ) : null}
+            </div>
+
+            {isRecording ? (
+                <div className="mt-4">
+                    <LiveWaveform stream={stream} active={isRecording} />
+                </div>
+            ) : null}
+
+            {showRecordAction ? (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {isRecording ? (
+                        <Button
+                            size="lg"
+                            variant="destructive"
+                            onClick={onStopRecording}
+                        >
+                            <Square />
+                            Stop
+                        </Button>
+                    ) : (
+                        <Button
+                            size="lg"
+                            onClick={onStartRecording}
+                            disabled={isAnalyzing}
+                        >
+                            <Mic />
+                            {requiresRetry ? "Try again" : "Start recording"}
+                        </Button>
+                    )}
+                </div>
+            ) : null}
+        </div>
     );
 }

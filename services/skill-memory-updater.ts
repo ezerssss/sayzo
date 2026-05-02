@@ -49,36 +49,8 @@ function defaultModel(): string {
 }
 
 function buildUserMessage(input: SkillMemoryUpdaterInput): string {
-    const feedbackText = [
-        "## Overview",
-        input.latestSession.feedback.overview,
-        "",
-        "## Moments to tighten",
-        input.latestSession.feedback.momentsToTighten,
-        "",
-        "## Structure and flow",
-        input.latestSession.feedback.structureAndFlow,
-        "",
-        "## Clarity and conciseness",
-        input.latestSession.feedback.clarityAndConciseness,
-        "",
-        "## Relevance and focus",
-        input.latestSession.feedback.relevanceAndFocus,
-        "",
-        "## Engagement",
-        input.latestSession.feedback.engagement,
-        "",
-        "## Professionalism",
-        input.latestSession.feedback.professionalism,
-        "",
-        "## Delivery and prosody",
-        input.latestSession.feedback.deliveryAndProsody,
-        "",
-        "## Native speaker version",
-        input.latestSession.feedback.nativeSpeakerVersion ?? "(none)",
-    ]
-        .join("\n")
-        .trim();
+    const improvedVersion =
+        input.latestSession.feedback.improvedVersion ?? "(none)";
 
     return `
 ## Current skill memory
@@ -93,13 +65,13 @@ function buildUserMessage(input: SkillMemoryUpdaterInput): string {
 - Skill target: ${input.latestSession.skillTarget?.trim() || "(none)"}
 - Framework: ${input.latestSession.framework?.trim() || "(none)"}
 
-## Latest session analysis
+## Latest session analysis (rich dimensional findings)
 \`\`\`json
 ${JSON.stringify(input.latestSession.analysis, null, 2)}
 \`\`\`
 
-## Latest session feedback
-${feedbackText}
+## Improved-version rewrite (the polished native-speaker version of the user's response)
+${improvedVersion}
 `.trim();
 }
 

@@ -255,14 +255,7 @@ export function TranscriptView(props: Readonly<Props>) {
                                                     {(() => {
                                                         const why =
                                                             m.whyThisMatters?.trim() ||
-                                                            [
-                                                                m.whyIssue?.trim(),
-                                                                m.keyTakeaway?.trim()
-                                                                    ? `**Takeaway:** ${m.keyTakeaway.trim()}`
-                                                                    : null,
-                                                            ]
-                                                                .filter(Boolean)
-                                                                .join("\n\n");
+                                                            "";
                                                         return why ? (
                                                             <div className="mt-3">
                                                                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

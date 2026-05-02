@@ -36,10 +36,33 @@ export type ReplayContext = {
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "analyzer");
 
+const teachableMomentSchema = z.object({
+    anchor: z.string(),
+    betterOption: z.string(),
+    whyThisMatters: z.string(),
+    type: z.enum([
+        "grammar",
+        "filler",
+        "phrasing",
+        "vocabulary",
+        "communication",
+    ]),
+    severity: z.enum(["minor", "moderate", "major"]),
+    timestamp: z.number(),
+    transcriptIdx: z.number(),
+});
+
 const sessionAnalysisSchema = z.object({
     overview: z.string(),
     mainIssue: z.string(),
     secondaryIssues: z.array(z.string()),
+    /**
+     * Top 2-3 ranked coaching moments. The user-facing feedback page renders
+     * `slice(0, 2)` of this array as the "Fix these first" card. Keep it
+     * concrete: each entry has anchor (what they said), betterOption (how to
+     * say it instead), and whyThisMatters (cost + reusable principle).
+     */
+    fixTheseFirst: z.array(teachableMomentSchema),
     structureAndFlow: z.array(z.string()),
     clarityAndConciseness: z.array(z.string()),
     relevanceAndFocus: z.array(z.string()),
@@ -86,15 +109,7 @@ export type GenerateSessionFeedbackOptions = {
 };
 
 const sessionFeedbackSchema = z.object({
-    overview: z.string(),
-    momentsToTighten: z.string(),
-    structureAndFlow: z.string(),
-    clarityAndConciseness: z.string(),
-    relevanceAndFocus: z.string(),
-    engagement: z.string(),
-    professionalism: z.string(),
-    deliveryAndProsody: z.string(),
-    nativeSpeakerVersion: z.string().nullable(),
+    improvedVersion: z.string().nullable(),
 });
 
 function readAnalyzerPrompt(filename: string): string {
@@ -109,121 +124,6 @@ function requireTranscript(transcript: string): void {
     if (!transcript?.trim()) {
         throw new Error("Analyzer requires a non-empty session transcript.");
     }
-}
-
-function parseTimestampToken(token: string): number | null {
-    const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(token);
-    if (!m) return null;
-    if (m[3] != null) {
-        const hh = Number(m[1]);
-        const mm = Number(m[2]);
-        const ss = Number(m[3]);
-        return hh * 3600 + mm * 60 + ss;
-    }
-    const mm = Number(m[1]);
-    const ss = Number(m[2]);
-    return mm * 60 + ss;
-}
-
-function extractTranscriptTimestampSeconds(transcript: string): Set<number> {
-    const seconds = new Set<number>();
-    const re = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
-    let hit: RegExpExecArray | null;
-    while ((hit = re.exec(transcript)) !== null) {
-        const stamp = hit[1];
-        if (!stamp) continue;
-        const parsed = parseTimestampToken(stamp);
-        if (parsed != null) {
-            seconds.add(parsed);
-        }
-    }
-    return seconds;
-}
-
-function listTranscriptTimestampTokens(transcript: string, limit = 60): string[] {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    const re = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
-    let hit: RegExpExecArray | null;
-    while ((hit = re.exec(transcript)) !== null) {
-        const token = hit[1];
-        if (!token || seen.has(token)) continue;
-        seen.add(token);
-        out.push(token);
-        if (out.length >= limit) break;
-    }
-    return out;
-}
-
-function sanitizeFeedbackTimestampLinks(
-    markdown: string,
-    validSeconds: Set<number>,
-): string {
-    let next = markdown.replaceAll(
-        /\[(\d{1,2}:\d{2}(?::\d{2})?)\]\(time:(\d+)\)/g,
-        (_full, stamp: string, secRaw: string) => {
-            const fromStamp = parseTimestampToken(stamp);
-            const fromLink = Number(secRaw);
-            if (
-                fromStamp == null ||
-                !Number.isFinite(fromLink) ||
-                fromStamp !== fromLink ||
-                !validSeconds.has(fromLink)
-            ) {
-                return `[${stamp}]`;
-            }
-            return `[${stamp}](time:${fromLink})`;
-        },
-    );
-
-    next = next.replaceAll(
-        /\[(\d{1,2}:\d{2}(?::\d{2})?)\](?!\()/g,
-        (_full, stamp: string) => {
-            const seconds = parseTimestampToken(stamp);
-            if (seconds == null || !validSeconds.has(seconds)) {
-                return `[${stamp}]`;
-            }
-            return `[${stamp}](time:${seconds})`;
-        },
-    );
-
-    return next;
-}
-
-function sanitizeFeedbackObjectTimestamps(
-    feedback: SessionFeedbackType,
-    validSeconds: Set<number>,
-): SessionFeedbackType {
-    return {
-        ...feedback,
-        overview: sanitizeFeedbackTimestampLinks(feedback.overview, validSeconds),
-        momentsToTighten: sanitizeFeedbackTimestampLinks(
-            feedback.momentsToTighten,
-            validSeconds,
-        ),
-        structureAndFlow: sanitizeFeedbackTimestampLinks(
-            feedback.structureAndFlow,
-            validSeconds,
-        ),
-        clarityAndConciseness: sanitizeFeedbackTimestampLinks(
-            feedback.clarityAndConciseness,
-            validSeconds,
-        ),
-        relevanceAndFocus: sanitizeFeedbackTimestampLinks(
-            feedback.relevanceAndFocus,
-            validSeconds,
-        ),
-        engagement: sanitizeFeedbackTimestampLinks(feedback.engagement, validSeconds),
-        professionalism: sanitizeFeedbackTimestampLinks(
-            feedback.professionalism,
-            validSeconds,
-        ),
-        deliveryAndProsody: sanitizeFeedbackTimestampLinks(
-            feedback.deliveryAndProsody,
-            validSeconds,
-        ),
-        nativeSpeakerVersion: feedback.nativeSpeakerVersion,
-    };
 }
 
 function formatReplayContextBlock(replay: ReplayContext): string {
@@ -326,7 +226,7 @@ export async function analyzeSession(
             schema: zodSchema(sessionAnalysisSchema),
             name: "SessionAnalysis",
             description:
-                "Structured analysis of one spoken professional-English practice session.",
+                "Structured analysis of one 60-second spoken practice session, including the top 2-3 ranked coaching moments.",
         }),
         system,
         prompt: userContent,
@@ -337,10 +237,13 @@ export async function analyzeSession(
 }
 
 /**
- * Coach-style markdown feedback for the learner — maps to `SessionType.feedback`.
+ * Polished rewrite for the learner — the "Improved Version" tab on the
+ * feedback page. Single-field output (`improvedVersion`): a fluent native
+ * speaker's version of the same response with `> **Note:**` annotations
+ * after each paragraph explaining what changed and why.
  *
- * When `replay` is provided, the feedback becomes comparison-focused: the LLM
- * sees the original capture and frames coaching as relative to the original.
+ * When `replay` is provided, the rewrite acknowledges what improved (or
+ * didn't) compared to the original capture.
  */
 export async function generateSessionFeedback(
     input: AnalyzerInput,
@@ -351,13 +254,6 @@ export async function generateSessionFeedback(
 
     const system = readAnalyzerPrompt("session-feedback.md");
     const context = buildContextUserMessage(input, replay);
-    const transcriptTimestamps = listTranscriptTimestampTokens(
-        input.session.transcript,
-    );
-    const timestampGuidance =
-        transcriptTimestamps.length > 0
-            ? `\n\n## Transcript timestamps available\nUse these exact tokens when citing moments: ${transcriptTimestamps.join(", ")}`
-            : "\n\n## Transcript timestamps available\nNone. Do not include timestamp links.";
     let analysisBlock = "";
     if (options.sessionAnalysis != null) {
         analysisBlock = `\n\n## Prior structured analysis (for alignment)\n\`\`\`json\n${JSON.stringify(options.sessionAnalysis, null, 2)}\n\`\`\``;
@@ -369,15 +265,12 @@ export async function generateSessionFeedback(
             schema: zodSchema(sessionFeedbackSchema),
             name: "SessionFeedback",
             description:
-                "Structured learner-facing coaching feedback with nuanced communication dimensions.",
+                "Polished native-speaker rewrite of the learner's drill response with per-paragraph change notes.",
         }),
         system,
-        prompt: `${context}${timestampGuidance}${analysisBlock}`,
+        prompt: `${context}${analysisBlock}`,
         temperature: 0.35,
     });
 
-    const validSeconds = extractTranscriptTimestampSeconds(
-        input.session.transcript,
-    );
-    return sanitizeFeedbackObjectTimestamps(result.output, validSeconds);
+    return result.output;
 }

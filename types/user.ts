@@ -56,12 +56,11 @@ export type UserProfileType = {
     lastInternalLearnerContextSessionId: string;
 
     /**
-     * Server-only bullet notes from optional skip / post-drill reflection signals (voice or text).
-     * Separate from `internalLearnerContext` (which is transcript-derived professional grounding).
+     * ISO timestamp of the user's first completed drill (any terminal status).
+     * Drives the install-nudge cadence on the feedback page (every drill in the
+     * first 7 days, then weekly until the desktop helper is installed).
      */
-    internalDrillSignalNotes: string;
-    /** Idempotency: last session id merged into `internalDrillSignalNotes`; empty string if never updated. */
-    lastDrillSignalNotesSessionId: string;
+    firstDrillCompletedAt?: string | null;
 
     /**
      * Server-only bullet notes derived from real conversation captures (mic + system audio).

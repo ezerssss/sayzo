@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { analyzeSession } from "@/services/analyzer";
 import { enrichCompanyContext } from "@/services/company-context-enricher";
-import { buildSessionFromPlan, planNextSession } from "@/services/planner";
+import { pregenerateNextDrillFor } from "@/services/drill-pre-generator";
 import {
     buildUserProfileFieldsFromDrills,
     type OnboardingDrillTranscript,
@@ -163,8 +163,7 @@ export async function POST(request: NextRequest) {
             companyResearch: companyResearch ?? null,
             internalLearnerContext: "",
             lastInternalLearnerContextSessionId: "",
-            internalDrillSignalNotes: "",
-            lastDrillSignalNotesSessionId: "",
+            firstDrillCompletedAt: null,
             createdAt: profileNowIso,
             updatedAt: profileNowIso,
         };
@@ -242,32 +241,6 @@ export async function POST(request: NextRequest) {
             updatedAt: profileNowIso,
         };
 
-        const initialPlan = await planNextSession({
-            userProfile: {
-                role: profile.role,
-                industry: profile.industry,
-                companyName: profile.companyName,
-                companyDescription: profile.companyDescription,
-                workplaceCommunicationContext:
-                    profile.workplaceCommunicationContext,
-                wantsInterviewPractice: profile.wantsInterviewPractice,
-                motivation: profile.motivation,
-                goals: profile.goals,
-                additionalContext: profile.additionalContext,
-                companyResearch: profile.companyResearch,
-                internalLearnerContext: profile.internalLearnerContext,
-                internalDrillSignalNotes: profile.internalDrillSignalNotes,
-            },
-            skillMemory: {
-                strengths: skillMemory.strengths,
-                weaknesses: skillMemory.weaknesses,
-                masteredFocus: skillMemory.masteredFocus,
-                reinforcementFocus: skillMemory.reinforcementFocus,
-            },
-            recentDrills: [],
-        });
-        const initialSession = buildSessionFromPlan(uid, initialPlan);
-
         const userRef = db.collection(FirestoreCollections.users.path).doc(uid);
         const userExisting = await userRef.get();
         if (userExisting.exists) {
@@ -304,10 +277,20 @@ export async function POST(request: NextRequest) {
             await skillMemoryRef.set(skillMemory);
         }
 
-        const initialSessionRef = db
-            .collection(FirestoreCollections.sessions.path)
-            .doc(initialSession.id);
-        await initialSessionRef.set(initialSession);
+        // Pre-generate the user's first drill so the home page lands on
+        // "Today's drill is ready" instead of an empty state. Uses the same
+        // pre-generator as `/api/sessions/complete` so the priority order
+        // (capture-derived → regular planner) and 60s constraint are
+        // consistent. Force-fresh because the user has no pending drill yet.
+        const preGen = await pregenerateNextDrillFor(uid, {
+            forceFresh: true,
+        });
+        if (!preGen.ok && preGen.reason === "error") {
+            console.error(
+                "[onboarding/complete] initial drill pre-generation failed",
+                preGen.message,
+            );
+        }
 
         return NextResponse.json({ ok: true });
     } catch (error) {

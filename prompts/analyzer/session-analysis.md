@@ -26,17 +26,29 @@ Your job is to produce a **structured session analysis** (not coaching copy for 
 ### Field semantics
 
 - **overview** — 2-4 sentence high-level synopsis of performance for downstream systems (not user-facing copy). Include the dominant pattern and practical implication.
-- **mainIssue** — The single most important pattern or gap _in this session_ relative to the plan and professional context (one clear sentence).
+- **mainIssue** — The single most important pattern or gap _in this session_ relative to the plan and professional context. **One clear sentence**, written for the learner — they read this directly on the feedback page. Lead with the pattern, not jargon.
 - **secondaryIssues** — Other notable issues (short phrases; empty array if none).
+- **fixTheseFirst** — **Top 2-3 ranked coaching moments** the learner should act on. The user-facing feedback page renders the top 2 of this array. Rank by impact: which fix would most improve their next attempt? Each entry has:
+    - `anchor`: the actual moment — quote or tight paraphrase of what they said. Be concrete.
+    - `betterOption`: a specific better alternative — exact wording when possible, or a clear structural change. Not vague advice ("be clearer"); a concrete target ("'Here's what shipped this week:' instead of 'so basically the thing I worked on...'").
+    - `whyThisMatters`: one cohesive narrative — the cost of what they did AND a reusable principle. Example: "Three layered hedges in a row signal uncertainty before you've even stated your position — listeners discount the answer before they hear it. Concise = confident; commit to a position or commit to finding the answer."
+    - `type`: one of `grammar | filler | phrasing | vocabulary | communication`.
+    - `severity`: one of `minor | moderate | major`.
+    - `timestamp`: seconds into the recording for the anchored moment (use 0 if no clear timestamp).
+    - `transcriptIdx`: 0-based index of the user-line in the transcript that contains the anchor (use 0 if unknown).
 - **structureAndFlow** — Findings about organization, sequencing, and transitions (short evidence-backed points; empty array if none).
 - **clarityAndConciseness** — Findings about fillers, redundancy, vagueness, precision, and sentence economy (empty array if none).
 - **relevanceAndFocus** — Findings about staying on prompt, useful detail selection, and drift (empty array if none).
 - **engagement** — Findings about audience pull, energy, conviction, and listener attention management (empty array if none).
 - **professionalism** — Findings about workplace-appropriate tone, credibility, confidence, and business framing (empty array if none).
 - **voiceToneExpression** — Findings about delivery signals (pace/rhythm/emphasis/intonation/expressiveness/vocal bursts) grounded in provided voice-expression evidence (empty array if none).
-- **improvements** — Observable positive shifts vs. the learner’s known weaknesses or session focus (even small wins).
+- **improvements** — Observable positive shifts vs. the learner's known weaknesses or session focus (even small wins).
 - **regressions** — Where they underperformed vs. strengths, plan, or recent focus (be fair; empty if none).
 - **notes** — Brief analyst notes: uncertainties, missing evidence, contradictions, or what a longer attempt would clarify. Can be empty string if nothing to add.
+
+### 60-second drill context
+
+This is a **60-second drill** — a focused, bite-sized practice attempt. The user hard-cap of 60 seconds means responses may end mid-thought. Don't penalize that. Focus your `fixTheseFirst` ranking on what would move the needle on the **next 60-second attempt**, not abstract long-form skills.
 
 Stay professional, kind, and honest.
 
