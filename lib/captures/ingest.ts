@@ -1,10 +1,7 @@
 import "server-only";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
-import {
-    getAdminFirestore,
-    getAdminStorageBucket,
-} from "@/lib/firebase/admin";
+import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
 import type {
     CaptureCloseReason,
     CaptureTranscriptLine,
@@ -18,6 +15,12 @@ const MIN_AUDIO_SIZE = 256; // bytes — anything smaller can't even fit a valid
  * snake_case wire format JSON. All field names are camelCase to match the
  * rest of the codebase; the snake_case <-> camelCase translation lives only
  * inside `parseAndValidateRecord`.
+ *
+ * `localLlmUsed` is the agent's signal that it ran its own LLM and produced
+ * a real `title`/`summary`/`relevantSpan`. v2.2.0+ ships without the local
+ * LLM and sends `localLlmUsed: false` with a placeholder title and empty
+ * summary; the server fills those in. Older clients omit the flag — treat
+ * absent as `true` so we trust their Qwen-generated values.
  */
 export type AgentRecord = {
     id: string;
@@ -28,7 +31,11 @@ export type AgentRecord = {
     transcript: CaptureTranscriptLine[];
     audioPath: string;
     relevantSpan: [number, number];
-    metadata: { closeReason: CaptureCloseReason };
+    metadata: {
+        closeReason: CaptureCloseReason;
+        localLlmUsed: boolean;
+        placeholderTitle: boolean;
+    };
 };
 
 export class IngestError extends Error {
@@ -52,10 +59,7 @@ export function parseAndValidateRecord(raw: string): AgentRecord {
     const r = parsed as Record<string, unknown>;
 
     if (!r.id || typeof r.id !== "string")
-        throw new IngestError(
-            "invalid_record",
-            "Missing required field: id",
-        );
+        throw new IngestError("invalid_record", "Missing required field: id");
     if (!r.started_at || typeof r.started_at !== "string")
         throw new IngestError(
             "invalid_record",
@@ -71,7 +75,9 @@ export function parseAndValidateRecord(raw: string): AgentRecord {
             "invalid_record",
             "Missing required field: title",
         );
-    if (!r.summary || typeof r.summary !== "string")
+    // `summary` is required to be a string but may be empty — v2.2.0+ agents
+    // send "" because the server now generates the summary post-upload.
+    if (typeof r.summary !== "string")
         throw new IngestError(
             "invalid_record",
             "Missing required field: summary",
@@ -84,10 +90,7 @@ export function parseAndValidateRecord(raw: string): AgentRecord {
 
     for (const line of r.transcript) {
         if (!line || typeof line !== "object")
-            throw new IngestError(
-                "invalid_record",
-                "Invalid transcript line",
-            );
+            throw new IngestError("invalid_record", "Invalid transcript line");
         const l = line as Record<string, unknown>;
         if (
             typeof l.speaker !== "string" ||
@@ -109,6 +112,11 @@ export function parseAndValidateRecord(raw: string): AgentRecord {
     const closeReason =
         (metadata.close_reason as CaptureCloseReason) ?? "joint_silence";
 
+    // Absent flag → assume the agent did run its local LLM (old client).
+    // Only an explicit `false` triggers server-side regeneration.
+    const localLlmUsed = metadata.local_llm_used !== false;
+    const placeholderTitle = metadata.placeholder_title === true;
+
     return {
         id: r.id as string,
         startedAt: r.started_at as string,
@@ -118,7 +126,7 @@ export function parseAndValidateRecord(raw: string): AgentRecord {
         transcript: r.transcript as CaptureTranscriptLine[],
         audioPath: (r.audio_path as string) ?? "audio.opus",
         relevantSpan,
-        metadata: { closeReason },
+        metadata: { closeReason, localLlmUsed, placeholderTitle },
     };
 }
 
@@ -184,9 +192,7 @@ export async function ingestCapture(
     const db = getAdminFirestore();
     const bucket = getAdminStorageBucket();
 
-    const captureRef = db
-        .collection(FirestoreCollections.captures.path)
-        .doc();
+    const captureRef = db.collection(FirestoreCollections.captures.path).doc();
     const captureId = captureRef.id;
 
     const storagePath = `captures/${uid}/${captureId}/audio.opus`;

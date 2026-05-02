@@ -6,6 +6,10 @@ import {
     parseAndValidateRecord,
 } from "@/lib/captures/ingest";
 import {
+    generateQuickSummary,
+    inferDurationSecs,
+} from "@/lib/captures/quick-summary";
+import {
     assertHasCredit,
     consumeCreditOrThrow,
     CreditLimitReachedError,
@@ -138,7 +142,14 @@ export async function POST(request: NextRequest) {
 
     if (!existing.empty) {
         const doc = existing.docs[0];
-        const data = doc.data() as { status?: string };
+        const data = doc.data() as {
+            status?: string;
+            title?: string;
+            summary?: string;
+            serverTitle?: string;
+            serverSummary?: string;
+            relevantSpan?: [number, number];
+        };
         console.info("[api/captures/upload] dedup_hit", {
             uid,
             agentRecordId: record.id,
@@ -146,7 +157,14 @@ export async function POST(request: NextRequest) {
             existingStatus: data.status ?? null,
         });
         return NextResponse.json(
-            { capture_id: doc.id, status: data.status ?? "queued" },
+            {
+                id: doc.id,
+                capture_id: doc.id,
+                status: data.status ?? "queued",
+                title: data.serverTitle ?? data.title ?? record.title,
+                summary: data.serverSummary ?? data.summary ?? "",
+                relevant_span: data.relevantSpan ?? record.relevantSpan,
+            },
             { status: 201 },
         );
     }
@@ -161,12 +179,56 @@ export async function POST(request: NextRequest) {
         throw err;
     }
 
-    // 8. Ingest
+    // 8. Quick title + summary for v2.2.0+ clients. The agent ships a
+    // placeholder ("Conversation · 2026-05-02 14:32") and an empty summary
+    // and tags `metadata.local_llm_used: false` so we know to generate.
+    // Older clients run their own local LLM and we trust their values.
+    //
+    // Generation is best-effort — on timeout / LLM failure we keep the
+    // placeholder so the upload still succeeds. The deep analysis stage
+    // produces a better `serverTitle`/`serverSummary` later regardless.
+    if (record.metadata.localLlmUsed === false) {
+        try {
+            const durationSecs = inferDurationSecs(
+                record.transcript,
+                record.startedAt,
+                record.endedAt,
+            );
+            const quick = await generateQuickSummary({
+                transcript: record.transcript,
+                closeReason: record.metadata.closeReason,
+                durationSecs,
+            });
+            record = {
+                ...record,
+                title: quick.title,
+                summary: quick.summary,
+            };
+        } catch (err) {
+            console.warn(
+                "[api/captures/upload] quick summary generation failed, falling back to placeholder",
+                {
+                    uid,
+                    agentRecordId: record.id,
+                    error: err instanceof Error ? err.message : String(err),
+                },
+            );
+        }
+    }
+
+    // 9. Ingest
     try {
         const result = await ingestCapture(uid, record, audio);
 
         return NextResponse.json(
-            { capture_id: result.captureId, status: result.status },
+            {
+                id: result.captureId,
+                capture_id: result.captureId,
+                status: result.status,
+                title: record.title,
+                summary: record.summary,
+                relevant_span: record.relevantSpan,
+            },
             { status: 201 },
         );
     } catch (error) {
