@@ -154,15 +154,10 @@ export async function POST(request: NextRequest) {
                 { status: 409 },
             );
         }
-        if (session.completionStatus === "passed" || session.analysis) {
-            return NextResponse.json(
-                {
-                    error: "already_completed",
-                    message: "This drill has already been analyzed.",
-                },
-                { status: 409 },
-            );
-        }
+        // needs_retry sessions still have `session.analysis` populated from
+        // the prior attempt, so we don't block on `analysis !== null` here —
+        // only on terminal status. The retry path overwrites analysis/feedback
+        // in the transactional claim below.
         if (
             session.completionStatus !== "pending" &&
             session.completionStatus !== "needs_retry"
