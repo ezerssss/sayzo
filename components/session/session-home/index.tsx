@@ -490,7 +490,17 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             ) : null}
                         </div>
 
-                        {requiresRetry ? (
+                        {/* Hidden while live-recording so it doesn't compete with the waveform — otherwise always visible so users in needs_retry can listen back before re-recording. */}
+                        {playbackSrc && !isRecordingNow ? (
+                            <AudioPlayer
+                                src={playbackSrc}
+                                audioRef={audioRef}
+                            />
+                        ) : null}
+
+                        {requiresRetry ||
+                        isRecordingNow ||
+                        drillState === "analyzing" ? (
                             <RecordPanel
                                 mm={mm}
                                 ss={ss}
@@ -505,11 +515,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                                 drillState={drillState}
                                 onStartRecording={() => void startRecording()}
                                 onStopRecording={() => void stopRecording()}
-                            />
-                        ) : playbackSrc ? (
-                            <AudioPlayer
-                                src={playbackSrc}
-                                audioRef={audioRef}
                             />
                         ) : null}
 
@@ -605,8 +610,6 @@ function RecordPanel(props: Readonly<RecordPanelProps>) {
         <div className="rounded-2xl border border-border/70 bg-background p-6">
             <div className="flex items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground">{stateLabel}</p>
-                {/* Tiny ambient timer — only shown while recording, never as
-                    a heavy "10:00" countdown. */}
                 {isRecording ? (
                     <span className="font-mono text-xs text-muted-foreground">
                         {mm}:{ss.toString().padStart(2, "0")}

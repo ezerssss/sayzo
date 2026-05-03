@@ -6,8 +6,3 @@ export type SessionHomeProps = {
     /** When set, loads this specific session instead of the latest. Used for conversation practice. */
     sessionId?: string;
 };
-
-export type PreNewDrillReflectionState = {
-    priorSessionId: string;
-    scenarioTitle: string;
-};

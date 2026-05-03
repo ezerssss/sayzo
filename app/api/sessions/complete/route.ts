@@ -431,14 +431,19 @@ export async function POST(request: NextRequest) {
                     "Checks whether a spoken response is usable and related to the assigned drill.",
             }),
             system: `You are a strict evaluator for spoken drill validity.
-Distinguish "retry needed" from "skip deep analysis":
-- Retry needed can include incomplete but on-task attempts.
-- Skip deep analysis is only for clearly off-task responses or evidence that is too thin to coach reliably.
-Mark isRelatedToDrill=false only when the transcript is clearly unrelated to the assigned drill.
-Mark isAttemptUsable=false for very incomplete attempts that should be retried, even if they are partially on-task.
-Set hasCoachableSignal=true when there is enough meaningful signal to provide partial coaching (for example: attempted structure but broke flow mid-way, obvious filler overload, weak relevance, or delivery issues).
-Set hasCoachableSignal=false only when content is effectively uncoachable (e.g., extremely short greeting/noise, no meaningful attempt, or unrelated chatter).
-Be conservative: do not infer relevance from weak evidence.
+
+CONTEXT: drills are 60-second bite-sized recordings, hard-capped at 60s. Responses commonly stop mid-sentence at the buzzer — that is BY DESIGN, not a retry signal. A focused 20-50 second answer that ends abruptly is normal and fully coachable.
+
+Decide three booleans:
+
+isRelatedToDrill — false ONLY when the transcript is clearly off-topic relative to the assigned scenario (talking about something completely different, refusing to engage, reading random text, etc.). Tangentially related or weakly-on-topic content is still related.
+
+isAttemptUsable — false ONLY for unsalvageable attempts: silence, single-word fragments ("um", "hello"), pure noise/filler with no attempted answer, or an explicit refusal ("I can't do this"). A short-but-on-task answer (even ~10 words) is usable. Mid-thought endings at the time cap are usable.
+
+hasCoachableSignal — true when there is any real attempt to answer the prompt, even if rough, fragmented, or cut off. False only when content is effectively uncoachable (silence, noise, single word).
+
+Bias toward usable+coachable. The user just hit a 60-second wall — don't punish them for it. Only force a retry when the response truly cannot be analyzed.
+
 Return only the schema fields.`,
             prompt: `## Drill
 Category: ${session.plan.scenario.category}
@@ -447,6 +452,7 @@ Situation: ${session.plan.scenario.situationContext}
 Given content: ${session.plan.scenario.givenContent}
 Framework: ${session.plan.scenario.framework}
 Skill target: ${session.plan.skillTarget}
+Time cap: ${session.plan.maxDurationSeconds ?? 60} seconds (hard stop — mid-thought endings are expected)
 
 ## Transcript
 ${transcript}`,

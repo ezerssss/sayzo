@@ -86,9 +86,11 @@ export type UserProfileType = {
 
     /**
      * Free-credit counters. Absent on pre-rollout user docs — treat undefined as 0 / default limit / false.
-     * A "credit" is charged when a drill is created, a real-life capture is uploaded, or a capture replay is created.
-     * Drill analysis + retries and secondary endpoints (TTS, feedback-chat, reflection, skip, transcribe) are
-     * gated by remaining credit but do NOT charge (see lib/credits/server.ts).
+     * A "credit" is charged on first record-attempt of a drill (see /api/sessions/complete), when a
+     * real-life capture is uploaded, or when a capture replay is created.
+     * Pre-generated drills cost nothing until the user actually records.
+     * Secondary endpoints (TTS, feedback-chat, transcribe) are gated by remaining credit but do NOT
+     * charge (see lib/credits/server.ts).
      */
     creditsUsed?: number;
     creditsLimit?: number;
