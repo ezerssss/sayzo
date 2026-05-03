@@ -12,7 +12,11 @@ import {
     generateSessionFeedback,
     type ReplayContext,
 } from "@/services/analyzer";
-import type { CaptureTranscriptLine, CaptureType } from "@/types/captures";
+import type {
+    CaptureTranscriptLine,
+    CaptureType,
+    TeachableMoment,
+} from "@/types/captures";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
 import { pregenerateNextDrillFor } from "@/services/drill-pre-generator";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
@@ -43,6 +47,49 @@ function formatTimestamp(totalSeconds: number): string {
             .padStart(2, "0")}`;
     }
     return `${mm}:${ss.toString().padStart(2, "0")}`;
+}
+
+/**
+ * The analyzer LLM emits `transcriptIdx` (which utterance the moment is in)
+ * and `timestamp` (seconds). The first is bounded and easy to get right; the
+ * second is a continuous number and frequently drifts. Override the model's
+ * timestamp with the actual utterance start when transcriptIdx is valid, so
+ * "Play 0:13" actually seeks to the moment we quoted.
+ */
+function reconcileFixTimestamps(
+    fixes: TeachableMoment[],
+    serverTranscript: CaptureTranscriptLine[],
+): TeachableMoment[] {
+    if (serverTranscript.length === 0) return fixes;
+    return fixes.map((fix) => {
+        const idx = fix.transcriptIdx;
+        if (
+            Number.isInteger(idx) &&
+            idx >= 0 &&
+            idx < serverTranscript.length
+        ) {
+            const utt = serverTranscript[idx];
+            if (Number.isFinite(utt.start) && utt.start >= 0) {
+                return { ...fix, timestamp: utt.start };
+            }
+        }
+        // transcriptIdx invalid — try anchor substring match before giving up.
+        const anchor = (fix.anchor ?? "").trim().toLowerCase();
+        if (anchor.length >= 6) {
+            const probe = anchor.slice(0, Math.min(40, anchor.length));
+            for (let i = 0; i < serverTranscript.length; i++) {
+                const text = serverTranscript[i].text.toLowerCase();
+                if (text.includes(probe) || probe.includes(text.slice(0, 30))) {
+                    return {
+                        ...fix,
+                        transcriptIdx: i,
+                        timestamp: serverTranscript[i].start,
+                    };
+                }
+            }
+        }
+        return fix;
+    });
 }
 
 function buildTimestampedTranscript(
@@ -560,6 +607,16 @@ ${transcript}`,
                     humeContext: JSON.stringify(humeTrimmed),
                 },
             }, replayContext);
+
+            // Override LLM-emitted timestamps with utterance ground truth so
+            // "Play 0:13" actually seeks to the moment we quoted.
+            analysis = {
+                ...analysis,
+                fixTheseFirst: reconcileFixTimestamps(
+                    analysis.fixTheseFirst,
+                    serverTranscript,
+                ),
+            };
 
             feedback = await generateSessionFeedback(
                 {

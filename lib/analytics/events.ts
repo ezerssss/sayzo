@@ -53,6 +53,7 @@ export type AnalyticsEventParams = {
         completion_status: "passed" | "needs_retry" | "skipped" | "pending";
     };
     drill_abandoned: { stage: string };
+    drill_voluntary_retry: Record<string, never>;
 
     // Captures / replays
     capture_opened: { source: string };

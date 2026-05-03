@@ -13,6 +13,9 @@ import type {
     SessionFeedbackType,
 } from "@/types/sessions";
 
+/** Matches the sentinel written by app/api/sessions/retry/route.ts. */
+const VOLUNTARY_RETRY_REASON = "voluntary_retry";
+
 type Props = {
     shouldShowResults: boolean;
     isSkipped: boolean;
@@ -118,7 +121,18 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="now" className="mt-3 space-y-4">
-                {requiresRetry && completionReason ? (
+                {requiresRetry &&
+                completionReason === VOLUNTARY_RETRY_REASON ? (
+                    <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 dark:border-sky-900/40 dark:bg-sky-950/20">
+                        <p className="text-sm font-medium">
+                            Re-recording this drill
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Listen to your previous take below, then tap Try
+                            again when you're ready.
+                        </p>
+                    </div>
+                ) : requiresRetry && completionReason ? (
                     <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
                         <p className="text-sm font-medium">
                             This one needs a retry

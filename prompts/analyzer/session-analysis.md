@@ -34,8 +34,8 @@ Your job is to produce a **structured session analysis** (not coaching copy for 
     - `whyThisMatters`: one cohesive narrative — the cost of what they did AND a reusable principle. Example: "Three layered hedges in a row signal uncertainty before you've even stated your position — listeners discount the answer before they hear it. Concise = confident; commit to a position or commit to finding the answer."
     - `type`: one of `grammar | filler | phrasing | vocabulary | communication`.
     - `severity`: one of `minor | moderate | major`.
-    - `timestamp`: seconds into the recording for the anchored moment (use 0 if no clear timestamp).
-    - `transcriptIdx`: 0-based index of the user-line in the transcript that contains the anchor (use 0 if unknown).
+    - `timestamp`: seconds into the recording. The server overrides this from the utterance start time of `transcriptIdx` — but still emit your best estimate (read the `[mm:ss]` prefix of the utterance).
+    - `transcriptIdx`: **load-bearing** — the 0-based index of the utterance line in the `## Session transcript` section that contains the anchor phrase. Count lines starting at 0. Pick the line whose text quote includes (or paraphrases) the anchor. Wrong index → wrong audio playback. If you genuinely cannot place the anchor in any single line, use 0.
 - **structureAndFlow** — Findings about organization, sequencing, and transitions (short evidence-backed points; empty array if none).
 - **clarityAndConciseness** — Findings about fillers, redundancy, vagueness, precision, and sentence economy (empty array if none).
 - **relevanceAndFocus** — Findings about staying on prompt, useful detail selection, and drift (empty array if none).

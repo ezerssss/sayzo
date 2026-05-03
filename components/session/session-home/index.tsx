@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronDown, Mic, Square } from "lucide-react";
+import { ArrowRight, ChevronDown, Mic, RotateCcw, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CreditsBanner } from "@/components/credits/credits-banner";
@@ -362,6 +362,29 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         }
     };
 
+    const [isRetrying, setIsRetrying] = useState(false);
+    const requestVoluntaryRetry = async () => {
+        if (!session?.id) return;
+        setIsRetrying(true);
+        try {
+            await api.post("/api/sessions/retry", {
+                json: { sessionId: session.id },
+            });
+            track("drill_voluntary_retry", {});
+            // Firestore listener will pick up the new completionStatus
+            // ("needs_retry") and the page re-renders into the retry UI.
+        } catch (error) {
+            setDrillError(
+                await getKyErrorMessage(
+                    error,
+                    "Could not retry this drill.",
+                ),
+            );
+        } finally {
+            setIsRetrying(false);
+        }
+    };
+
     const seekToSecond = (s: number) => {
         const el = audioRef.current;
         if (!el || !Number.isFinite(s)) return;
@@ -413,6 +436,25 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             </div>
                             {shouldShowResults && !isSkipped ? (
                                 <div className="relative flex shrink-0 flex-wrap items-center gap-2">
+                                    {session.completionStatus === "passed" ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                                void requestVoluntaryRetry()
+                                            }
+                                            disabled={
+                                                loadingSession ||
+                                                isRetrying ||
+                                                isCreatingDrill
+                                            }
+                                        >
+                                            <RotateCcw />
+                                            {isRetrying
+                                                ? "Setting up retry…"
+                                                : "Retry this drill"}
+                                        </Button>
+                                    ) : null}
                                     <Button
                                         size="sm"
                                         onClick={() =>
@@ -421,7 +463,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                                         disabled={
                                             loadingSession ||
                                             isCreatingDrill ||
-                                            requiresRetry
+                                            requiresRetry ||
+                                            isRetrying
                                         }
                                     >
                                         <ArrowRight />
