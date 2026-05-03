@@ -136,21 +136,16 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     useEffect(() => {
         if (!session) return;
         if (isRecording || drillState === "recording") return;
-        if (
-            hasPendingAnalysisRequest &&
-            !isServerProcessing &&
-            !hasServerResults
-        ) {
+        // Pending submission OR server is processing → analyzing.
+        // Checked BEFORE hasServerResults so retry submissions don't get
+        // overridden by stale results from the prior take.
+        if (hasPendingAnalysisRequest || isServerProcessing) {
             setDrillState("analyzing");
             return;
         }
         if (hasServerResults) {
             setDrillState("complete");
             setSeconds(0);
-            return;
-        }
-        if (isServerProcessing) {
-            setDrillState("analyzing");
             return;
         }
         setDrillState("idle");
@@ -165,11 +160,15 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         session,
     ]);
 
+    // Only clear pending once the server is processing (then isServerProcessing
+    // is the source of truth) — clearing on hasServerResults would wipe the
+    // flag on retry attempts before the new server work starts, since the
+    // prior take's results are still in `session`.
     useEffect(() => {
-        if (hasServerResults || isServerProcessing) {
+        if (isServerProcessing) {
             setHasPendingAnalysisRequest(false);
         }
-    }, [hasServerResults, isServerProcessing]);
+    }, [isServerProcessing]);
 
     const completedSessionIdRef = useRef<string | null>(null);
     useEffect(() => {
@@ -207,6 +206,10 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         };
     }, [recordedAudioUrl]);
 
+    const needsRetry =
+        session?.completionStatus === "needs_retry" &&
+        !isServerProcessing &&
+        !hasPendingAnalysisRequest;
     const stateLabel = useMemo(() => {
         if (isCreatingDrill) return "Creating your next drill…";
         if (isRecording || drillState === "recording") {
@@ -232,6 +235,9 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         if (drillState === "analyzing") return "Syncing latest status…";
         if (drillState === "complete") {
             if (isSkipped) return "This drill was skipped.";
+            if (needsRetry) {
+                return "Listen to your last take, then tap Try again.";
+            }
             return "Session complete. Review your feedback below.";
         }
         return "Tap to start when you're ready.";
@@ -243,6 +249,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         isServerProcessing,
         processingStage,
         isSkipped,
+        needsRetry,
     ]);
 
     const startRecording = async () => {
