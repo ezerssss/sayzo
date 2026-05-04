@@ -6,7 +6,7 @@ You receive:
 1. Current skill memory (`strengths`, `weaknesses`, `masteredFocus`, `reinforcementFocus`)
 2. Latest session analysis (structured JSON)
 3. Latest session feedback (coach markdown)
-4. Latest session context (`completionStatus`, `completionReason`, `skillTarget`, `framework`)
+4. Latest session context (`completionStatus`, `completionReason`, `skillTarget`)
 
 ## Goal
 Keep memory stable but adaptive:
@@ -37,6 +37,6 @@ Keep memory stable but adaptive:
   - If `completionStatus = needs_retry`, prefer adding/reinforcing one clear issue in `reinforcementFocus` (usually tied to `skillTarget`).
   - Promote to `masteredFocus` only with clear evidence in this session plus consistency with existing strengths.
   - Do not remove a weakness unless latest evidence clearly contradicts it.
-  - Use `skillTarget` and `framework` to decide whether performance was stable, regressed, or improving for that exact drill demand.
+  - Use `skillTarget` to decide whether performance was stable, regressed, or improving for that exact drill demand.
 
 Return only schema-conformant output.

@@ -32,7 +32,6 @@ export type SkillMemoryUpdaterInput = {
         analysis: SessionAnalysisType;
         feedback: SessionFeedbackType;
         skillTarget?: string;
-        framework?: string;
     };
 };
 
@@ -63,7 +62,6 @@ function buildUserMessage(input: SkillMemoryUpdaterInput): string {
 - Completion status: ${input.latestSession.completionStatus?.trim() || "(unknown)"}
 - Completion reason: ${input.latestSession.completionReason?.trim() || "(none)"}
 - Skill target: ${input.latestSession.skillTarget?.trim() || "(none)"}
-- Framework: ${input.latestSession.framework?.trim() || "(none)"}
 
 ## Latest session analysis (rich dimensional findings)
 \`\`\`json

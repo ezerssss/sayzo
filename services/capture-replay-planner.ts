@@ -28,10 +28,7 @@ const PROMPTS_DIR = join(process.cwd(), "prompts", "planner");
 const sessionPlanSchema = z.object({
     scenario: z.object({
         title: z.string(),
-        situationContext: z.string(),
-        givenContent: z.string(),
         question: z.string(),
-        framework: z.string(),
         category: z.string(),
     }),
     skillTarget: z.string(),
@@ -131,7 +128,7 @@ function buildReplayUserMessage(input: CaptureReplayPlannerInput): string {
     const analysis = capture.analysis;
 
     const analysisBlock = analysis
-        ? `## Capture analysis (use this to choose the framework and skillTarget)
+        ? `## Capture analysis (use this to choose the skillTarget and ground the question in what actually went wrong)
 - Main issue: ${analysis.mainIssue}
 - Secondary issues: ${analysis.secondaryIssues.join("; ") || "(none)"}
 
@@ -189,7 +186,6 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
     // slug-like portion, then normalize. Fall back to "status_update" if
     // nothing salvageable (safest generic default for work conversations).
     let rawCategory = plan.scenario.category ?? "";
-    // Strip anything after the first non-slug character (quotes, commas, etc.)
     const slugMatch = /^[a-zA-Z][a-zA-Z0-9_ ]*/.exec(rawCategory);
     rawCategory = slugMatch ? slugMatch[0].trim() : "status_update";
     const category = toDrillCategorySlug(rawCategory) || "status_update";
@@ -197,11 +193,7 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
     return {
         scenario: {
             title: plan.scenario.title.trim(),
-            situationContext: plan.scenario.situationContext.trim(),
-            // 60s replays always have empty given content — the prompt is the whole experience.
-            givenContent: "",
-            question: plan.scenario.question?.trim() ?? "",
-            framework: plan.scenario.framework.trim(),
+            question: plan.scenario.question.trim(),
             category,
         },
         skillTarget,

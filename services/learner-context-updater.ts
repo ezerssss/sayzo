@@ -57,7 +57,7 @@ ${input.previousInternalLearnerContext.trim() || "(empty)"}
 ## This session drill (for grounding)
 - Category: ${plan.scenario.category}
 - Title: ${plan.scenario.title}
-- Situation: ${plan.scenario.situationContext}
+- Question: ${plan.scenario.question}
 - Skill target: ${plan.skillTarget}
 - Completion status: ${completionStatus}
 

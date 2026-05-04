@@ -6,7 +6,7 @@ You receive: user profile, skill memory, **session plan (the drill scenario the 
 
 A complete rewrite of the learner's drill response — how a fluent, confident native English speaker would deliver the same message **for this exact drill scenario**. Keep the same intent and key facts; improve structure, word choice, transitions, conciseness, and flow.
 
-The rewrite must directly answer the drill prompt (`scenario.title`, `situationContext`, `skillTarget`). If the learner drifted off-prompt, gently steer the rewrite back on-prompt while preserving their actual content.
+The rewrite must directly answer the drill prompt (`scenario.title`, `scenario.question`). If the learner drifted off-prompt, gently steer the rewrite back on-prompt while preserving their actual content.
 
 ### Alignment with the prior analysis (when present)
 

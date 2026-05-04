@@ -180,6 +180,35 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         track("drill_completed", { completion_status: status });
     }, [session?.id, session?.completionStatus]);
 
+    // Heartbeat `viewedAt` so the pre-generator's dailyRefresh path doesn't
+    // mutate this drill out from under a user reading the brief. Only the
+    // pending drill needs the lock — completed/skipped drills can't be
+    // mutated by pre-gen.
+    const sessionIdForView =
+        session?.completionStatus === "pending" ? session?.id : undefined;
+    useEffect(() => {
+        if (!sessionIdForView) return;
+        if (typeof document === "undefined") return;
+
+        const ping = () => {
+            if (document.visibilityState !== "visible") return;
+            api.post(`/api/sessions/${sessionIdForView}/viewed`, {
+                timeout: 10_000,
+            }).catch((err) => {
+                console.warn("[session-home] viewedAt heartbeat failed", err);
+            });
+        };
+
+        ping();
+        const intervalId = window.setInterval(ping, 5 * 60 * 1000);
+        document.addEventListener("visibilitychange", ping);
+
+        return () => {
+            window.clearInterval(intervalId);
+            document.removeEventListener("visibilitychange", ping);
+        };
+    }, [sessionIdForView]);
+
     // Auto-stop at 0:00. The recorder is still running when the timer ticks
     // down, so we trigger stopRecording() (which posts the audio) instead of
     // just flipping the state — otherwise the audio never makes it server-side.
@@ -428,11 +457,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                                 <h2 className="mt-2 text-lg font-semibold tracking-tight">
                                     {currentPlan.scenario.title}
                                 </h2>
-                                {currentPlan.skillTarget ? (
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        {currentPlan.skillTarget}
-                                    </p>
-                                ) : null}
                             </div>
                             {shouldShowResults && !isSkipped ? (
                                 <div className="relative flex shrink-0 flex-wrap items-center gap-2">
@@ -535,7 +559,10 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             </button>
                             {promptOpen ? (
                                 <div className="border-t border-border/50 p-4">
-                                    <DrillBriefCard plan={currentPlan} />
+                                    <DrillBriefCard
+                                        plan={currentPlan}
+                                        autoPlay={false}
+                                    />
                                 </div>
                             ) : null}
                         </div>

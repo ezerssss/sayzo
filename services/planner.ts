@@ -40,10 +40,7 @@ const drillCategorySchema = z
 const sessionPlanSchema = z.object({
     scenario: z.object({
         title: z.string(),
-        situationContext: z.string(),
-        givenContent: z.string(),
         question: z.string(),
-        framework: z.string(),
         category: drillCategorySchema,
     }),
     skillTarget: z.string(),
@@ -99,7 +96,6 @@ type SeedPrompt = {
     title: string;
     question: string;
     skillTarget: string;
-    framework: string;
 };
 
 let cachedSeedLibrary: SeedPrompt[] | null = null;
@@ -269,11 +265,7 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
     return {
         scenario: {
             title: plan.scenario.title.trim(),
-            situationContext: plan.scenario.situationContext.trim(),
-            // 60s drills always have empty given content — the prompt is the whole experience.
-            givenContent: "",
-            question: plan.scenario.question?.trim() ?? "",
-            framework: plan.scenario.framework.trim(),
+            question: plan.scenario.question.trim(),
             category: toDrillCategorySlug(plan.scenario.category),
         },
         skillTarget,
@@ -287,7 +279,7 @@ function buildSeedExamplesBlock(input: PlannerInput): string {
     const formatted = examples
         .map(
             (s, i) =>
-                `${i + 1}. category=${s.category} | title="${s.title}" | question="${s.question}" | skillTarget="${s.skillTarget}" | framework="${s.framework}"`,
+                `${i + 1}. category=${s.category} | title="${s.title}" | question="${s.question}" | skillTarget="${s.skillTarget}"`,
         )
         .join("\n");
     const coldStartHint = isFirstDrillForLearner(input)

@@ -805,9 +805,6 @@ function TodaysDrillHero({ session }: { session: SessionType }) {
                     <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                         {session.plan.scenario.title}
                     </h2>
-                    <p className="text-sm text-muted-foreground sm:text-base">
-                        {session.plan.skillTarget}
-                    </p>
                 </div>
                 <Link
                     href={drillHref(session)}

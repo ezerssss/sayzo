@@ -1,8 +1,10 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
-import { useMemo } from "react";
-import ReactMarkdown from "react-markdown";
+import { ChevronDown, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
+
+import { InlineMarkdown } from "@/components/session/inline-markdown";
+import { cn } from "@/lib/utils";
 
 type ParagraphBlock = {
     id: string;
@@ -16,6 +18,7 @@ interface ImprovedVersionViewProps {
 }
 
 export function ImprovedVersionView({ content }: ImprovedVersionViewProps) {
+    const [isOpen, setIsOpen] = useState(false);
     const blocks = useMemo(() => splitIntoParagraphBlocks(content), [content]);
 
     if (blocks.length === 0) {
@@ -30,65 +33,63 @@ export function ImprovedVersionView({ content }: ImprovedVersionViewProps) {
     }
 
     return (
-        <div className="space-y-4">
-            <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-5">
-                <div className="flex items-center gap-2">
-                    <Sparkles className="size-4 text-foreground" />
-                    <h3 className="text-sm font-semibold tracking-tight">
-                        How it could sound
-                    </h3>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    Your message, rewritten the way a confident speaker would
-                    deliver it. Each note shows what changed and why.
-                </p>
-            </div>
-
-            <ol className="space-y-3">
-                {blocks.map((block, index) => (
-                    <li
-                        key={block.id}
-                        className="rounded-xl border border-border/70 bg-background p-4"
-                    >
-                        <div className="flex gap-3">
-                            <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
-                                {index + 1}
-                            </span>
-                            <div className="flex-1 space-y-3">
-                                <p className="text-[15px] leading-relaxed text-foreground">
-                                    {block.paragraph}
-                                </p>
-                                {block.note ? (
-                                    <div className="rounded-lg bg-muted/40 p-3">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            What changed
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03]">
+            <button
+                type="button"
+                onClick={() => setIsOpen((v) => !v)}
+                className="flex w-full items-center gap-2 p-5"
+            >
+                <Sparkles className="size-4 text-foreground" />
+                <h3 className="text-sm font-semibold tracking-tight">
+                    How it could sound
+                </h3>
+                <ChevronDown
+                    className={cn(
+                        "ml-auto size-4 text-muted-foreground transition-transform",
+                        isOpen && "rotate-180",
+                    )}
+                />
+            </button>
+            {isOpen ? (
+                <div className="space-y-4 border-t border-foreground/10 p-5">
+                    <p className="text-sm text-muted-foreground">
+                        Your message, rewritten the way a confident speaker
+                        would deliver it. Each note shows what changed and why.
+                    </p>
+                    <ol className="space-y-3">
+                        {blocks.map((block, index) => (
+                            <li
+                                key={block.id}
+                                className="rounded-xl border border-border/70 bg-background p-4"
+                            >
+                                <div className="flex gap-3">
+                                    <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
+                                        {index + 1}
+                                    </span>
+                                    <div className="flex-1 space-y-3">
+                                        <p className="text-[15px] leading-relaxed text-foreground">
+                                            {block.paragraph}
                                         </p>
-                                        <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                            <ReactMarkdown
-                                                components={{
-                                                    p: ({ children }) => (
-                                                        <p>{children}</p>
-                                                    ),
-                                                    strong: ({ children }) => (
-                                                        <strong className="font-medium text-foreground">
-                                                            {children}
-                                                        </strong>
-                                                    ),
-                                                    em: ({ children }) => (
-                                                        <em>{children}</em>
-                                                    ),
-                                                }}
-                                            >
-                                                {block.note}
-                                            </ReactMarkdown>
-                                        </div>
+                                        {block.note ? (
+                                            <div className="rounded-lg bg-muted/40 p-3">
+                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                    What changed
+                                                </p>
+                                                <div className="mt-1">
+                                                    <InlineMarkdown
+                                                        text={block.note}
+                                                        tone="small-muted"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : null}
                                     </div>
-                                ) : null}
-                            </div>
-                        </div>
-                    </li>
-                ))}
-            </ol>
+                                </div>
+                            </li>
+                        ))}
+                    </ol>
+                </div>
+            ) : null}
         </div>
     );
 }

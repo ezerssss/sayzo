@@ -9,10 +9,18 @@ import { z } from "zod";
 import type {
     CaptureAnalysis,
     CaptureTranscriptLine,
+    GrammarPattern,
+    StructuralObservation,
+    TurnRewrite,
 } from "@/types/captures";
 import type { HumeExpressionSummary } from "@/types/hume-expression";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
+import {
+    reconcileMoments,
+    reconcileWithAnchor,
+    resolveAnchorIdx,
+} from "@/lib/transcripts/anchor-resolver";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
@@ -26,7 +34,13 @@ const coachingMomentSchema = z.object({
     whyThisMatters: z.string(),
 });
 
-const teachableMomentSchema = coachingMomentSchema.extend({
+/**
+ * LLM-facing teachable moment shape. `transcriptIdx` and `timestamp` are
+ * deliberately absent — they are server-set from the verbatim `anchor` text
+ * via `lib/transcripts/anchor-resolver` so a hallucinated line number can't
+ * pin coaching to the wrong utterance.
+ */
+const llmTeachableMomentSchema = coachingMomentSchema.extend({
     type: z.enum([
         "grammar",
         "filler",
@@ -35,8 +49,6 @@ const teachableMomentSchema = coachingMomentSchema.extend({
         "communication",
     ]),
     severity: z.enum(["minor", "moderate", "major"]),
-    timestamp: z.number(),
-    transcriptIdx: z.number(),
 });
 
 const rewriteVerdictSchema = z.enum([
@@ -47,8 +59,14 @@ const rewriteVerdictSchema = z.enum([
     "reorder",
 ]);
 
-const turnRewriteSchema = z.object({
-    transcriptIdx: z.number(),
+/**
+ * LLM-facing turn rewrite shape. `transcriptIdx` is server-set from the
+ * verbatim `original` text. `suggestedBeforeIdx` stays — it's a forward
+ * reference to another turn that can't be resolved from anchor text — but
+ * the server bounds-checks it after the fact and clamps invalid values to
+ * `null`.
+ */
+const llmTurnRewriteSchema = z.object({
     original: z.string(),
     rewrite: z.string(),
     verdict: rewriteVerdictSchema,
@@ -86,15 +104,16 @@ const captureAnalysisSchema = z.object({
     improvements: z.array(z.string()),
     regressions: z.array(z.string()),
 
-    fixTheseFirst: z.array(teachableMomentSchema),
-    moreMoments: z.array(teachableMomentSchema),
+    fixTheseFirst: z.array(llmTeachableMomentSchema),
+    moreMoments: z.array(llmTeachableMomentSchema),
     grammarPatterns: z.array(
         z.object({
             pattern: z.string(),
             frequency: z.number(),
-            examples: z.array(
-                z.object({ transcriptIdx: z.number(), text: z.string() }),
-            ),
+            // `text` must be a verbatim user-line substring — the server
+            // resolves transcriptIdx from it so the LLM doesn't have to
+            // guess the index.
+            examples: z.array(z.object({ text: z.string() })),
         }),
     ),
     vocabulary: z.object({
@@ -130,7 +149,7 @@ const captureAnalysisSchema = z.object({
         turnTaking: z.enum(["balanced", "passive", "dominant"]),
     }),
 
-    turnRewrites: z.array(turnRewriteSchema),
+    turnRewrites: z.array(llmTurnRewriteSchema),
     structuralObservations: z.array(structuralObservationSchema),
 });
 
@@ -255,31 +274,113 @@ ${humePayload}`;
         temperature: 0.15,
     });
 
+    const isUserLine = (line: CaptureTranscriptLine) =>
+        line.speaker === "user";
+
+    // Coaching moments anchor on user-line text only; resolve verbatim
+    // anchors against the transcript and drop hallucinated quotes.
+    const fixTheseFirst = reconcileMoments(
+        result.output.fixTheseFirst,
+        transcript,
+        isUserLine,
+    );
+    const moreMoments = reconcileMoments(
+        result.output.moreMoments,
+        transcript,
+        isUserLine,
+    );
+
+    // Turn rewrites: resolve transcriptIdx from the verbatim `original`
+    // text. `suggestedBeforeIdx` is a forward reference to another turn —
+    // we can't anchor that from text, so we just bounds-check.
+    const turnRewrites: TurnRewrite[] = reconcileWithAnchor(
+        result.output.turnRewrites,
+        (t) => t.original,
+        (t, idx) => ({
+            transcriptIdx: idx,
+            original: t.original,
+            rewrite: t.rewrite,
+            verdict: t.verdict,
+            note: t.note,
+            suggestedBeforeIdx:
+                t.suggestedBeforeIdx != null &&
+                Number.isInteger(t.suggestedBeforeIdx) &&
+                t.suggestedBeforeIdx >= 0 &&
+                t.suggestedBeforeIdx < transcript.length
+                    ? t.suggestedBeforeIdx
+                    : null,
+        }),
+        transcript,
+        isUserLine,
+    );
+
+    // Grammar pattern examples: each carries a verbatim user-line snippet.
+    // Resolve idx, drop unresolved examples, and drop the whole pattern if
+    // it ends up with no examples.
+    const grammarPatterns: GrammarPattern[] = result.output.grammarPatterns
+        .map((gp) => {
+            const examples = gp.examples
+                .map((ex) => {
+                    const resolved = resolveAnchorIdx({
+                        anchor: ex.text,
+                        lines: transcript,
+                        speakerFilter: isUserLine,
+                    });
+                    if (resolved.confidence === "unresolved") return null;
+                    return { transcriptIdx: resolved.idx, text: ex.text };
+                })
+                .filter((ex): ex is { transcriptIdx: number; text: string } =>
+                    ex !== null,
+                );
+            return {
+                pattern: gp.pattern,
+                frequency: gp.frequency,
+                examples,
+            };
+        })
+        .filter((gp) => gp.examples.length > 0);
+
+    // Structural observations: `affectedTurnIdxs` references other turns
+    // (cross-turn observation) — bounds-check and drop out-of-range ones.
+    // If the observation ends up with no valid affected turns, keep it
+    // anyway because the prose `observation` + `explanation` still teach.
+    const structuralObservations: StructuralObservation[] =
+        result.output.structuralObservations.map((o) => ({
+            observation: o.observation,
+            explanation: o.explanation,
+            affectedTurnIdxs: o.affectedTurnIdxs.filter(
+                (idx) =>
+                    Number.isInteger(idx) && idx >= 0 && idx < transcript.length,
+            ),
+        }));
+
+    const analysis: CaptureAnalysis = {
+        overview: result.output.overview,
+        mainIssue: result.output.mainIssue,
+        secondaryIssues: result.output.secondaryIssues,
+        notes: result.output.notes,
+        structureAndFlow: result.output.structureAndFlow,
+        clarityAndConciseness: result.output.clarityAndConciseness,
+        relevanceAndFocus: result.output.relevanceAndFocus,
+        engagement: result.output.engagement,
+        professionalism: result.output.professionalism,
+        voiceToneExpression: result.output.voiceToneExpression,
+        improvements: result.output.improvements,
+        regressions: result.output.regressions,
+        fixTheseFirst,
+        moreMoments,
+        grammarPatterns,
+        vocabulary: result.output.vocabulary,
+        fillerWords: result.output.fillerWords,
+        fluency: result.output.fluency,
+        communicationStyle: result.output.communicationStyle,
+        turnRewrites,
+        structuralObservations,
+    };
+
     return {
         serverTitle: result.output.serverTitle,
         serverSummary: result.output.serverSummary,
-        analysis: {
-            overview: result.output.overview,
-            mainIssue: result.output.mainIssue,
-            secondaryIssues: result.output.secondaryIssues,
-            notes: result.output.notes,
-            structureAndFlow: result.output.structureAndFlow,
-            clarityAndConciseness: result.output.clarityAndConciseness,
-            relevanceAndFocus: result.output.relevanceAndFocus,
-            engagement: result.output.engagement,
-            professionalism: result.output.professionalism,
-            voiceToneExpression: result.output.voiceToneExpression,
-            improvements: result.output.improvements,
-            regressions: result.output.regressions,
-            fixTheseFirst: result.output.fixTheseFirst,
-            moreMoments: result.output.moreMoments,
-            grammarPatterns: result.output.grammarPatterns,
-            vocabulary: result.output.vocabulary,
-            fillerWords: result.output.fillerWords,
-            fluency: result.output.fluency,
-            communicationStyle: result.output.communicationStyle,
-            turnRewrites: result.output.turnRewrites,
-            structuralObservations: result.output.structuralObservations,
-        },
+        analysis,
     };
 }

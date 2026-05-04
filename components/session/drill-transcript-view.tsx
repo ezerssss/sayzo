@@ -70,37 +70,8 @@ function buildMomentsByLine(
     const map = new Map<number, TeachableMoment[]>();
     if (lines.length === 0) return map;
     for (const moment of moments) {
-        // Prefer transcriptIdx if it points at a real line; otherwise fall
-        // back to timestamp matching (the analyzer may emit imprecise idx
-        // values when the transcript is tightly packed).
-        let idx = -1;
-        if (
-            Number.isInteger(moment.transcriptIdx) &&
-            moment.transcriptIdx >= 0 &&
-            moment.transcriptIdx < lines.length
-        ) {
-            idx = moment.transcriptIdx;
-        }
-        if (idx === -1 && Number.isFinite(moment.timestamp)) {
-            const ts = moment.timestamp;
-            idx = lines.findIndex(
-                (l) => ts >= l.start - 0.1 && ts <= l.end + 0.1,
-            );
-            if (idx === -1) {
-                let bestDist = Infinity;
-                idx = 0;
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    if (!line) continue;
-                    const d = Math.abs(line.start - ts);
-                    if (d < bestDist) {
-                        bestDist = d;
-                        idx = i;
-                    }
-                }
-            }
-        }
-        if (idx === -1) continue;
+        const idx = moment.transcriptIdx;
+        if (!Number.isInteger(idx) || idx < 0 || idx >= lines.length) continue;
         const arr = map.get(idx) ?? [];
         arr.push(moment);
         map.set(idx, arr);

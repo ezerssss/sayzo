@@ -36,7 +36,13 @@ export type ReplayContext = {
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "analyzer");
 
-const teachableMomentSchema = z.object({
+/**
+ * LLM-facing teachable moment shape. `transcriptIdx` and `timestamp` are
+ * deliberately absent — LLMs hallucinate numbers, so the server resolves
+ * them deterministically from the verbatim `anchor` text via
+ * `lib/transcripts/anchor-resolver`.
+ */
+const llmTeachableMomentSchema = z.object({
     anchor: z.string(),
     betterOption: z.string(),
     whyThisMatters: z.string(),
@@ -48,8 +54,6 @@ const teachableMomentSchema = z.object({
         "communication",
     ]),
     severity: z.enum(["minor", "moderate", "major"]),
-    timestamp: z.number(),
-    transcriptIdx: z.number(),
 });
 
 const sessionAnalysisSchema = z.object({
@@ -57,12 +61,20 @@ const sessionAnalysisSchema = z.object({
     mainIssue: z.string(),
     secondaryIssues: z.array(z.string()),
     /**
-     * Top 2-3 ranked coaching moments. The user-facing feedback page renders
-     * `slice(0, 2)` of this array as the "Fix these first" card. Keep it
-     * concrete: each entry has anchor (what they said), betterOption (how to
-     * say it instead), and whyThisMatters (cost + reusable principle).
+     * Specific evidence-anchored positive observation, or null. Only set
+     * when the learner did something concrete worth noticing — never
+     * generic praise. Most sessions will have null here.
      */
-    fixTheseFirst: z.array(teachableMomentSchema),
+    whatWentWell: z.string().nullable(),
+    /**
+     * Top 0-3 ranked coaching moments. The user-facing feedback page
+     * renders `slice(0, 2)` of this array as the "Fix these first" card.
+     * Empty array is valid — when the response is clean, don't pad with
+     * cosmetic fixes. Keep entries concrete: anchor (what they said),
+     * betterOption (how to say it instead), whyThisMatters (cost +
+     * reusable principle).
+     */
+    fixTheseFirst: z.array(llmTeachableMomentSchema),
     structureAndFlow: z.array(z.string()),
     clarityAndConciseness: z.array(z.string()),
     relevanceAndFocus: z.array(z.string()),
@@ -73,6 +85,16 @@ const sessionAnalysisSchema = z.object({
     regressions: z.array(z.string()),
     notes: z.string(),
 });
+
+/**
+ * What `analyzeSession` actually returns: like `SessionAnalysisType` but
+ * with `fixTheseFirst[]` missing the server-set `transcriptIdx` /
+ * `timestamp` fields. The route fills those in via `reconcileMoments` to
+ * produce the persisted `SessionAnalysisType`.
+ */
+export type LlmSessionAnalysis = Omit<SessionAnalysisType, "fixTheseFirst"> & {
+    fixTheseFirst: z.infer<typeof llmTeachableMomentSchema>[];
+};
 
 export type AnalyzerInput = {
     userProfile: Pick<
@@ -190,9 +212,7 @@ function buildContextUserMessage(input: AnalyzerInput, replay?: ReplayContext): 
 ## Session plan
 - Drill category: ${session.plan.scenario.category}
 - Scenario title: ${session.plan.scenario.title || "(none)"}
-- Situation context: ${session.plan.scenario.situationContext || "(none)"}
-- Given content: ${session.plan.scenario.givenContent || "(none)"}
-- Framework: ${session.plan.scenario.framework || "(none)"}
+- Question: ${session.plan.scenario.question || "(none)"}
 - Skill target: ${session.plan.skillTarget || "(none)"}
 
 ## Session transcript
@@ -214,7 +234,7 @@ ${replay ? formatReplayContextBlock(replay) : ""}
 export async function analyzeSession(
     input: AnalyzerInput,
     replay?: ReplayContext,
-): Promise<SessionAnalysisType> {
+): Promise<LlmSessionAnalysis> {
     requireTranscript(input.session.transcript);
 
     const system = readAnalyzerPrompt("session-analysis.md");
@@ -226,7 +246,7 @@ export async function analyzeSession(
             schema: zodSchema(sessionAnalysisSchema),
             name: "SessionAnalysis",
             description:
-                "Structured analysis of one 60-second spoken practice session, including the top 2-3 ranked coaching moments.",
+                "Structured analysis of one 60-second spoken practice session — main issue, ranked coaching moments (0-3), dimensional findings, and an optional what-went-well call-out.",
         }),
         system,
         prompt: userContent,

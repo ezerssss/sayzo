@@ -136,10 +136,12 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Stay in "processing" until pregen writes the pending drill — the
+        // AppShell redirect from /app/onboarding → /app fires on these flags.
         const profile: UserProfileType = {
             uid,
-            onboardingComplete: true,
-            onboardingStatus: "completed",
+            onboardingComplete: false,
+            onboardingStatus: "processing",
             onboardingError: null,
             onboardingJobUpdatedAt: profileNowIso,
             employmentStatus: profileFields.employmentStatus,
@@ -196,10 +198,8 @@ export async function POST(request: NextRequest) {
                     plan: {
                         scenario: {
                             title: "Onboarding speaking drills",
-                            situationContext:
-                                "Three onboarding drills: self-introduction, workplace scenario, and challenge moment.",
-                            givenContent: "",
-                            framework: "",
+                            question:
+                                "Introduce yourself, describe a typical day at work, and share what you most want to improve.",
                             category: "self_introduction",
                         },
                         skillTarget: "Baseline communication assessment",
@@ -291,6 +291,18 @@ export async function POST(request: NextRequest) {
                 preGen.message,
             );
         }
+
+        const completionIso = new Date().toISOString();
+        await userRef.set(
+            {
+                onboardingComplete: true,
+                onboardingStatus: "completed",
+                onboardingError: null,
+                onboardingJobUpdatedAt: completionIso,
+                updatedAt: completionIso,
+            },
+            { merge: true },
+        );
 
         return NextResponse.json({ ok: true });
     } catch (error) {

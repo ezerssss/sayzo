@@ -26,18 +26,24 @@ Your job is to produce a **structured session analysis** (not coaching copy for 
 ### Field semantics
 
 - **overview** — 2-4 sentence high-level synopsis of performance for downstream systems (not user-facing copy). Include the dominant pattern and practical implication.
-- **mainIssue** — The single most important pattern or gap _in this session_ relative to the plan and professional context. **One clear sentence**, written for the learner — they read this directly on the feedback page. Lead with the pattern, not jargon.
+- **mainIssue** — The single most important pattern or gap _in this session_ relative to the plan and professional context. **One clear sentence**, written for the learner — they read this directly on the feedback page. Lead with the pattern, not jargon. **Never invent fillers.** If the response has few or no fillers, do not name fillers as the main issue — pick the actual highest-impact gap (structure, specificity, conviction, register, etc.). When the response is genuinely clean and on-task, name the highest-impact next-level lift (e.g. *"Your example was solid — adding one concrete metric would land it harder"*) rather than fabricating a flaw.
 - **secondaryIssues** — Other notable issues (short phrases; empty array if none).
-- **fixTheseFirst** — **Top 2-3 ranked coaching moments** the learner should act on. The user-facing feedback page renders the top 2 of this array. Rank by impact: which fix would most improve their next attempt? Each entry has:
-    - `anchor`: the actual moment — quote or tight paraphrase of what they said. Be concrete.
-    - `betterOption`: a specific better alternative — exact wording when possible, or a clear structural change. Not vague advice ("be clearer"); a concrete target ("'Here's what shipped this week:' instead of 'so basically the thing I worked on...'").
-    - `whyThisMatters`: one cohesive narrative — the cost of what they did AND a reusable principle. Example: "Three layered hedges in a row signal uncertainty before you've even stated your position — listeners discount the answer before they hear it. Concise = confident; commit to a position or commit to finding the answer."
-    - `type`: one of `grammar | filler | phrasing | vocabulary | communication`.
+- **whatWentWell** — A **specific, evidence-anchored** positive observation when (and only when) something stands out as deliberately well-executed. One short sentence pointing at a concrete moment or choice (e.g. *"You opened with the headline before the supporting context — exactly what a status-update audience needs."*). **Generic praise is forbidden** — no *"you spoke clearly"*, *"good effort"*, *"nice attempt"*, *"confident delivery"* without a specific moment behind it. Set to **null** when nothing earns it. A null value is the correct answer most of the time; only populate when the learner did something specific worth noticing.
+- **fixTheseFirst** — **Top ranked coaching moments** the learner should act on (**0–3 entries**; the user-facing feedback page renders the top 2). Rank by impact: which fix would most improve their next attempt? **Be ruthless** — if there's nothing truly urgent, return a smaller list. **Do not pad with cosmetic fixes when the response is clean.** If the response is genuinely on-task and clean, return one moment (the next-level lift) or an empty array when truly nothing earns a slot. Selection criteria — only entries that meet at least one earn a slot:
+    - Biggest impact on listener comprehension or professional credibility (usually `major`, sometimes `moderate` when the pattern repeats).
+    - Maps directly to the `mainIssue` or `secondaryIssues` you identified.
+    - Reveals a pattern the learner is likely to repeat — fixing one unblocks several future wins.
+    - The `whyThisMatters` delivers a genuinely transferable principle, not just a local correction.
+
+    Each entry has:
+    - `anchor`: **a verbatim quote of the learner's actual words.** Copy the words exactly as they appear in the transcript — same wording, same disfluencies, same casing if it matters. Pick a phrase long enough to be unambiguous (aim for 5+ words when possible). Do **not** paraphrase. Do **not** add conversational framing like "When asked about X, you said…" — that context belongs in `whyThisMatters`. The server uses this verbatim text to find where in the transcript the moment occurred; if the text doesn't appear in the transcript the moment is dropped.
+        - If the moment spans multiple consecutive utterance lines (because the user paused mid-thought and the transcript split it), just quote the user's continuous words verbatim — the server stitches lines together and finds where the quote begins.
+    - `betterOption`: a specific better alternative — exact wording when possible, or a clear structural change. Not vague advice ("be clearer"); a concrete target. Examples: opener fix — *"'Here's what shipped this week:' instead of 'so basically the thing I worked on...'"* — or structural fix — *"Lead with the recommendation: 'I'd hold the launch — the schema fix needs a day to validate.' Then the trade-offs."*
+    - `whyThisMatters`: one cohesive narrative — the cost of what they did AND a reusable principle. Examples: structural — *"You spent the first 35 seconds walking through context before naming your recommendation — by the time you got to the answer, the listener was rebuilding the picture from scratch. Status updates want the headline first; supporting context comes only on request."* / hedging — *"Three layered hedges in a row signal uncertainty before you've even stated your position — listeners discount the answer before they hear it. Concise = confident; commit to a position or commit to finding the answer."*
+    - `type`: one of `grammar | filler | phrasing | vocabulary | communication`. Use `communication` for structural / sequencing / framing issues — that's where the biggest-impact moments usually land.
     - `severity`: one of `minor | moderate | major`.
-    - `timestamp`: seconds into the recording. The server overrides this from the utterance start time of `transcriptIdx` — but still emit your best estimate (read the `[mm:ss]` prefix of the utterance).
-    - `transcriptIdx`: **load-bearing** — the 0-based index of the utterance line in the `## Session transcript` section that contains the anchor phrase. Count lines starting at 0. Pick the line whose text quote includes (or paraphrases) the anchor. Wrong index → wrong audio playback. If you genuinely cannot place the anchor in any single line, use 0.
-- **structureAndFlow** — Findings about organization, sequencing, and transitions (short evidence-backed points; empty array if none).
-- **clarityAndConciseness** — Findings about fillers, redundancy, vagueness, precision, and sentence economy (empty array if none).
+- **structureAndFlow** — Findings about organization, sequencing, and transitions (short evidence-backed points; empty array if none). See "Internal structural analysis" below for the framework lens to evaluate against.
+- **clarityAndConciseness** — Findings about fillers, redundancy, vagueness, precision, and sentence economy (empty array if none). **Filler calibration**: some filler usage is normal in spoken English — **under ~3/min is healthy**. Only flag fillers when genuinely excessive or one specific filler dominates (e.g. eight *"like"*s in 30 seconds). Do not flag fillers that aren't actually present.
 - **relevanceAndFocus** — Findings about staying on prompt, useful detail selection, and drift (empty array if none).
 - **engagement** — Findings about audience pull, energy, conviction, and listener attention management (empty array if none).
 - **professionalism** — Findings about workplace-appropriate tone, credibility, confidence, and business framing (empty array if none).
@@ -45,6 +51,22 @@ Your job is to produce a **structured session analysis** (not coaching copy for 
 - **improvements** — Observable positive shifts vs. the learner's known weaknesses or session focus (even small wins).
 - **regressions** — Where they underperformed vs. strengths, plan, or recent focus (be fair; empty if none).
 - **notes** — Brief analyst notes: uncertainties, missing evidence, contradictions, or what a longer attempt would clarify. Can be empty string if nothing to add.
+
+### Internal structural analysis (use this for ranking — do not lecture the user)
+
+When evaluating `structureAndFlow` and ranking issues for `mainIssue` / `fixTheseFirst`, you have framework knowledge that helps you spot when a response is **structurally** wrong (not just verbally messy):
+
+- **PREP** — Point → Reason → Example → Point. Best for short opinions and contributions.
+- **Pyramid** — Headline → supporting facts → context. Best for status updates, *"what's the latest?"* answers, executive summaries.
+- **STAR** — Situation → Task → Action → Result. Best for behavioral and story answers.
+- **Claim → Support → Impact** — Best for recommendations, persuasion, stakeholder alignment.
+- **Acknowledge → Reframe → Path forward** — Best for difficult conversations and pushback.
+- **Problem → Solution → Benefit** — Best for proposals, feature pitches, change requests.
+- **What it does → Why it matters → How it works** — Best for demos, walkthroughs, technical explanations.
+
+**Structural problems outrank cosmetic problems.** Filler words, hedge words, and word choice are surface-level. When the macro structure is wrong (no headline, rambling, missed answer, recommendation buried, context dump before the point), no amount of word polish saves the response. **If the user spent 35 seconds on background before getting to the recommendation, that's the main issue — not "you said 'um' three times."** Apply this lens whenever you rank `mainIssue` and `fixTheseFirst`: a structural gap almost always outranks a few fillers, a couple hedges, or one awkward phrasing.
+
+**Show, don't lecture.** This framework knowledge is for **your reasoning only**. Never write *"use the Pyramid framework"*, *"follow STAR"*, or any framework label in any user-facing field (`mainIssue`, `fixTheseFirst.betterOption`, `fixTheseFirst.whyThisMatters`, `whatWentWell`). The user-facing `betterOption` should be the **actual rewritten line a fluent speaker would say** — *"Lead with: 'I'd hold the launch — the schema fix needs a day to validate.' Then walk through the trade-offs."* — not a framework name. In `whyThisMatters`, name the **concrete listener cost** (*"the PM is rebuilding the picture from scratch"*) and the reusable shape in plain language (*"answer first, context on request"*) — never the framework label.
 
 ### 60-second drill context
 

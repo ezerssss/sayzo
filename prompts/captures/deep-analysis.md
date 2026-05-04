@@ -60,7 +60,11 @@ Every coaching moment — whether it lives in `fixTheseFirst`, `moreMoments`, or
 }
 ```
 
-**(1) anchor** — Quote or tight paraphrase of what the user actually did. Ground it in conversational context (e.g. *"When the PM asked 'what's the latest on the migration?', you said 'I think maybe like next week or so.'"*). Keep it specific to a moment, not a general label.
+**(1) anchor** — A direct quote (or tight paraphrase) of what the user actually did. Keep it specific to a moment, not a general label. Conversational context (e.g. *"When the PM asked 'what's the latest on the migration?', you said …"*) belongs in `whyThisMatters`, **not** here.
+
+> **For `fixTheseFirst`, `moreMoments`, `grammarPatterns.examples[].text`, and `turnRewrites.original` — anchor must be VERBATIM**, copied exactly from the user's transcript line, with no paraphrase and no framing. The server uses this verbatim text to find where in the transcript the moment occurred (so coaching renders on the right line and audio playback seeks to the right spot). Quotes that don't appear in the transcript are dropped. If the quote spans consecutive utterance lines (the user paused mid-thought and the transcript split it), copy the user's continuous words verbatim — the server stitches lines together and finds where the quote begins.
+>
+> For dimensional `findings[]` arrays, anchor may stay paraphrased — those don't get linked back to specific lines, so the contract is looser.
 
 **(2) betterOption** — A concrete alternative. Exact wording when possible, or a specific structural / delivery change. Not just "be more clear". Examples:
 - *"'Tuesday — we hit the schema migration on Monday and validated it overnight.'"*
@@ -219,11 +223,9 @@ Each entry uses the **three-part teachable shape** (see "Teachable shape" sectio
 
 - **type**: `grammar` | `filler` | `phrasing` | `vocabulary` | `communication`
 - **severity**: `minor` (stylistic), `moderate` (clarity impact), `major` (meaning impact)
-- **timestamp**: seconds into the conversation
-- **transcriptIdx**: index in the transcript array
-- **anchor**: what the user actually said (exact quote when possible, with conversational context)
+- **anchor**: **VERBATIM quote** of the user's actual words from one (or consecutive) `user`-tagged transcript line(s). No paraphrase, no framing — just what the user literally said. Aim for 5+ words so the quote is unambiguous. The server resolves the transcript position from this text; quotes that don't match get dropped.
 - **betterOption**: concrete better alternative — exact wording when possible
-- **whyThisMatters**: one cohesive narrative covering the cost of what they did AND a reusable principle
+- **whyThisMatters**: one cohesive narrative covering the cost of what they did AND a reusable principle. Conversational context ("When the PM asked X…") belongs here, not in the anchor.
 
 **Selection criteria — be ruthless about what earns a slot here:**
 - Moments that represent the **biggest impact on listener comprehension or professional credibility** (usually `major` severity, sometimes `moderate` when the pattern is repeated)
@@ -238,11 +240,9 @@ Example:
 {
   "type": "communication",
   "severity": "moderate",
-  "timestamp": 187.4,
-  "transcriptIdx": 23,
-  "anchor": "When asked if the migration would hit the deadline, you said 'I think maybe like, you know, it should probably be fine, I think.'",
+  "anchor": "I think maybe like, you know, it should probably be fine, I think.",
   "betterOption": "'Yes — we're on track. The schema fix landed Tuesday and we validated it overnight.' If you genuinely don't know, say that directly: 'Honestly, I'm not sure yet — let me check with the platform team and get back to you by EOD.'",
-  "whyThisMatters": "Three layered hedges ('I think maybe like... probably... I think') in a single sentence signal uncertainty before you've stated your actual position. Listeners discount everything that follows because they don't trust the speaker's confidence in their own answer. Hedging language is a confidence drain — every 'I think maybe' is a withdrawal from your credibility account. Native speakers either commit to a position or commit to finding the answer; they don't pre-hedge factual statements. Saying 'I don't know but I'll find out' is more confident than 'I think maybe it's probably fine'."
+  "whyThisMatters": "When the PM asked if the migration would hit the deadline, three layered hedges ('I think maybe like... probably... I think') in a single sentence signal uncertainty before you've stated your actual position. Listeners discount everything that follows because they don't trust the speaker's confidence in their own answer. Hedging language is a confidence drain — every 'I think maybe' is a withdrawal from your credibility account. Native speakers either commit to a position or commit to finding the answer; they don't pre-hedge factual statements. Saying 'I don't know but I'll find out' is more confident than 'I think maybe it's probably fine'."
 }
 ```
 
@@ -270,7 +270,7 @@ Type meanings (same for both `fixTheseFirst` and `moreMoments`):
 Recurring grammar issues that appear at least twice in this capture. Each pattern:
 - **pattern**: human-readable description (e.g., "article omission before countable nouns")
 - **frequency**: number of occurrences in this capture
-- **examples**: list of `{ transcriptIdx, text }` showing the pattern
+- **examples**: list of `{ text }` objects where each `text` is a **VERBATIM substring** of a `user`-tagged transcript line that demonstrates the pattern. The server resolves which line each example came from; examples whose text doesn't match any user line are dropped.
 
 Empty array if no recurring patterns.
 
@@ -313,12 +313,11 @@ Drills have a single prose rewrite (`nativeSpeakerVersion` on `SessionFeedbackTy
 
 **For each entry:**
 
-- **transcriptIdx**: index in the indexed transcript (must point at a `user` turn)
-- **original**: the user's exact words from that turn (quote verbatim)
+- **original**: the user's exact words from that turn — **verbatim substring of one (or consecutive) `user`-tagged transcript line(s)**. Quote them word-for-word. The server resolves the transcript position from this text; entries whose `original` doesn't match a user line are dropped.
 - **rewrite**: how a fluent native speaker would phrase the same message in the same conversational context. For `verdict: "keep"`, this may equal `original`.
 - **verdict**: one of `keep`, `tighten`, `sharpen`, `reframe`, `reorder` (see rubric below)
 - **note**: 1-2 sentences that name the **transferable principle** a fluent speaker is applying — not just what mechanically changed. **This is the main learning tool.** Without it the learner sees a "better" version of this one turn and has no idea how to apply the same thinking to a different sentence next week; they'll copy this rewrite but their next turn won't improve. Required for every non-`keep` verdict. For `keep`, may be `null` OR a brief reason the turn already works ("good concrete example — no change needed"). See the quality bar below.
-- **suggestedBeforeIdx**: only meaningful when `verdict === "reorder"` — the `transcriptIdx` this turn would logically have preceded. Set to `null` for every other verdict (the field is always required; use `null` when not applicable).
+- **suggestedBeforeIdx**: only meaningful when `verdict === "reorder"` — the index of the user turn this rewrite would logically have preceded (use the `[N]` prefix from the indexed transcript). Set to `null` for every other verdict (the field is always required; use `null` when not applicable). The server clamps out-of-range values to `null`.
 
 **Note quality bar (strict — most common failure mode):**
 

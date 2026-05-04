@@ -2,20 +2,14 @@
 
 import {
     ArrowLeft,
-    ArrowRight,
+    CheckCircle2,
     Loader2,
     Mic,
     RotateCcw,
-    Sparkles,
     Square,
     X,
 } from "lucide-react";
-import {
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import type { OnboardingDrillConfig } from "@/components/onboarding/setup-wizard/steps";
@@ -31,6 +25,8 @@ export type OnboardingDrillResult = {
     filename: string;
 };
 
+const CONFIRM_SECONDS = 3;
+
 function extensionForMime(mime: string): string {
     if (mime.includes("webm")) return "webm";
     if (mime.includes("mp4") || mime.includes("m4a")) return "m4a";
@@ -43,21 +39,25 @@ interface PropsInterface {
     onBack: () => void;
     onNext: (result: OnboardingDrillResult) => void;
     onSkip: () => void;
-    /** For the last drill, show "Finish" instead of "Next drill" */
+    /** For the last drill, show "finish" wording on the skip button */
     isLast?: boolean;
 }
 
 export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
     const { drill, drillIndex, onBack, onNext, onSkip, isLast } = props;
     const { isRecording, stream, start, stop } = useVoiceRecorder();
-    const MAX_RECORDINGS = 3;
-    const [recordingCount, setRecordingCount] = useState(0);
     const [secondsLeft, setSecondsLeft] = useState(drill.maxSeconds);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [transcribeError, setTranscribeError] = useState<string | null>(null);
-    const [drillResult, setDrillResult] =
+    const [pendingResult, setPendingResult] =
         useState<OnboardingDrillResult | null>(null);
+    const [confirmCountdown, setConfirmCountdown] = useState(CONFIRM_SECONDS);
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const onNextRef = useRef(onNext);
+    useEffect(() => {
+        onNextRef.current = onNext;
+    }, [onNext]);
 
     const clearTick = useCallback(() => {
         if (tickRef.current) {
@@ -93,15 +93,14 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
             const text = (data.text ?? "").trim();
             if (!text) throw new Error("Transcription returned empty text.");
 
-            setRecordingCount((c) => c + 1);
             const audio = new Uint8Array(await result.blob.arrayBuffer());
-            const drillRes: OnboardingDrillResult = {
+            setConfirmCountdown(CONFIRM_SECONDS);
+            setPendingResult({
                 transcript: text,
                 audio,
                 mimeType: result.mimeType,
                 filename: `onboarding-${drill.drillType}.${ext}`,
-            };
-            setDrillResult(drillRes);
+            });
         } catch (e) {
             setTranscribeError(
                 await getKyErrorMessage(e, "Transcription failed."),
@@ -136,24 +135,50 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
 
     useEffect(() => clearTick, [clearTick]);
 
+    useEffect(() => {
+        if (!pendingResult) return;
+        const advanceId = setTimeout(() => {
+            onNextRef.current(pendingResult);
+        }, CONFIRM_SECONDS * 1000);
+        const tickId = setInterval(() => {
+            setConfirmCountdown((c) => {
+                if (c <= 1) {
+                    clearInterval(tickId);
+                    return 0;
+                }
+                return c - 1;
+            });
+        }, 1000);
+        return () => {
+            clearTimeout(advanceId);
+            clearInterval(tickId);
+        };
+    }, [pendingResult]);
+
     const handleCancel = useCallback(async () => {
         clearTick();
         await stop(); // discard the audio
         setSecondsLeft(drill.maxSeconds);
     }, [clearTick, stop, drill.maxSeconds]);
 
-    const handleReRecord = useCallback(async () => {
-        setDrillResult(null);
+    const handleRedo = useCallback(async () => {
+        setPendingResult(null);
+        setConfirmCountdown(CONFIRM_SECONDS);
         setTranscribeError(null);
         setSecondsLeft(drill.maxSeconds);
         await start();
     }, [drill.maxSeconds, start]);
 
-    const hasResult = drillResult !== null;
+    const handleConfirmContinue = useCallback(() => {
+        if (!pendingResult) return;
+        onNext(pendingResult);
+    }, [pendingResult, onNext]);
 
     const minutes = Math.floor(secondsLeft / 60);
     const secs = secondsLeft % 60;
     const timerDisplay = `${minutes}:${secs.toString().padStart(2, "0")}`;
+
+    const isConfirming = pendingResult !== null;
 
     return (
         <div className="space-y-5">
@@ -166,7 +191,44 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                 </p>
             </div>
 
-            {!hasResult ? (
+            {isConfirming ? (
+                <div
+                    className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 py-8"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <div className="flex items-center gap-2 text-emerald-700">
+                        <CheckCircle2 className="size-5" />
+                        <p className="text-base font-semibold">Got it</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        {confirmCountdown > 0
+                            ? `Moving on in ${confirmCountdown}…`
+                            : "Moving on…"}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5 text-muted-foreground hover:text-foreground"
+                            onClick={() => void handleRedo()}
+                        >
+                            <RotateCcw className="size-3.5" />
+                            Redo this take
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={handleConfirmContinue}
+                        >
+                            Continue now
+                        </Button>
+                    </div>
+                </div>
+            ) : (
                 <>
                     <p className="text-xs text-muted-foreground">
                         Sharing more here means a better-tailored plan. You can
@@ -239,16 +301,26 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                                 ) : (
                                     <>
                                         <Mic />
-                                        {hasResult
-                                            ? "Re-record"
-                                            : "Start speaking"}
+                                        Start speaking
                                     </>
                                 )}
                             </Button>
                         )}
                     </div>
                     {!isRecording && !isTranscribing ? (
-                        <div className="flex justify-center">
+                        <div className="flex justify-center gap-3">
+                            {drillIndex > 0 ? (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-1 text-muted-foreground hover:text-foreground"
+                                    onClick={onBack}
+                                >
+                                    <ArrowLeft className="size-3.5" />
+                                    Back
+                                </Button>
+                            ) : null}
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -261,95 +333,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                         </div>
                     ) : null}
                 </>
-            ) : (
-                <div className="space-y-4">
-                    {/* Editable transcript */}
-                    <div className="rounded-xl border border-border bg-muted/20 p-4">
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">
-                            Your response
-                        </p>
-                        <p className="mb-2 text-xs text-muted-foreground/70">
-                            We&apos;ll use this to build your profile. Feel
-                            free to edit, add details you missed, or correct
-                            anything.
-                        </p>
-                        <textarea
-                            className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-                            rows={Math.min(
-                                10,
-                                Math.max(
-                                    3,
-                                    Math.ceil(
-                                        drillResult.transcript.length / 70,
-                                    ),
-                                ),
-                            )}
-                            value={drillResult.transcript}
-                            onChange={(e) =>
-                                setDrillResult((prev) =>
-                                    prev
-                                        ? {
-                                              ...prev,
-                                              transcript: e.target.value,
-                                          }
-                                        : prev,
-                                )
-                            }
-                        />
-                    </div>
-
-                    {recordingCount < MAX_RECORDINGS ? (
-                        <div className="flex flex-col items-center gap-1">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1.5 text-muted-foreground"
-                                onClick={() => void handleReRecord()}
-                            >
-                                <RotateCcw className="size-3.5" />
-                                Re-record ({MAX_RECORDINGS - recordingCount}{" "}
-                                left)
-                            </Button>
-                        </div>
-                    ) : null}
-                </div>
             )}
-
-            <div className="flex gap-2">
-                {drillIndex > 0 ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={onBack}
-                        disabled={isRecording || isTranscribing}
-                    >
-                        <ArrowLeft />
-                        Back
-                    </Button>
-                ) : null}
-                <Button
-                    type="button"
-                    className="flex-1"
-                    disabled={!hasResult || isRecording || isTranscribing}
-                    onClick={() => {
-                        if (drillResult) onNext(drillResult);
-                    }}
-                >
-                    {isLast ? (
-                        <>
-                            Finish setup
-                            <Sparkles />
-                        </>
-                    ) : (
-                        <>
-                            Next drill
-                            <ArrowRight />
-                        </>
-                    )}
-                </Button>
-            </div>
         </div>
     );
 }

@@ -13,11 +13,8 @@ export const EMPTY_CAPTIONS_VTT = "data:text/vtt,WEBVTT";
 export const FALLBACK_PLAN: SessionPlanType = {
     scenario: {
         title: "Quick status update",
-        situationContext: "",
-        givenContent: "",
         question:
             "What are you working on this week, and where are you stuck?",
-        framework: "",
         category: "status_update",
     },
     skillTarget: "Concise structure",

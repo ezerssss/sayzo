@@ -61,12 +61,11 @@ Recommendation: **new function**. Keep the regular planner unaware of captures.
 Recommendation: add both. The discriminator makes UI rendering decisions easy ("show this badge if scenario_replay"); `sourceCaptureId` is the link.
 
 ### 4. Scenario shape for replays
-The existing planner invents `situationContext`, `givenContent`, and `question`. For replays, those fields should be **derived from the capture**, not invented:
-- `situationContext` — derived from the capture's `serverTitle` + `serverSummary` (the model creates a stage-direction-style summary that matches the planner's tone rules)
-- `givenContent` — could use bullet points from the capture's analysis (key topics, named entities the user mentioned)
+The scenario shape was minified — only `title`, `question`, `category`, and the internal-only `skillTarget` remain. For replays, those fields should be **derived from the capture**, not invented:
+- `title` — tightened from the capture's `serverTitle`
 - `question` — the natural prompt that opened the user's most coachable turn ("Walk us through where the migration stands")
-- `framework` — chosen based on the user's main weakness in that capture (e.g., if they rambled, use a structured framework like SCQA)
-- `skillTarget` — derived from the capture's `mainIssue` or the most-impactful teachable moment
+- `category` — closest match from the recommended catalog
+- `skillTarget` — derived from the capture's `mainIssue` (internal-only signal for the analyzer + skill-memory updater; not shown in the UI today)
 
 The replay scenario must still pass the planner's voice/framing rules — no third-person directives, no meta-narration, no "we want to learn about you" copy.
 

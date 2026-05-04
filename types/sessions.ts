@@ -30,19 +30,21 @@ export function toDrillCategorySlug(raw: string): string {
 
 export type ScenarioType = {
     title: string;
-    situationContext: string;
-    givenContent: string; // Specific details of the situation that are relevant to the session.
     /** The actual question or prompt the learner must respond to, written in second person as if the interviewer/audience is asking them directly. */
-    question?: string;
-    /** Optional one-line speaking hint. Empty string when the prompt is self-explanatory; never a multi-step list. */
-    framework: string;
+    question: string;
     /** Speaking-situation slug: prefer built-ins in `RECOMMENDED_SPEAKING_DRILL_CATEGORIES`, or a new concise snake_case slug. */
     category: string;
 };
 
 export type SessionPlanType = {
     scenario: ScenarioType;
-    /** Primary user skill this drill aims to improve. */
+    /**
+     * Internal-only: the primary user skill this drill aims to train. Read by
+     * the analyzer, skill-memory updater, learner-context updater, and the
+     * planner's recent-drills summary so feedback and progression stay
+     * focused on the right demand. Not surfaced in the UI today — kept on
+     * the schema so we can expose it later without re-wiring the pipeline.
+     */
     skillTarget: string;
     /** Maximum recording duration for this drill (seconds). 60s for the new bite-sized drill shape. */
     maxDurationSeconds: number;
@@ -69,9 +71,17 @@ export type SessionAnalysisType = {
     mainIssue: string;
     secondaryIssues: string[];
     /**
-     * Top 2-3 ranked coachable moments — what the learner sees in the new
-     * "Fix these first" card on the feedback page. Reuses the captures-side
-     * `TeachableMoment` shape so the same renderer covers both surfaces.
+     * Specific, evidence-anchored positive observation, or null. Rendered
+     * as a small green card above the main issue when present. Generic
+     * praise is forbidden — null is the correct value most of the time.
+     */
+    whatWentWell: string | null;
+    /**
+     * Top 0-3 ranked coachable moments — what the learner sees in the
+     * "Fix these first" card on the feedback page (the renderer slices to
+     * 2). Empty array is valid; when the response is clean, the analyzer
+     * doesn't pad. Reuses the captures-side `TeachableMoment` shape so
+     * the same renderer covers both surfaces.
      */
     fixTheseFirst: TeachableMoment[];
     structureAndFlow: string[];
@@ -160,6 +170,15 @@ export type SessionType = {
      * compare the user's new attempt against the original.
      */
     type?: "drill" | "scenario_replay";
+
+    /**
+     * ISO timestamp of the most recent drill page view. Written by
+     * POST /api/sessions/[id]/viewed (mount + 5-min heartbeat while the
+     * tab is visible). The pre-generator's `dailyRefresh` path skips
+     * mutate-in-place when this is fresh (within 10 min) so a user reading
+     * the brief never sees the prompt change underneath them.
+     */
+    viewedAt?: string;
 
     createdAt: string;
 };

@@ -5,6 +5,7 @@ import {
     getAdminFirestore,
     getAdminStorageBucket,
 } from "@/lib/firebase/admin";
+import { firePregenInBackground } from "@/services/drill-pre-generator";
 import { measureSessionExpression } from "@/services/hume-expression";
 import type {
     CaptureStatus,
@@ -354,6 +355,16 @@ async function runAnalysisAndProfiling(
         { merge: true },
     );
 
+    // Refresh the user's pending drill so today's drill reflects this
+    // freshly-analyzed capture. dailyRefresh skips when the pending is
+    // claimed/capture-derived; the capture then queues for the next
+    // post-completion pre-gen.
+    firePregenInBackground(
+        capture.uid,
+        { dailyRefresh: true },
+        `captures/process post-analyzed ${capture.uid}`,
+    );
+
     return {
         captureId,
         previousStatus: capture.status,
@@ -400,6 +411,12 @@ async function runProfilingOnly(
             error: null,
         },
         { merge: true },
+    );
+
+    firePregenInBackground(
+        capture.uid,
+        { dailyRefresh: true },
+        `captures/process post-analyzed ${capture.uid}`,
     );
 
     return {

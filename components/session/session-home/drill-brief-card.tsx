@@ -1,7 +1,6 @@
 import { Loader2, Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { MarkdownBlock } from "@/components/session/markdown-block";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics/client";
 import { bucketLength } from "@/lib/analytics/events";
@@ -10,6 +9,10 @@ import type { SessionPlanType } from "@/types/sessions";
 
 type Props = {
     plan: SessionPlanType;
+    /** When false, suppress the auto-play-on-mount behavior regardless of the
+     *  user's saved preference. Use for views that re-render the prompt for
+     *  reference (e.g. completed drill results). */
+    autoPlay?: boolean;
 };
 
 const AUTOPLAY_STORAGE_KEY = "eloquy.drill.autoplay";
@@ -79,34 +82,11 @@ async function writeCachedAudio(text: string, blob: Blob): Promise<void> {
     }
 }
 
-// The planner sometimes emits numbered or bulleted steps inline as one
-// paragraph ("1. First... 2. Second... 3. Third..."). Markdown then treats
-// only the leading "1." as a list marker. Break each step onto its own line
-// so ReactMarkdown renders a proper list.
-function normalizeMarkdownList(md: string): string {
-    if (!md) return md;
-    return md
-        .trim()
-        .replace(/\s+(\d+[.)]\s)/g, "\n$1")
-        .replace(/(^|\n)\s*[-*]\s+/g, "$1- ");
-}
-
 export function DrillBriefCard(props: Readonly<Props>) {
-    const { plan } = props;
+    const { plan, autoPlay = true } = props;
 
-    const question = plan.scenario.question?.trim() ?? "";
-    const situationContext = plan.scenario.situationContext?.trim() ?? "";
-    // Narrate only what someone would actually say to the learner. If there's
-    // no explicit prompt line, fall back to the situation as a minimal framing.
-    const narrationText = question || situationContext;
-    const promptBody = question || situationContext;
-
-    const hasDetails = Boolean(
-        (question && situationContext) ||
-            plan.scenario.givenContent?.trim() ||
-            plan.scenario.framework?.trim() ||
-            plan.skillTarget?.trim(),
-    );
+    const promptBody = plan.scenario.question.trim();
+    const narrationText = promptBody;
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const audioUrlRef = useRef<string | null>(null);
@@ -230,6 +210,7 @@ export function DrillBriefCard(props: Readonly<Props>) {
     // cancels an in-flight fetch if the effect re-runs (e.g. Strict Mode
     // double-mount in dev), preventing overlapping audio streams.
     useEffect(() => {
+        if (!autoPlay) return;
         if (!autoplayEnabled) return;
         if (!narrationText) return;
         if (autoplayAttemptedRef.current) return;
@@ -241,7 +222,7 @@ export function DrillBriefCard(props: Readonly<Props>) {
         return () => {
             controller.abort();
         };
-    }, [autoplayEnabled, narrationText, loadAndPlay]);
+    }, [autoPlay, autoplayEnabled, narrationText, loadAndPlay]);
 
     async function handleTogglePlayback() {
         if (!narrationText) return;
@@ -290,20 +271,21 @@ export function DrillBriefCard(props: Readonly<Props>) {
                         )}
                         {playbackState === "playing" ? "Pause" : "Listen"}
                     </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleToggleAutoplay}
-                        aria-pressed={autoplayEnabled}
-                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                        Auto-play: {autoplayEnabled ? "on" : "off"}
-                    </Button>
+                    {autoPlay ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleToggleAutoplay}
+                            aria-pressed={autoplayEnabled}
+                            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                            Auto-play: {autoplayEnabled ? "on" : "off"}
+                        </Button>
+                    ) : null}
                 </div>
             ) : null}
 
-            {/* The prompt itself — styled as something being said to you. */}
             {promptBody ? (
                 <div className="mt-4 rounded-lg border-2 border-foreground/20 bg-background p-5">
                     <p className="text-xl font-semibold leading-relaxed">
@@ -318,65 +300,6 @@ export function DrillBriefCard(props: Readonly<Props>) {
                         </p>
                     ) : null}
                 </div>
-            ) : null}
-
-            {/* Everything else is optional reading — collapsed by default. */}
-            {hasDetails ? (
-                <details className="mt-3 rounded-lg border border-border/60 bg-background/50">
-                    <summary className="cursor-pointer px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground">
-                        Prompt details
-                    </summary>
-                    <div className="space-y-4 px-3 pb-3 pt-1 text-sm">
-                        {question && situationContext ? (
-                            <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                    Context
-                                </p>
-                                <p className="mt-1 text-muted-foreground">
-                                    {situationContext}
-                                </p>
-                            </div>
-                        ) : null}
-                        {plan.scenario.givenContent ? (
-                            <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                    Reference
-                                </p>
-                                <div className="mt-1">
-                                    <MarkdownBlock
-                                        markdown={normalizeMarkdownList(
-                                            plan.scenario.givenContent,
-                                        )}
-                                    />
-                                </div>
-                            </div>
-                        ) : null}
-                        {plan.scenario.framework ? (
-                            <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                    Framework
-                                </p>
-                                <div className="mt-1">
-                                    <MarkdownBlock
-                                        markdown={normalizeMarkdownList(
-                                            plan.scenario.framework,
-                                        )}
-                                    />
-                                </div>
-                            </div>
-                        ) : null}
-                        {plan.skillTarget ? (
-                            <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                    Skill target
-                                </p>
-                                <p className="mt-1 text-muted-foreground">
-                                    {plan.skillTarget}
-                                </p>
-                            </div>
-                        ) : null}
-                    </div>
-                </details>
             ) : null}
         </div>
     );

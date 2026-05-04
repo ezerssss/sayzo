@@ -15,10 +15,10 @@ import {
 import type {
     CaptureTranscriptLine,
     CaptureType,
-    TeachableMoment,
 } from "@/types/captures";
+import { reconcileMoments } from "@/lib/transcripts/anchor-resolver";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
-import { pregenerateNextDrillFor } from "@/services/drill-pre-generator";
+import { firePregenInBackground } from "@/services/drill-pre-generator";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
 import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
@@ -47,49 +47,6 @@ function formatTimestamp(totalSeconds: number): string {
             .padStart(2, "0")}`;
     }
     return `${mm}:${ss.toString().padStart(2, "0")}`;
-}
-
-/**
- * The analyzer LLM emits `transcriptIdx` (which utterance the moment is in)
- * and `timestamp` (seconds). The first is bounded and easy to get right; the
- * second is a continuous number and frequently drifts. Override the model's
- * timestamp with the actual utterance start when transcriptIdx is valid, so
- * "Play 0:13" actually seeks to the moment we quoted.
- */
-function reconcileFixTimestamps(
-    fixes: TeachableMoment[],
-    serverTranscript: CaptureTranscriptLine[],
-): TeachableMoment[] {
-    if (serverTranscript.length === 0) return fixes;
-    return fixes.map((fix) => {
-        const idx = fix.transcriptIdx;
-        if (
-            Number.isInteger(idx) &&
-            idx >= 0 &&
-            idx < serverTranscript.length
-        ) {
-            const utt = serverTranscript[idx];
-            if (Number.isFinite(utt.start) && utt.start >= 0) {
-                return { ...fix, timestamp: utt.start };
-            }
-        }
-        // transcriptIdx invalid — try anchor substring match before giving up.
-        const anchor = (fix.anchor ?? "").trim().toLowerCase();
-        if (anchor.length >= 6) {
-            const probe = anchor.slice(0, Math.min(40, anchor.length));
-            for (let i = 0; i < serverTranscript.length; i++) {
-                const text = serverTranscript[i].text.toLowerCase();
-                if (text.includes(probe) || probe.includes(text.slice(0, 30))) {
-                    return {
-                        ...fix,
-                        transcriptIdx: i,
-                        timestamp: serverTranscript[i].start,
-                    };
-                }
-            }
-        }
-        return fix;
-    });
 }
 
 function buildTimestampedTranscript(
@@ -490,9 +447,7 @@ Return only the schema fields.`,
             prompt: `## Drill
 Category: ${session.plan.scenario.category}
 Title: ${session.plan.scenario.title}
-Situation: ${session.plan.scenario.situationContext}
-Given content: ${session.plan.scenario.givenContent}
-Framework: ${session.plan.scenario.framework}
+Question: ${session.plan.scenario.question}
 Skill target: ${session.plan.skillTarget}
 Time cap: ${session.plan.maxDurationSeconds ?? 60} seconds (hard stop — mid-thought endings are expected)
 
@@ -527,6 +482,7 @@ ${transcript}`,
                 mainIssue:
                     "Response was off-task or too limited for reliable drill analysis.",
                 secondaryIssues: [skipReason].filter((v) => v.length > 0),
+                whatWentWell: null,
                 fixTheseFirst: [],
                 structureAndFlow: [],
                 clarityAndConciseness: [],
@@ -581,7 +537,7 @@ ${transcript}`,
                 }
             }
 
-            analysis = await analyzeSession({
+            const llmAnalysis = await analyzeSession({
                 userProfile: {
                     role: userProfile.role,
                     industry: userProfile.industry,
@@ -608,12 +564,10 @@ ${transcript}`,
                 },
             }, replayContext);
 
-            // Override LLM-emitted timestamps with utterance ground truth so
-            // "Play 0:13" actually seeks to the moment we quoted.
             analysis = {
-                ...analysis,
-                fixTheseFirst: reconcileFixTimestamps(
-                    analysis.fixTheseFirst,
+                ...llmAnalysis,
+                fixTheseFirst: reconcileMoments(
+                    llmAnalysis.fixTheseFirst,
                     serverTranscript,
                 ),
             };
@@ -765,16 +719,17 @@ ${transcript}`,
         }
 
         // Pre-generate the user's next drill so the home page is never blank.
-        // Idempotent — if a pending drill already exists, this no-ops. Only
-        // fires on terminal status (skip on needs_retry; user must redo the
-        // current drill first).
+        // needs_retry uses dailyRefresh so the planner's needs_retry block
+        // is bypassed and a fresh drill is created (the needs_retry doc
+        // stays tappable from past sessions for voluntary retry).
         if (completionStatus === "passed") {
-            void pregenerateNextDrillFor(uid).catch((preGenError) => {
-                console.error(
-                    "[app/api/sessions/complete] pre-generation failed",
-                    preGenError,
-                );
-            });
+            firePregenInBackground(uid, {}, "app/api/sessions/complete");
+        } else if (completionStatus === "needs_retry") {
+            firePregenInBackground(
+                uid,
+                { dailyRefresh: true },
+                "app/api/sessions/complete needs_retry",
+            );
         }
 
         return NextResponse.json({

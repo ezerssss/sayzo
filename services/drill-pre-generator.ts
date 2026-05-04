@@ -27,6 +27,14 @@ import type { UserProfileType } from "@/types/user";
 const FRESH_CAPTURE_DAYS = 7;
 const FRESH_CAPTURE_MS = FRESH_CAPTURE_DAYS * 24 * 60 * 60 * 1000;
 
+/**
+ * A pending drill is "actively viewed" if its `viewedAt` (heartbeated by the
+ * drill page) was updated within this window. The `dailyRefresh` mutate path
+ * skips claimed drills so a user reading the brief doesn't see the prompt
+ * change underneath them.
+ */
+const VIEWED_FRESHNESS_MS = 10 * 60 * 1000;
+
 export type PregenerateOptions = {
     /** When set, the planner MUST use this category. Implies forceFresh = true. */
     requestedCategory?: string;
@@ -39,6 +47,16 @@ export type PregenerateOptions = {
     forceFresh?: boolean;
     /** Skip the capture-derived priority and use the regular planner directly. */
     skipCaptureDerived?: boolean;
+    /**
+     * Set ONLY by event-driven triggers (capture transitions to `analyzed`,
+     * drill completion with `needs_retry` status). Mutates the existing
+     * pending drill in place when safe (regular type, untouched, not actively
+     * viewed) so the user always sees the freshest content as today's drill
+     * without a pile of catch-up entries. Bypasses the `needs_retry` block —
+     * the failed doc is left untouched in past sessions so the user can still
+     * tap it to redo via the existing voluntary-retry flow.
+     */
+    dailyRefresh?: boolean;
 };
 
 export type PregenerateOutcome =
@@ -118,7 +136,6 @@ async function refreshSkillMemoryFromLatestSession(
             analysis: latestAnalysis,
             feedback: latestFeedback,
             skillTarget: latestSession?.plan?.skillTarget ?? "",
-            framework: latestSession?.plan?.scenario?.framework ?? "",
         },
     });
 
@@ -331,13 +348,44 @@ export async function pregenerateNextDrillFor(
             options.forceFresh || options.requestedCategory,
         );
 
+        // dailyRefresh mutates the existing pending in place when safe.
+        // Skip on capture-derived to preserve `replayedCaptureIds` dedup —
+        // mutating would orphan the prior sourceCaptureId.
+        let mutateExistingPendingId: string | null = null;
+        if (existingPending && options.dailyRefresh) {
+            const isRecorded =
+                Boolean(existingPending.audioObjectPath) ||
+                Boolean(existingPending.transcript);
+            const viewedAtMs = existingPending.viewedAt
+                ? Date.parse(existingPending.viewedAt)
+                : 0;
+            const isActivelyViewed =
+                Number.isFinite(viewedAtMs) &&
+                Date.now() - viewedAtMs < VIEWED_FRESHNESS_MS;
+            const isAlreadyCaptureDerived =
+                existingPending.type === "scenario_replay";
+
+            if (isRecorded || isActivelyViewed || isAlreadyCaptureDerived) {
+                return {
+                    ok: true,
+                    session: existingPending,
+                    created: false,
+                };
+            }
+
+            mutateExistingPendingId = existingPending.id;
+        }
+
         // Idempotent path: pending exists, no force — return it.
-        if (existingPending && !shouldForceFresh) {
+        if (existingPending && !shouldForceFresh && !options.dailyRefresh) {
             return { ok: true, session: existingPending, created: false };
         }
 
         // Block on needs_retry — user must redo current drill first.
+        // dailyRefresh bypasses this block (the needs_retry doc is left
+        // untouched and remains tappable from past sessions for redo).
         if (
+            !options.dailyRefresh &&
             latestRegularSession?.completionStatus === "needs_retry" &&
             latestRegularSession?.processingStatus !== "processing"
         ) {
@@ -393,7 +441,9 @@ export async function pregenerateNextDrillFor(
         );
 
         // If we're forcing fresh and a pending exists, mark it skipped.
-        if (existingPending && shouldForceFresh) {
+        // Skip when we're going to mutate the same doc — the overwrite
+        // already replaces it with fresh content.
+        if (existingPending && shouldForceFresh && !mutateExistingPendingId) {
             await markPendingAsSkipped(db, existingPending);
         }
 
@@ -407,6 +457,9 @@ export async function pregenerateNextDrillFor(
                 recentSessions,
             );
             if (captureSession) {
+                if (mutateExistingPendingId) {
+                    captureSession.id = mutateExistingPendingId;
+                }
                 await db
                     .collection(FirestoreCollections.sessions.path)
                     .doc(captureSession.id)
@@ -455,6 +508,9 @@ export async function pregenerateNextDrillFor(
         });
 
         const session = buildSessionFromPlan(uid, plan);
+        if (mutateExistingPendingId) {
+            session.id = mutateExistingPendingId;
+        }
         await db
             .collection(FirestoreCollections.sessions.path)
             .doc(session.id)
@@ -471,4 +527,19 @@ export async function pregenerateNextDrillFor(
                     : "Failed to pre-generate drill.",
         };
     }
+}
+
+/**
+ * Fire-and-forget wrapper around `pregenerateNextDrillFor` for callers that
+ * shouldn't await pre-gen but still want a logged failure. `source` is the
+ * tag prefixed onto the error log.
+ */
+export function firePregenInBackground(
+    uid: string,
+    options: PregenerateOptions,
+    source: string,
+): void {
+    void pregenerateNextDrillFor(uid, options).catch((err) => {
+        console.error(`[${source}] pre-generation failed`, err);
+    });
 }
