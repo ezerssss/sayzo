@@ -298,7 +298,7 @@ export type CaptureType = {
      * passes. See `lib/captures/echo-leak.ts`.
      */
     echoLeakSuppressed?: number;
-    echoLeakDroppedSpans?: [number, number][];
+    echoLeakDroppedSpans?: { start: number; end: number }[];
     echoLeakRuleVersion?: string;
 
     /**

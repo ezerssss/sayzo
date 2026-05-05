@@ -55,7 +55,7 @@ type TranscriptionResult = {
     serverTranscript: CaptureTranscriptLine[];
     durationSecs: number;
     echoLeakSuppressed: number;
-    echoLeakDroppedSpans: [number, number][];
+    echoLeakDroppedSpans: { start: number; end: number }[];
     echoLeakRuleVersion: string;
 };
 
@@ -155,7 +155,7 @@ function mapUtterancesToLines(
 ): {
     lines: CaptureTranscriptLine[];
     echoLeakSuppressed: number;
-    echoLeakDroppedSpans: [number, number][];
+    echoLeakDroppedSpans: { start: number; end: number }[];
 } {
     const repeated = detectRepeatedHallucinations(utterances);
     const otherSpeakerMap = new Map<number, string>();
@@ -168,7 +168,7 @@ function mapUtterancesToLines(
         .filter((u) => (u.channel ?? 0) === 1)
         .map((u) => ({ start: u.start, end: u.end }));
 
-    const droppedSpans: [number, number][] = [];
+    const droppedSpans: { start: number; end: number }[] = [];
     const droppedPreviews: string[] = [];
 
     for (const u of utterances) {
@@ -187,7 +187,7 @@ function mapUtterancesToLines(
                 c1Intervals,
             )
         ) {
-            droppedSpans.push([u.start, u.end]);
+            droppedSpans.push({ start: u.start, end: u.end });
             if (droppedPreviews.length < 3) {
                 droppedPreviews.push(text.slice(0, 60));
             }
