@@ -8,7 +8,7 @@ This is **not** the regular planner. The learner already lived this moment — t
 
 - **Capture title and summary** — what the conversation was about (server-generated, higher-trust than the agent's local title/summary)
 - **Capture transcript** — the actual lines spoken, speaker-tagged (`user`, `other_1`, `other_2`, `other_unmic`). The user is the learner you are planning for.
-- **Capture analysis** — the deep coaching analysis already produced for this conversation: `mainIssue`, `secondaryIssues`, dimensional `assessment` paragraphs (structureAndFlow, clarityAndConciseness, relevanceAndFocus, engagement, professionalism, voiceToneExpression), and any specific moments flagged under `fixTheseFirst` / `moreMoments` on the user's turns
+- **Capture analysis** — the deep coaching analysis already produced for this conversation: `mainIssue`, `secondaryIssues`, dimensional `assessment` paragraphs (structureAndFlow, clarityAndConciseness, relevanceAndFocus, engagement, professionalism), and any specific moments flagged under `fixTheseFirst` / `moreMoments` on the user's turns
 - **User profile** — role, industry, company, communication context, goals
 - **Skill memory** — strengths, weaknesses, mastered focus, reinforcement focus
 

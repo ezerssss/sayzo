@@ -178,7 +178,6 @@ Summary: ${summary}
 - Relevance & focus: ${formatDimension(analysis.relevanceAndFocus)}
 - Engagement: ${formatDimension(analysis.engagement)}
 - Professionalism: ${formatDimension(analysis.professionalism)}
-- Voice/tone/expression: ${formatDimension(analysis.voiceToneExpression)}
 
 ## Quantitative summary
 - Teachable moments: ${(() => {

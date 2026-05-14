@@ -2,40 +2,28 @@ import "server-only";
 
 import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
 import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
-import type {
-    CaptureCloseReason,
-    CaptureTranscriptLine,
-} from "@/types/captures";
+import type { CaptureCloseReason } from "@/types/captures";
 
-const MAX_AUDIO_SIZE = 50 * 1024 * 1024; // 50 MB — well above the 28 MB worst case (60 min @ 64 kbps)
+const MAX_AUDIO_SIZE = 200 * 1024 * 1024; // 200 MB — ≈ 4 hr @ 64 kbps stereo Opus, ≈ 2 hr @ 128 kbps
 const MIN_AUDIO_SIZE = 256; // bytes — anything smaller can't even fit a valid OGG header
 
 /**
  * Internal representation of an agent capture record after parsing the
- * snake_case wire format JSON. All field names are camelCase to match the
- * rest of the codebase; the snake_case <-> camelCase translation lives only
- * inside `parseAndValidateRecord`.
+ * snake_case wire format JSON. The server only needs identity + timestamps +
+ * close reason to ingest a capture — transcription, title, summary, and
+ * relevant span are all generated server-side from the audio.
  *
- * `localLlmUsed` is the agent's signal that it ran its own LLM and produced
- * a real `title`/`summary`/`relevantSpan`. v2.2.0+ ships without the local
- * LLM and sends `localLlmUsed: false` with a placeholder title and empty
- * summary; the server fills those in. Older clients omit the flag — treat
- * absent as `true` so we trust their Qwen-generated values.
+ * Older agents (≤ v2.2.x) still ship `title`, `summary`, `transcript`,
+ * `relevant_span`, etc. Those fields are accepted (no schema break) but
+ * ignored — Deepgram output is always the source of truth. See the
+ * `dual_mode_old_agent` info log emitted by `parseAndValidateRecord` for
+ * adoption tracking.
  */
 export type AgentRecord = {
     id: string;
     startedAt: string;
     endedAt: string;
-    title: string;
-    summary: string;
-    transcript: CaptureTranscriptLine[];
-    audioPath: string;
-    relevantSpan: [number, number];
-    metadata: {
-        closeReason: CaptureCloseReason;
-        localLlmUsed: boolean;
-        placeholderTitle: boolean;
-    };
+    closeReason: CaptureCloseReason;
 };
 
 export class IngestError extends Error {
@@ -70,63 +58,32 @@ export function parseAndValidateRecord(raw: string): AgentRecord {
             "invalid_record",
             "Missing required field: ended_at",
         );
-    if (!r.title || typeof r.title !== "string")
-        throw new IngestError(
-            "invalid_record",
-            "Missing required field: title",
-        );
-    // `summary` is required to be a string but may be empty — v2.2.0+ agents
-    // send "" because the server now generates the summary post-upload.
-    if (typeof r.summary !== "string")
-        throw new IngestError(
-            "invalid_record",
-            "Missing required field: summary",
-        );
-    if (!Array.isArray(r.transcript) || r.transcript.length === 0)
-        throw new IngestError(
-            "invalid_record",
-            "Missing required field: transcript",
-        );
-
-    for (const line of r.transcript) {
-        if (!line || typeof line !== "object")
-            throw new IngestError("invalid_record", "Invalid transcript line");
-        const l = line as Record<string, unknown>;
-        if (
-            typeof l.speaker !== "string" ||
-            typeof l.start !== "number" ||
-            typeof l.end !== "number" ||
-            typeof l.text !== "string"
-        )
-            throw new IngestError(
-                "invalid_record",
-                "Transcript line missing required fields (speaker, start, end, text)",
-            );
-    }
-
-    const relevantSpan = Array.isArray(r.relevant_span)
-        ? (r.relevant_span as [number, number])
-        : ([0, 0] as [number, number]);
 
     const metadata = (r.metadata as Record<string, unknown>) ?? {};
     const closeReason =
         (metadata.close_reason as CaptureCloseReason) ?? "joint_silence";
 
-    // Absent flag → assume the agent did run its local LLM (old client).
-    // Only an explicit `false` triggers server-side regeneration.
-    const localLlmUsed = metadata.local_llm_used !== false;
-    const placeholderTitle = metadata.placeholder_title === true;
+    // Dual-mode rollout: log when an old agent sends fields the server no
+    // longer reads, so we can track adoption of the audio-only client. Sample
+    // a single line per upload — don't enumerate every field.
+    const hasLegacyFields =
+        Array.isArray(r.transcript) ||
+        typeof r.title === "string" ||
+        typeof r.summary === "string" ||
+        Array.isArray(r.relevant_span) ||
+        typeof metadata.local_llm_used === "boolean" ||
+        typeof metadata.placeholder_title === "boolean";
+    if (hasLegacyFields) {
+        console.info("[captures/ingest] dual_mode_old_agent", {
+            recordId: r.id,
+        });
+    }
 
     return {
         id: r.id as string,
         startedAt: r.started_at as string,
         endedAt: r.ended_at as string,
-        title: r.title as string,
-        summary: r.summary as string,
-        transcript: r.transcript as CaptureTranscriptLine[],
-        audioPath: (r.audio_path as string) ?? "audio.opus",
-        relevantSpan,
-        metadata: { closeReason, localLlmUsed, placeholderTitle },
+        closeReason,
     };
 }
 
@@ -163,15 +120,23 @@ function isValidOggOpusFile(bytes: Uint8Array): boolean {
     return headerStr.includes("OpusHead");
 }
 
+export type IngestCaptureInput = {
+    record: AgentRecord;
+    audio: File;
+    /** Synthesized placeholder title shown in the UI until `serverTitle` lands after Deepgram. */
+    placeholderTitle: string;
+};
+
 export async function ingestCapture(
     uid: string,
-    record: AgentRecord,
-    audio: File,
+    input: IngestCaptureInput,
 ): Promise<{ captureId: string; status: "queued" }> {
+    const { record, audio, placeholderTitle } = input;
+
     if (audio.size > MAX_AUDIO_SIZE) {
         throw new IngestError(
             "payload_too_large",
-            "Audio file exceeds 50MB limit",
+            "Audio file exceeds 200MB limit",
         );
     }
     if (audio.size < MIN_AUDIO_SIZE) {
@@ -212,11 +177,9 @@ export async function ingestCapture(
         agentRecordId: record.id,
         startedAt: record.startedAt,
         endedAt: record.endedAt,
-        title: record.title,
-        summary: record.summary,
-        agentTranscript: record.transcript,
-        relevantSpan: record.relevantSpan,
-        closeReason: record.metadata.closeReason,
+        title: placeholderTitle,
+        summary: "",
+        closeReason: record.closeReason,
         audioStoragePath: storagePath,
     });
 

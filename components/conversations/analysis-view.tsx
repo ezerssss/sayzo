@@ -110,7 +110,6 @@ function coachingToText(analysis: CaptureAnalysis): string {
         ["Relevance & Focus", analysis.relevanceAndFocus],
         ["Engagement", analysis.engagement],
         ["Professionalism", analysis.professionalism],
-        ["Voice, Tone & Expression", analysis.voiceToneExpression],
     ];
     for (const [label, dim] of dims) {
         parts.push(`**${label}:**\n${dimensionalToText(dim)}`);
@@ -1070,11 +1069,6 @@ export function AnalysisView(props: Readonly<Props>) {
                 key: "professionalism",
                 title: "Professionalism",
                 dim: analysis.professionalism,
-            },
-            {
-                key: "voiceToneExpression",
-                title: "Voice, Tone & Expression",
-                dim: analysis.voiceToneExpression,
             },
         ];
 

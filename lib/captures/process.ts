@@ -6,25 +6,18 @@ import {
     getAdminStorageBucket,
 } from "@/lib/firebase/admin";
 import { firePregenInBackground } from "@/services/drill-pre-generator";
-import { measureSessionExpression } from "@/services/hume-expression";
-import type {
-    CaptureStatus,
-    CaptureTranscriptLine,
-    CaptureType,
-} from "@/types/captures";
-import type { HumeExpressionSummary } from "@/types/hume-expression";
+import type { CaptureStatus, CaptureType } from "@/types/captures";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
 
 import { analyzeCaptureDeep } from "./analyze";
-import { extractUserChannel } from "./audio";
 import { generateDrillsFromCapture } from "./drills";
 import { updateUserProfileFromCapture } from "./profile";
-import { retranscribeCapture } from "./transcribe";
+import { generateQuickSummary } from "./quick-summary";
+import { transcribeCapture } from "./transcribe";
 import { validateCaptureRelevance } from "./validate";
 
 const MAX_RETRIES = 3;
-const HUME_JOB_TIMEOUT_SECS = 900; // 15 min — captures can be up to 60 min long
 
 /** Statuses where the next processing stage should run. */
 const PROCESSABLE_STATUSES: CaptureStatus[] = [
@@ -124,7 +117,7 @@ export async function processNextCapture(): Promise<ProcessResult | null> {
 }
 
 // ---------------------------------------------------------------------------
-// Stage 1: Re-Transcription
+// Stage 1: Transcription
 // ---------------------------------------------------------------------------
 
 async function runTranscription(
@@ -149,7 +142,30 @@ async function runTranscription(
         echoLeakSuppressed,
         echoLeakDroppedSpans,
         echoLeakRuleVersion,
-    } = await retranscribeCapture(audioBuffer, capture.agentTranscript);
+    } = await transcribeCapture(audioBuffer);
+
+    // Generate a quick title/summary from the fresh Deepgram transcript so the
+    // UI can replace the synthesized placeholder set at upload time. Best-effort:
+    // if it fails, keep the placeholder and let the deep analysis stage produce
+    // the final serverTitle/serverSummary.
+    let quickTitle: string | null = null;
+    let quickSummary: string | null = null;
+    if (serverTranscript.length > 0) {
+        try {
+            const quick = await generateQuickSummary({
+                transcript: serverTranscript,
+                closeReason: capture.closeReason,
+                durationSecs,
+            });
+            quickTitle = quick.title;
+            quickSummary = quick.summary;
+        } catch (err) {
+            console.warn(
+                `[captures/process] Quick summary failed for ${captureId}, keeping placeholder until deep analysis runs`,
+                err,
+            );
+        }
+    }
 
     await captureRef.set(
         {
@@ -159,6 +175,8 @@ async function runTranscription(
             echoLeakSuppressed,
             echoLeakDroppedSpans,
             echoLeakRuleVersion,
+            ...(quickTitle ? { serverTitle: quickTitle } : {}),
+            ...(quickSummary != null ? { serverSummary: quickSummary } : {}),
             error: null,
         },
         { merge: true },
@@ -186,8 +204,7 @@ async function runValidation(
 
     await captureRef.set({ status: "validating" }, { merge: true });
 
-    // Use server transcript if available, fall back to agent transcript
-    const transcript = capture.serverTranscript ?? capture.agentTranscript;
+    const transcript = capture.serverTranscript ?? [];
 
     const { accepted, rejectionReason } = await validateCaptureRelevance(
         transcript,
@@ -241,41 +258,11 @@ async function runAnalysisAndProfiling(
         .collection(FirestoreCollections.captures.path)
         .doc(captureId);
 
-    // Stage 3: Deep Analysis (Hume + LLM)
+    // Stage 3: Deep Analysis (LLM)
     await captureRef.set({ status: "analyzing" }, { merge: true });
 
-    const transcript = capture.serverTranscript ?? capture.agentTranscript;
+    const transcript = capture.serverTranscript ?? [];
     const durationSecs = capture.durationSecs ?? 0;
-
-    // Run Hume — required for the voiceToneExpression dimension. If it fails,
-    // continue without it; the analyzer prompt has a fallback for missing Hume.
-    let humeExpression: HumeExpressionSummary | null = capture.humeExpression
-        ? capture.humeExpression
-        : null;
-    if (!humeExpression) {
-        try {
-            // Download stereo capture audio and extract the user's channel
-            // (left = mic) before sending to Hume. This guarantees prosody
-            // and burst signals are user-only — no contamination from the
-            // other side of the call.
-            const bucket = getAdminStorageBucket();
-            const file = bucket.file(capture.audioStoragePath);
-            const [stereoBuffer] = await file.download();
-            const userOnlyAudio = await extractUserChannel(stereoBuffer);
-
-            humeExpression = await measureCaptureUserExpression(
-                userOnlyAudio,
-                transcript,
-            );
-            await captureRef.set({ humeExpression }, { merge: true });
-        } catch (humeError) {
-            console.warn(
-                `[captures/process] Hume measurement failed for ${captureId}, continuing without delivery signals:`,
-                humeError,
-            );
-            humeExpression = null;
-        }
-    }
 
     // Load user profile + skill memory for analysis calibration
     const [userSnap, skillSnap] = await Promise.all([
@@ -293,7 +280,6 @@ async function runAnalysisAndProfiling(
         agentTitle: capture.title,
         agentSummary: capture.summary,
         durationSecs,
-        humeExpression,
         userProfile: {
             role: userProfile.role ?? "",
             industry: userProfile.industry ?? "",
@@ -392,7 +378,7 @@ async function runProfilingOnly(
 
     await captureRef.set({ status: "profiling" }, { merge: true });
 
-    const transcript = capture.serverTranscript ?? capture.agentTranscript;
+    const transcript = capture.serverTranscript ?? [];
 
     await updateUserProfileFromCapture(
         capture.uid,
@@ -429,43 +415,6 @@ async function runProfilingOnly(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Run Hume expression measurement on user-only capture audio.
- *
- * The audio passed in must already be the user's channel (left = mic)
- * extracted via `extractUserChannel`. With user-only audio:
- * - Prosody signals are pure user delivery (no other speakers)
- * - Burst signals are user-only (no laughs/sighs from other speakers)
- * - Language model only sees user text (filtered here)
- *
- * Result: Hume payload is fully user-only across all three models, with
- * zero contamination from the other side of the call.
- */
-async function measureCaptureUserExpression(
-    userAudioBuffer: Buffer,
-    transcript: CaptureTranscriptLine[],
-): Promise<HumeExpressionSummary> {
-    const userText = transcript
-        .filter((l) => l.speaker === "user")
-        .map((l) => l.text)
-        .join(" ")
-        .trim();
-
-    if (!userText) {
-        throw new Error("Hume requires non-empty user speech");
-    }
-
-    return measureSessionExpression(
-        {
-            audio: new Uint8Array(userAudioBuffer),
-            transcript: userText,
-            filename: "capture-user.wav",
-            contentType: "audio/wav",
-        },
-        { jobTimeoutSeconds: HUME_JOB_TIMEOUT_SECS },
-    );
-}
 
 function getFailedStatus(currentStatus: CaptureStatus): CaptureStatus {
     switch (currentStatus) {

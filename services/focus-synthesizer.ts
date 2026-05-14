@@ -226,10 +226,6 @@ function condenseSession(session: SessionType): string | null {
         dimensionalLines.push(
             `- professionalism: ${analysis.professionalism.join("; ")}`,
         );
-    if (analysis.voiceToneExpression.length > 0)
-        dimensionalLines.push(
-            `- delivery: ${analysis.voiceToneExpression.join("; ")}`,
-        );
     if (dimensionalLines.length > 0) {
         parts.push(`Dimensional findings:\n${dimensionalLines.join("\n")}`);
     }
@@ -292,10 +288,6 @@ function condenseCapture(capture: CaptureType): string | null {
     if (analysis.professionalism.assessment?.trim())
         dimensionalLines.push(
             `- professionalism: ${analysis.professionalism.assessment.trim()}`,
-        );
-    if (analysis.voiceToneExpression.assessment?.trim())
-        dimensionalLines.push(
-            `- delivery: ${analysis.voiceToneExpression.assessment.trim()}`,
         );
     if (dimensionalLines.length > 0) {
         parts.push(`Dimensional assessments:\n${dimensionalLines.join("\n")}`);

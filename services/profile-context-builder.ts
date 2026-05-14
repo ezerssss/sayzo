@@ -89,8 +89,6 @@ export type OnboardingDrillTranscript = {
 
 export type DrillBasedProfileInput = {
     drills: OnboardingDrillTranscript[];
-    /** Optional: voice expression analysis from Hume */
-    humeContext?: string | null;
 };
 
 function readPrompt(): string {
@@ -160,13 +158,9 @@ function buildDrillBasedUserMessage(input: DrillBasedProfileInput): string {
         })
         .join("\n\n");
 
-    const humeSection = input.humeContext?.trim()
-        ? `\n\n## Voice expression analysis\n${input.humeContext}`
-        : "";
-
     return `The following are transcripts from 3 onboarding speaking drills. Extract the user's professional profile from what they said.
 
-${drillSections}${humeSection}`;
+${drillSections}`;
 }
 
 function requireMinimumInput(input: ProfileContextBuilderInput): void {

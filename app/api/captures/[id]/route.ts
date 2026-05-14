@@ -8,11 +8,11 @@ import type { CaptureType } from "@/types/captures";
 export const runtime = "nodejs";
 
 /**
- * Returns the latest title / summary / relevant_span for a capture so the
- * desktop agent can pick up the better `serverTitle`/`serverSummary` that
- * the deep analysis stage produces minutes after upload. Same shape as the
- * upload response, minus `capture_id` (the agent already knows the id —
- * it's in the URL).
+ * Returns the latest title / summary for a capture so the desktop agent can
+ * pick up the `serverTitle`/`serverSummary` that the post-transcription
+ * quick-summary stage (and later the deep analysis stage) produces minutes
+ * after upload. Same shape as the upload response, minus `capture_id` (the
+ * agent already knows the id — it's in the URL).
  */
 export async function GET(
     request: NextRequest,
@@ -51,7 +51,6 @@ export async function GET(
             status: capture.status,
             title: capture.serverTitle ?? capture.title,
             summary: capture.serverSummary ?? capture.summary ?? "",
-            relevant_span: capture.relevantSpan,
         });
     } catch (error) {
         console.error(`[api/captures/${captureId}] GET failed`, error);

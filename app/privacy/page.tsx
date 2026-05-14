@@ -299,16 +299,6 @@ export default function PrivacyPage() {
                                 </tr>
                                 <tr>
                                     <td className="px-4 py-3 align-top font-medium">
-                                        Hume AI
-                                    </td>
-                                    <td className="px-4 py-3 align-top text-muted-foreground">
-                                        Voice-tone and expression analysis
-                                        used to give you feedback on
-                                        delivery.
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="px-4 py-3 align-top font-medium">
                                         Text-to-speech provider
                                     </td>
                                     <td className="px-4 py-3 align-top text-muted-foreground">

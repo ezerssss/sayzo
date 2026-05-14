@@ -25,7 +25,7 @@ NEW bullet-point notes about **HOW** the user speaks — their delivery patterns
 - Filler/disfluency patterns (e.g. "Heavy 'like' filler in casual contexts but disappears in formal ones")
 - Turn-taking habits (e.g. "Waits noticeably long before contributing", "Interrupts when excited about a topic")
 
-Only include NEW patterns not already in `Existing internal capture delivery notes`. Base observations on the analysis (especially `voiceToneExpression`, `fluency`, `communicationStyle`). If nothing new, return an empty string.
+Only include NEW patterns not already in `Existing internal capture delivery notes`. Base observations on the analysis (especially `fluency`, `communicationStyle`, `fillerWords`) and on what the transcript reveals about pace and disfluency patterns. If nothing new, return an empty string.
 
 Keep notes concise. Use bullet points. Max ~300 characters.
 

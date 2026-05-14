@@ -60,7 +60,7 @@ type TranscriptionResult = {
 };
 
 /**
- * Re-transcribe a capture with Deepgram Nova-3 multichannel + diarization.
+ * Transcribe a capture with Deepgram Nova-3 multichannel + diarization.
  *
  * Captures are stereo: left (c0) = user mic, right (c1) = system audio.
  * Deepgram decodes each channel independently, so user-vs-other identity
@@ -70,9 +70,8 @@ type TranscriptionResult = {
  * Within the right channel, Deepgram's diarization assigns integer speaker
  * IDs which we map to `other_1`, `other_2`, ... in first-seen order.
  */
-export async function retranscribeCapture(
+export async function transcribeCapture(
     audioBuffer: Buffer,
-    agentTranscript: CaptureTranscriptLine[],
 ): Promise<TranscriptionResult> {
     const energy: ChannelEnergy = await computeChannelEnergy(audioBuffer);
     const leftAlive = energy.maxLeftRms >= DEAD_CHANNEL_FLOOR_RMS;
@@ -81,13 +80,7 @@ export async function retranscribeCapture(
     const dg = await transcribeStereoWithDeepgram(audioBuffer);
 
     const { lines, echoLeakSuppressed, echoLeakDroppedSpans } =
-        mapUtterancesToLines(
-            dg.utterances,
-            energy,
-            leftAlive,
-            rightAlive,
-            agentTranscript,
-        );
+        mapUtterancesToLines(dg.utterances, energy, leftAlive, rightAlive);
 
     return {
         serverTranscript: lines,
@@ -146,19 +139,28 @@ async function transcribeStereoWithDeepgram(
     };
 }
 
+type OtherSpeakerState = {
+    /** Map of Deepgram speaker id → stable `other_N` label, in first-seen order. */
+    map: Map<number, string>;
+    /** Last `other_N` label assigned to any utterance. Used as the fallback when Deepgram drops `speaker`. */
+    lastLabel: string | null;
+};
+
 function mapUtterancesToLines(
     utterances: DeepgramUtterance[],
     energy: ChannelEnergy,
     leftAlive: boolean,
     rightAlive: boolean,
-    agentTranscript: CaptureTranscriptLine[],
 ): {
     lines: CaptureTranscriptLine[];
     echoLeakSuppressed: number;
     echoLeakDroppedSpans: { start: number; end: number }[];
 } {
     const repeated = detectRepeatedHallucinations(utterances);
-    const otherSpeakerMap = new Map<number, string>();
+    const otherSpeakerState: OtherSpeakerState = {
+        map: new Map<number, string>(),
+        lastLabel: null,
+    };
     const kept: CaptureTranscriptLine[] = [];
 
     // Precomputed so overlap check is O(c1) per c0. Loud right-channel music
@@ -198,8 +200,7 @@ function mapUtterancesToLines(
             u,
             leftAlive,
             rightAlive,
-            otherSpeakerMap,
-            agentTranscript,
+            otherSpeakerState,
         );
 
         kept.push({
@@ -228,42 +229,40 @@ function tagSpeaker(
     utterance: DeepgramUtterance,
     leftAlive: boolean,
     rightAlive: boolean,
-    otherSpeakerMap: Map<number, string>,
-    agentTranscript: CaptureTranscriptLine[],
+    state: OtherSpeakerState,
 ): string {
     if (!leftAlive && rightAlive) {
-        return resolveOtherSpeaker(
-            utterance,
-            otherSpeakerMap,
-            agentTranscript,
-        );
+        return resolveOtherSpeaker(utterance, state);
     }
     if (leftAlive && !rightAlive) return "user";
     if (!leftAlive && !rightAlive) return "user";
 
     if ((utterance.channel ?? 0) === 0) return "user";
-    return resolveOtherSpeaker(utterance, otherSpeakerMap, agentTranscript);
+    return resolveOtherSpeaker(utterance, state);
 }
 
 function resolveOtherSpeaker(
     utterance: DeepgramUtterance,
-    otherSpeakerMap: Map<number, string>,
-    agentTranscript: CaptureTranscriptLine[],
+    state: OtherSpeakerState,
 ): string {
     const dgSpeakerId = utterance.speaker;
     if (typeof dgSpeakerId === "number") {
-        const existing = otherSpeakerMap.get(dgSpeakerId);
-        if (existing) return existing;
-        const nextIdx = otherSpeakerMap.size + 1;
+        const existing = state.map.get(dgSpeakerId);
+        if (existing) {
+            state.lastLabel = existing;
+            return existing;
+        }
+        const nextIdx = state.map.size + 1;
         const label = `other_${nextIdx}`;
-        otherSpeakerMap.set(dgSpeakerId, label);
+        state.map.set(dgSpeakerId, label);
+        state.lastLabel = label;
         return label;
     }
-    return disambiguateOtherByOverlap(
-        utterance.start,
-        utterance.end,
-        agentTranscript,
-    );
+    // Deepgram dropped the speaker field for this right-channel utterance
+    // (rare — usually single-word fragments). Reuse the most-recent label
+    // so the surrounding speaker context stays coherent; fall back to
+    // `other_1` only if we haven't assigned any label yet.
+    return state.lastLabel ?? "other_1";
 }
 
 function shouldDrop(text: string, repeated: Set<string>): boolean {
@@ -315,25 +314,4 @@ const SHORT_HALLUCINATION_PHRASES: ReadonlySet<string> = new Set([
 
 function isShortKnownHallucination(text: string): boolean {
     return SHORT_HALLUCINATION_PHRASES.has(normalizeForMatch(text));
-}
-
-function disambiguateOtherByOverlap(
-    start: number,
-    end: number,
-    agentTranscript: CaptureTranscriptLine[],
-): string {
-    let bestOverlap = 0;
-    let bestSpeaker = "other_1";
-    for (const line of agentTranscript) {
-        if (!line.speaker.startsWith("other_")) continue;
-        const overlap = Math.max(
-            0,
-            Math.min(end, line.end) - Math.max(start, line.start),
-        );
-        if (overlap > bestOverlap) {
-            bestOverlap = overlap;
-            bestSpeaker = line.speaker;
-        }
-    }
-    return bestSpeaker;
 }

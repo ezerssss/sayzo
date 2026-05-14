@@ -20,7 +20,6 @@ import { reconcileMoments } from "@/lib/transcripts/anchor-resolver";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
 import { firePregenInBackground } from "@/services/drill-pre-generator";
 import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
-import { measureSessionExpression } from "@/services/hume-expression";
 import { Output, generateText, zodSchema } from "ai";
 import { randomUUID } from "node:crypto";
 import type { SkillMemoryType } from "@/types/skill-memory";
@@ -148,7 +147,7 @@ export async function POST(request: NextRequest) {
 
         // Idempotency / double-processing guards — the credit charged at drill
         // creation is wasted if a client re-POSTs and we re-run transcription
-        // + Hume + LLM on an already-analyzed (or in-flight) session.
+        // + LLM on an already-analyzed (or in-flight) session.
         if (session.processingStatus === "processing") {
             return NextResponse.json(
                 {
@@ -393,24 +392,6 @@ export async function POST(request: NextRequest) {
                 transcript,
                 serverTranscript,
                 processingStatus: "processing",
-                processingStage: "analyzing_expression",
-                processingJobId,
-                processingUpdatedAt: new Date().toISOString(),
-            },
-            { merge: true },
-        );
-
-        // 3) Hume expression is required for final analysis.
-        const humeTrimmed = await measureSessionExpression({
-            audio: audioBytes,
-            transcript,
-            filename: audio.name || "response.webm",
-            contentType: audio.type || "application/octet-stream",
-        });
-
-        await sessionRef.set(
-            {
-                processingStatus: "processing",
                 processingStage: "analyzing",
                 processingJobId,
                 processingUpdatedAt: new Date().toISOString(),
@@ -489,7 +470,6 @@ ${transcript}`,
                 relevanceAndFocus: [skipReason].filter((v) => v.length > 0),
                 engagement: [],
                 professionalism: [],
-                voiceToneExpression: [],
                 improvements: [],
                 regressions: [],
                 notes: "Skipped deep analysis to avoid hallucinated feedback.",
@@ -522,8 +502,7 @@ ${transcript}`,
                                 summary:
                                     capture.serverSummary ?? capture.summary,
                                 transcript:
-                                    capture.serverTranscript ??
-                                    capture.agentTranscript,
+                                    capture.serverTranscript ?? [],
                                 analysis: capture.analysis,
                             },
                         };
@@ -560,7 +539,6 @@ ${transcript}`,
                 session: {
                     plan: session.plan,
                     transcript,
-                    humeContext: JSON.stringify(humeTrimmed),
                 },
             }, replayContext);
 
@@ -597,7 +575,6 @@ ${transcript}`,
                     session: {
                         plan: session.plan,
                         transcript,
-                        humeContext: JSON.stringify(humeTrimmed),
                     },
                 },
                 { sessionAnalysis: analysis },

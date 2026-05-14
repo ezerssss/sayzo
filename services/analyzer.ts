@@ -80,7 +80,6 @@ const sessionAnalysisSchema = z.object({
     relevanceAndFocus: z.array(z.string()),
     engagement: z.array(z.string()),
     professionalism: z.array(z.string()),
-    voiceToneExpression: z.array(z.string()),
     improvements: z.array(z.string()),
     regressions: z.array(z.string()),
     notes: z.string(),
@@ -120,8 +119,6 @@ export type AnalyzerInput = {
     session: {
         plan: SessionPlanType;
         transcript: string;
-        /** Hume AI prosody / expressive speech — JSON or a short summary from your pipeline */
-        humeContext?: string | null;
     };
 };
 
@@ -178,7 +175,6 @@ ${userLines || "(no user turns in original)"}
 - Relevance & focus: ${analysis.relevanceAndFocus.assessment}
 - Engagement: ${analysis.engagement.assessment}
 - Professionalism: ${analysis.professionalism.assessment}
-- Voice / tone / expression: ${analysis.voiceToneExpression.assessment}
 
 ### Original quantitative metrics
 - Filler rate: ${analysis.fillerWords.perMinute.toFixed(1)}/min
@@ -189,7 +185,6 @@ ${userLines || "(no user turns in original)"}
 
 function buildContextUserMessage(input: AnalyzerInput, replay?: ReplayContext): string {
     const { userProfile, skillMemory, session } = input;
-    const hume = session.humeContext?.trim();
 
     return `
 ## User profile
@@ -217,9 +212,6 @@ function buildContextUserMessage(input: AnalyzerInput, replay?: ReplayContext): 
 
 ## Session transcript
 ${session.transcript.trim()}
-
-## Hume AI (prosody / expressive speech)
-${hume ?? "(no payload for this run)"}
 ${replay ? formatReplayContextBlock(replay) : ""}
 `.trim();
 }

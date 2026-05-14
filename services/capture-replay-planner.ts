@@ -122,7 +122,7 @@ function formatTeachableMoments(analysis: CaptureAnalysis): string {
 
 function buildReplayUserMessage(input: CaptureReplayPlannerInput): string {
     const { capture, userProfile, skillMemory } = input;
-    const transcript = capture.serverTranscript ?? capture.agentTranscript;
+    const transcript = capture.serverTranscript ?? [];
     const title = capture.serverTitle ?? capture.title;
     const summary = capture.serverSummary ?? capture.summary;
     const analysis = capture.analysis;
@@ -138,7 +138,6 @@ ${formatDimensionalAssessment("Clarity & conciseness", analysis.clarityAndConcis
 ${formatDimensionalAssessment("Relevance & focus", analysis.relevanceAndFocus)}
 ${formatDimensionalAssessment("Engagement", analysis.engagement)}
 ${formatDimensionalAssessment("Professionalism", analysis.professionalism)}
-${formatDimensionalAssessment("Voice / tone / expression", analysis.voiceToneExpression)}
 
 ### Top teachable moments (transcript-anchored)
 ${formatTeachableMoments(analysis)}`

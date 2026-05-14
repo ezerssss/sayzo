@@ -251,8 +251,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                     return "Transcribing your response…";
                 case "uploading":
                     return "Uploading your audio…";
-                case "analyzing_expression":
-                    return "Analyzing your tone and pace…";
                 case "analyzing":
                     return "Analyzing your transcript…";
                 case "combining":

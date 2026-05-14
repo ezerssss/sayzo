@@ -1,5 +1,3 @@
-import type { HumeExpressionSummary } from "@/types/hume-expression";
-
 export type CaptureTranscriptLine = {
     speaker: string; // "user", "other_1", "other_2", "other_unmic", etc.
     start: number; // seconds into conversation
@@ -112,10 +110,10 @@ export type CommunicationStyle = {
 
 /**
  * Each dimensional finding (structure, clarity, relevance, engagement,
- * professionalism, voice/tone) gets a paragraph-level macro `assessment`
- * plus an array of specific `findings`. Each finding follows the four-part
- * `CoachingMoment` shape so the learner gets full coaching depth on every
- * specific moment, not just labels.
+ * professionalism) gets a paragraph-level macro `assessment` plus an array of
+ * specific `findings`. Each finding follows the four-part `CoachingMoment`
+ * shape so the learner gets full coaching depth on every specific moment,
+ * not just labels.
  *
  * This mirrors the drill `session-feedback` prompt — the drill side splits
  * "analyzer" (structured) from "feedback" (rich narrative) into two prompts;
@@ -155,7 +153,7 @@ export type RewriteVerdict =
  * entries together — no separate prose field exists.
  */
 export type TurnRewrite = {
-    /** Index in `serverTranscript` (or `agentTranscript` fallback) — must point at a user-tagged line. */
+    /** Index in `serverTranscript` — must point at a user-tagged line. */
     transcriptIdx: number;
     /** The user's exact words from that turn, denormalized so the UI doesn't re-resolve against the transcript. */
     original: string;
@@ -195,9 +193,6 @@ export type StructuralObservation = {
  *   enough to show meaningful patterns.
  * - **Teachable moments** — concrete, citation-anchored coaching points
  *   the learner can act on.
- *
- * `voiceToneExpression` is grounded in Hume prosody/burst/language signals
- * (see `humeExpression` on `CaptureType`).
  */
 export type CaptureAnalysis = {
     // High-level synthesis (dimensional, mirrors SessionAnalysisType)
@@ -213,8 +208,6 @@ export type CaptureAnalysis = {
     relevanceAndFocus: DimensionalAnalysis;
     engagement: DimensionalAnalysis;
     professionalism: DimensionalAnalysis;
-    /** Hume-grounded delivery findings: pace, rhythm, intonation, vocal bursts, emotional tone. */
-    voiceToneExpression: DimensionalAnalysis;
 
     // Progress tracking (vs prior strengths/weaknesses on the user)
     improvements: string[];
@@ -278,10 +271,18 @@ export type CaptureType = {
     agentRecordId: string;
     startedAt: string;
     endedAt: string;
+    /**
+     * Title shown in the UI until `serverTitle` arrives after Deepgram +
+     * quick-summary. Synthesized at upload time as `Capture · YYYY-MM-DD HH:MM`
+     * from `startedAt`. Old agents may have populated this with a local-LLM-
+     * generated title — both paths land in the same field.
+     */
     title: string;
+    /**
+     * Summary shown in the UI until `serverSummary` arrives. Empty string at
+     * upload; filled in by the post-transcription quick-summary stage.
+     */
     summary: string;
-    agentTranscript: CaptureTranscriptLine[];
-    relevantSpan: [number, number];
     closeReason: CaptureCloseReason;
     audioStoragePath: string;
 
@@ -300,13 +301,6 @@ export type CaptureType = {
     echoLeakSuppressed?: number;
     echoLeakDroppedSpans?: { start: number; end: number }[];
     echoLeakRuleVersion?: string;
-
-    /**
-     * Trimmed Hume expression measurement (prosody + bursts + language).
-     * Stored on the capture so the analyzer can be re-run later without
-     * paying for another Hume batch job.
-     */
-    humeExpression?: HumeExpressionSummary;
 
     analysis?: CaptureAnalysis;
 };

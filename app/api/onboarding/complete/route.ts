@@ -9,7 +9,6 @@ import {
     type OnboardingDrillTranscript,
     type UserProfileFieldsFromAI,
 } from "@/services/profile-context-builder";
-import { measureSessionExpression } from "@/services/hume-expression";
 import { type SkillMemoryType } from "@/types/skill-memory";
 import { type UserProfileType } from "@/types/user";
 import { NextResponse, type NextRequest } from "next/server";
@@ -68,8 +67,6 @@ export async function POST(request: NextRequest) {
         .join("\n\n");
     const hasAnyTranscript = combinedTranscript.length > 0;
 
-    const introAudio = formData.get("audio_self_introduction");
-
     try {
         const db = getAdminFirestore();
         const nowIso = new Date().toISOString();
@@ -87,30 +84,6 @@ export async function POST(request: NextRequest) {
                 },
                 { merge: true },
             );
-
-        let humeTrimmed = null;
-        if (introAudio instanceof File && introAudio.size > 0) {
-            const introTranscript =
-                drills.find((d) => d.drillType === "self_introduction")
-                    ?.transcript ?? "";
-            try {
-                const audioBytes = new Uint8Array(
-                    await introAudio.arrayBuffer(),
-                );
-                humeTrimmed = await measureSessionExpression({
-                    audio: audioBytes,
-                    transcript: introTranscript,
-                    filename: introAudio.name || "intro.webm",
-                    contentType:
-                        introAudio.type || "application/octet-stream",
-                });
-            } catch (error) {
-                console.warn(
-                    "Hume expression measurement failed, continuing.",
-                    error,
-                );
-            }
-        }
 
         const profileFields = hasAnyTranscript
             ? await buildUserProfileFieldsFromDrills({ drills })
@@ -206,7 +179,6 @@ export async function POST(request: NextRequest) {
                         maxDurationSeconds: 240,
                     },
                     transcript: combinedTranscript,
-                    humeContext: JSON.stringify(humeTrimmed),
                 },
             });
 

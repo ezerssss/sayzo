@@ -71,11 +71,11 @@ export type UserProfileType = {
      */
     internalCaptureContext?: string;
     /**
-     * Server-only bullet notes about HOW the user speaks in real conversations (prosody, pace,
-     * tone, vocal patterns, delivery habits). Sourced from Hume signals + transcript analysis
-     * during capture processing. Drills can't reliably surface these because they're short and
-     * rehearsed; real captures show the user's actual delivery baseline.
-     * Empty string when no captures have been processed yet.
+     * Server-only bullet notes about HOW the user speaks in real conversations (pace,
+     * filler-word density, disfluencies, sentence rhythm, delivery habits) derived from
+     * transcript analysis during capture processing. Drills can't reliably surface these
+     * because they're short and rehearsed; real captures show the user's actual delivery
+     * baseline. Empty string when no captures have been processed yet.
      */
     internalCaptureDeliveryNotes?: string;
     /** Idempotency: last capture id merged into the capture context fields; empty string if never updated. */

@@ -59,7 +59,7 @@ Lists the user's processed conversations, newest first.
 - The audio served is the **original stereo capture** from `audioStoragePath` — the user hears both their own voice and the other speakers (which is what they'd want for replay)
 
 #### Transcript view
-- Speaker-tagged, timestamped lines from `serverTranscript` (fall back to `agentTranscript`)
+- Speaker-tagged, timestamped lines from `serverTranscript` (server-side Deepgram output)
 - The **user's lines** visually distinct from others (highlight color, indent, or speaker label) — the user is the focus
 - Other speakers labeled as `other_1`, `other_2`, `other_unmic` in the data — UI should show generic labels like "Other speaker" or "Other 1" / "Other 2"
 - Each line clickable to seek the audio player to that timestamp
@@ -78,7 +78,6 @@ The capture analysis is rich — show it in collapsible cards:
   - Relevance & focus — `analysis.relevanceAndFocus.assessment` + `.findings[]`
   - Engagement — `analysis.engagement.assessment` + `.findings[]`
   - Professionalism — `analysis.professionalism.assessment` + `.findings[]`
-  - Voice / tone / expression — `analysis.voiceToneExpression.assessment` + `.findings[]` (Hume-grounded)
 - **Teachable moments** — `analysis.teachableMoments` listed with clickable anchors back into the transcript. Each moment has the four-part `CoachingMoment` shape (`anchor`, `whyIssue`, `betterOption`, `keyTakeaway`) plus `type`, `severity`, `timestamp`, `transcriptIdx`. Display all four coaching parts — surfacing only "what's wrong" without "why the better one is better" loses the lesson.
 - **Quantitative metrics** — small data cards:
   - Filler rate — `analysis.fillerWords.perMinute` per minute, with a breakdown bar chart

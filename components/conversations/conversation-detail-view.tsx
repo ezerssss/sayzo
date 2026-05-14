@@ -94,7 +94,9 @@ function formatDuration(seconds: number | undefined): string {
     return remM > 0 ? `${h}h ${remM}m` : `${h}h`;
 }
 
-function countSpeakers(transcript: CaptureType["agentTranscript"]): number {
+function countSpeakers(
+    transcript: NonNullable<CaptureType["serverTranscript"]>,
+): number {
     const speakers = new Set(transcript.map((l) => l.speaker));
     return speakers.size;
 }
@@ -187,7 +189,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
 
     const transcript = useMemo(() => {
         if (!capture) return [];
-        return capture.serverTranscript ?? capture.agentTranscript;
+        return capture.serverTranscript ?? [];
     }, [capture]);
 
     if (loading && !capture) {

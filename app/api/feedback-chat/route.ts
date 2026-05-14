@@ -101,7 +101,7 @@ async function loadSourceContext(
     if (capture.uid !== uid) {
         return { ok: false, status: 403, error: "Unauthorized" };
     }
-    const lines = capture.serverTranscript ?? capture.agentTranscript ?? [];
+    const lines = capture.serverTranscript ?? [];
     return { ok: true, transcript: formatCaptureTranscript(lines) };
 }
 

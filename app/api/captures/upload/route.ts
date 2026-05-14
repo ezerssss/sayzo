@@ -6,10 +6,6 @@ import {
     parseAndValidateRecord,
 } from "@/lib/captures/ingest";
 import {
-    generateQuickSummary,
-    inferDurationSecs,
-} from "@/lib/captures/quick-summary";
-import {
     assertHasCredit,
     consumeCreditOrThrow,
     CreditLimitReachedError,
@@ -20,9 +16,26 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
-// 50 MB audio + small JSON record + multipart boundaries — anything above this
+// 200 MB audio + small JSON record + multipart boundaries — anything above this
 // is rejected before we buffer the body into memory.
-const MAX_REQUEST_BYTES = 55 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 210 * 1024 * 1024;
+
+/**
+ * Synthesize a placeholder title from the agent's `started_at` for display
+ * until the post-transcription `serverTitle` lands. Format: "Capture ·
+ * YYYY-MM-DD HH:MM" in UTC so the placeholder is deterministic. The UI
+ * replaces this with `serverTitle` once Deepgram + quick-summary finish.
+ */
+function synthesizePlaceholderTitle(startedAt: string): string {
+    const date = new Date(startedAt);
+    if (Number.isNaN(date.getTime())) return "Capture";
+    const yyyy = date.getUTCFullYear();
+    const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(date.getUTCDate()).padStart(2, "0");
+    const hh = String(date.getUTCHours()).padStart(2, "0");
+    const min = String(date.getUTCMinutes()).padStart(2, "0");
+    return `Capture · ${yyyy}-${mm}-${dd} ${hh}:${min}`;
+}
 
 export async function POST(request: NextRequest) {
     // 1. Authenticate — extract UID from JWT
@@ -148,7 +161,6 @@ export async function POST(request: NextRequest) {
             summary?: string;
             serverTitle?: string;
             serverSummary?: string;
-            relevantSpan?: [number, number];
         };
         console.info("[api/captures/upload] dedup_hit", {
             uid,
@@ -161,9 +173,8 @@ export async function POST(request: NextRequest) {
                 id: doc.id,
                 capture_id: doc.id,
                 status: data.status ?? "queued",
-                title: data.serverTitle ?? data.title ?? record.title,
+                title: data.serverTitle ?? data.title ?? "Capture",
                 summary: data.serverSummary ?? data.summary ?? "",
-                relevant_span: data.relevantSpan ?? record.relevantSpan,
             },
             { status: 201 },
         );
@@ -179,55 +190,26 @@ export async function POST(request: NextRequest) {
         throw err;
     }
 
-    // 8. Quick title + summary for v2.2.0+ clients. The agent ships a
-    // placeholder ("Conversation · 2026-05-02 14:32") and an empty summary
-    // and tags `metadata.local_llm_used: false` so we know to generate.
-    // Older clients run their own local LLM and we trust their values.
-    //
-    // Generation is best-effort — on timeout / LLM failure we keep the
-    // placeholder so the upload still succeeds. The deep analysis stage
-    // produces a better `serverTitle`/`serverSummary` later regardless.
-    if (record.metadata.localLlmUsed === false) {
-        try {
-            const durationSecs = inferDurationSecs(
-                record.transcript,
-                record.startedAt,
-                record.endedAt,
-            );
-            const quick = await generateQuickSummary({
-                transcript: record.transcript,
-                closeReason: record.metadata.closeReason,
-                durationSecs,
-            });
-            record = {
-                ...record,
-                title: quick.title,
-                summary: quick.summary,
-            };
-        } catch (err) {
-            console.warn(
-                "[api/captures/upload] quick summary generation failed, falling back to placeholder",
-                {
-                    uid,
-                    agentRecordId: record.id,
-                    error: err instanceof Error ? err.message : String(err),
-                },
-            );
-        }
-    }
-
-    // 9. Ingest
+    // 8. Ingest — audio-only contract: server stores the audio + minimal
+    // metadata and synthesizes a placeholder title. Deepgram (in the
+    // cron-driven transcription stage) produces the real transcript +
+    // serverTitle + serverSummary minutes later; the agent polls
+    // `GET /api/captures/{id}` to pick them up.
+    const placeholderTitle = synthesizePlaceholderTitle(record.startedAt);
     try {
-        const result = await ingestCapture(uid, record, audio);
+        const result = await ingestCapture(uid, {
+            record,
+            audio,
+            placeholderTitle,
+        });
 
         return NextResponse.json(
             {
                 id: result.captureId,
                 capture_id: result.captureId,
                 status: result.status,
-                title: record.title,
-                summary: record.summary,
-                relevant_span: record.relevantSpan,
+                title: placeholderTitle,
+                summary: "",
             },
             { status: 201 },
         );

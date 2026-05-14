@@ -89,7 +89,6 @@ export type SessionAnalysisType = {
     relevanceAndFocus: string[];
     engagement: string[];
     professionalism: string[];
-    voiceToneExpression: string[];
     improvements: string[];
     regressions: string[];
     notes: string;
@@ -146,7 +145,6 @@ export type SessionType = {
         | "starting"
         | "transcribing"
         | "uploading"
-        | "analyzing_expression"
         | "analyzing"
         | "combining"
         | null;

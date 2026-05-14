@@ -14,6 +14,7 @@ const validationSchema = z.object({
     isRelevant: z.boolean(),
     isOrganic: z.boolean(),
     hasSubstance: z.boolean(),
+    isEnglish: z.boolean(),
     rejectionReason: z.string().nullable(),
 });
 
@@ -21,6 +22,9 @@ type ValidationResult = {
     accepted: boolean;
     rejectionReason: string | null;
 };
+
+const NON_ENGLISH_REJECTION =
+    "Conversation was not in English. Sayzo currently analyzes English conversations only.";
 
 function readPrompt(): string {
     return readFileSync(
@@ -64,15 +68,29 @@ export async function validateCaptureRelevance(
         temperature: 0,
     });
 
-    const { isRelevant, isOrganic, hasSubstance, rejectionReason } =
-        result.output;
-    const accepted = isRelevant && isOrganic && hasSubstance;
+    const {
+        isRelevant,
+        isOrganic,
+        hasSubstance,
+        isEnglish,
+        rejectionReason,
+    } = result.output;
+    const accepted = isRelevant && isOrganic && hasSubstance && isEnglish;
+
+    if (accepted) {
+        return { accepted: true, rejectionReason: null };
+    }
+
+    // Non-English overrides any other rejection reason — it's the most
+    // actionable feedback ("we only support English"), and the LLM may have
+    // populated `rejectionReason` with a generic relevance complaint.
+    if (!isEnglish) {
+        return { accepted: false, rejectionReason: NON_ENGLISH_REJECTION };
+    }
 
     return {
-        accepted,
-        rejectionReason: accepted
-            ? null
-            : (rejectionReason ??
-              "Conversation did not meet relevance criteria"),
+        accepted: false,
+        rejectionReason:
+            rejectionReason ?? "Conversation did not meet relevance criteria",
     };
 }

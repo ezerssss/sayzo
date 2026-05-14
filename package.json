@@ -24,7 +24,6 @@
         "firebase": "^12.11.0",
         "firebase-admin": "^13.7.0",
         "fix-webm-duration": "^1.0.6",
-        "hume": "^0.15.15",
         "jose": "^6.2.2",
         "ky": "^1.14.3",
         "lucide-react": "^1.0.1",

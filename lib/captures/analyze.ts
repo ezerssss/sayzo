@@ -13,7 +13,6 @@ import type {
     StructuralObservation,
     TurnRewrite,
 } from "@/types/captures";
-import type { HumeExpressionSummary } from "@/types/hume-expression";
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
 import {
@@ -99,7 +98,6 @@ const captureAnalysisSchema = z.object({
     relevanceAndFocus: dimensionalAnalysisSchema,
     engagement: dimensionalAnalysisSchema,
     professionalism: dimensionalAnalysisSchema,
-    voiceToneExpression: dimensionalAnalysisSchema,
 
     improvements: z.array(z.string()),
     regressions: z.array(z.string()),
@@ -164,8 +162,6 @@ export type CaptureAnalyzerInput = {
     agentTitle: string;
     agentSummary: string;
     durationSecs: number;
-    /** Trimmed Hume payload — passed verbatim to the LLM as delivery evidence. */
-    humeExpression: HumeExpressionSummary | null;
     /** User profile context so analysis is calibrated to role/industry/communication context. */
     userProfile: Pick<
         UserProfileType,
@@ -214,7 +210,6 @@ export async function analyzeCaptureDeep(
         agentTitle,
         agentSummary,
         durationSecs,
-        humeExpression,
         userProfile,
         skillMemory,
     } = input;
@@ -226,10 +221,6 @@ export async function analyzeCaptureDeep(
     );
     const userSpeakingMins =
         userLines.reduce((sum, l) => sum + (l.end - l.start), 0) / 60;
-
-    const humePayload = humeExpression
-        ? JSON.stringify(humeExpression)
-        : "(Hume measurement unavailable for this capture — base voiceToneExpression on transcript pacing/disfluency cues only and say so in `notes`.)";
 
     const prompt = `## User profile (for calibration)
 - Role: ${userProfile.role || "(not set)"}
@@ -256,10 +247,7 @@ User speaking minutes: ~${userSpeakingMins.toFixed(1)}
 
 ## Full transcript (indexed, speaker-tagged — THIS is the source of truth)
 The "user" speaker is the learner. ALL other speakers (other_1, other_2, etc.) are not the learner. Base ALL coaching, ALL facts, and ALL identity on the transcript speaker labels — NOT on the agent title/summary above which may have gotten the identity wrong.
-${formatTranscript(transcript)}
-
-## Hume AI signals (USER-ONLY across all three models: prosody + bursts from the user's mic channel only, language from user-only text)
-${humePayload}`;
+${formatTranscript(transcript)}`;
 
     const result = await generateText({
         model: openai(defaultModel()),
@@ -364,7 +352,6 @@ ${humePayload}`;
         relevanceAndFocus: result.output.relevanceAndFocus,
         engagement: result.output.engagement,
         professionalism: result.output.professionalism,
-        voiceToneExpression: result.output.voiceToneExpression,
         improvements: result.output.improvements,
         regressions: result.output.regressions,
         fixTheseFirst,
