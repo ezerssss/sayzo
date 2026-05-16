@@ -14,7 +14,8 @@
       "WebSearch",
       "Bash(npm run *)",
       "Bash(awk NR==404 *)",
-      "WebFetch(domain:developers.deepgram.com)"
+      "WebFetch(domain:developers.deepgram.com)",
+      "Bash(lsof -nP -iTCP -sTCP:LISTEN)"
     ]
   }
 }
