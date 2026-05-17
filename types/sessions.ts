@@ -66,9 +66,28 @@ export type PlannerRecentDrillSummary = {
  * comparison. The user-facing surface is a thin projection over this object;
  * see `SessionFeedbackType` (which now only carries the polished rewrite).
  */
+/**
+ * Transferable lesson surfaced between MAIN ISSUE and "Fix these first":
+ * `principle` is the heuristic the learner should internalize (one
+ * quotable sentence that survives outside this drill), `shape` is the
+ * 2-5 step skeleton showing how that principle takes form for this
+ * drill (steps joined with `→`). Together with `mainIssue` (diagnosis)
+ * and `fixTheseFirst` (worked rewrite), the three surfaces form a
+ * ladder from abstract to concrete.
+ */
+export type MainIssueShape = {
+    principle: string;
+    shape: string;
+};
+
 export type SessionAnalysisType = {
     overview: string;
     mainIssue: string;
+    /**
+     * Null when `fixTheseFirst` is empty (the response was clean enough
+     * that no top fix earned a slot). Populated otherwise.
+     */
+    mainIssueShape: MainIssueShape | null;
     secondaryIssues: string[];
     /**
      * Specific, evidence-anchored positive observation, or null. Rendered

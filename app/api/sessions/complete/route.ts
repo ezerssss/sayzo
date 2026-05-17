@@ -462,6 +462,7 @@ ${transcript}`,
                     "Attempt evidence is too limited or off-target for deep diagnosis. The main priority is producing a drill-aligned response with enough substance so coaching can be specific and reliable.",
                 mainIssue:
                     "Response was off-task or too limited for reliable drill analysis.",
+                mainIssueShape: null,
                 secondaryIssues: [skipReason].filter((v) => v.length > 0),
                 whatWentWell: null,
                 fixTheseFirst: [],

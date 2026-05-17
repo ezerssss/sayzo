@@ -15,7 +15,9 @@
       "Bash(npm run *)",
       "Bash(awk NR==404 *)",
       "WebFetch(domain:developers.deepgram.com)",
-      "Bash(lsof -nP -iTCP -sTCP:LISTEN)"
+      "Bash(lsof -nP -iTCP -sTCP:LISTEN)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
     ]
   }
 }
