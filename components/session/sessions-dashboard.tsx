@@ -2,23 +2,35 @@
 
 import Link from "next/link";
 import {
+    Apple,
     ArrowRight,
+    Check,
     CheckCircle,
     Clock,
+    Copy,
     Download,
     Loader2,
+    Monitor,
     SkipForward,
+    Smartphone,
+    Terminal,
     Trash2,
     XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { CreditsBanner } from "@/components/credits/credits-banner";
 import { CreditsIndicator } from "@/components/credits/credits-indicator";
 import { FocusDashboard } from "@/components/focus/focus-dashboard";
-import { InstallPanel } from "@/components/install/install-panel";
+import {
+    detectOS,
+    otherOS,
+    type OS,
+    PLATFORMS,
+} from "@/components/install/install-panel";
+import { SaveLinkActions } from "@/components/mobile/save-link-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
     Dialog,
@@ -29,6 +41,8 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { track } from "@/lib/analytics/client";
+import { useIsMobile } from "@/lib/device/is-mobile";
 import { cn } from "@/lib/utils";
 import { RECOMMENDED_SPEAKING_DRILL_CATEGORIES } from "@/types/sessions";
 import type { SessionType } from "@/types/sessions";
@@ -500,13 +514,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                 {capturesError}
                             </p>
                         ) : captures.length === 0 ? (
-                            <div className="space-y-4">
-                                <InstallPanel
-                                    headline="Nothing here yet — install the companion to start capturing"
-                                    subhead="The desktop companion runs quietly on your machine and captures the conversations worth coaching on. Pick your OS below to download the installer."
-                                    showViewAllLink
-                                />
-                            </div>
+                            <CapturesEmptyState />
                         ) : (
                             <div className="space-y-2">
                                 <h3 className="text-sm font-medium text-muted-foreground">
@@ -816,6 +824,220 @@ function TodaysDrillHero({ session }: { session: SessionType }) {
                     <ArrowRight className="h-4 w-4" />
                     Start
                 </Link>
+            </div>
+        </div>
+    );
+}
+
+const DOWNLOAD_TIMESTAMP_KEY = "sayzo.desktop.downloadedAt";
+
+function CapturesEmptyState() {
+    const [os, setOs] = useState<OS>("windows");
+    const [copied, setCopied] = useState(false);
+    const isMobile = useIsMobile();
+    const mobileDetectedRef = useRef(false);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setOs(detectOS());
+    }, []);
+
+    useEffect(() => {
+        if (!isMobile || mobileDetectedRef.current) return;
+        mobileDetectedRef.current = true;
+        track("mobile_visitor_detected", { page: "install_page" });
+    }, [isMobile]);
+
+    const handleDownloadClick = () => {
+        track("desktop_download_clicked", {
+            os,
+            source: "landing_panel",
+        });
+        try {
+            window.localStorage.setItem(
+                DOWNLOAD_TIMESTAMP_KEY,
+                String(Date.now()),
+            );
+        } catch {
+            // localStorage may be unavailable — best effort only.
+        }
+    };
+
+    const switchOS = () => {
+        const next = otherOS(os);
+        track("install_os_switched", { from: os, to: next });
+        setOs(next);
+        setCopied(false);
+    };
+
+    const handleCopy = async (command: string) => {
+        try {
+            await navigator.clipboard.writeText(command);
+            setCopied(true);
+            track("install_terminal_copied", { os });
+            setTimeout(() => setCopied(false), 1500);
+        } catch {
+            // Clipboard blocked — user can copy manually.
+        }
+    };
+
+    const active = PLATFORMS[os];
+    const other = PLATFORMS[otherOS(os)];
+    const OSIcon = os === "macos" ? Apple : Monitor;
+
+    return (
+        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-8 shadow-sm">
+            <div
+                aria-hidden
+                className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
+            />
+            <div className="relative grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-start">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                        One-time setup
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                        Feedback on your real work calls
+                    </h2>
+                    <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+                        Install the Sayzo app and it joins your work calls.
+                        After each one, you get feedback on how it went — plus
+                        drills built from the moments worth practicing.
+                    </p>
+
+                    <ol className="mt-6 space-y-3">
+                        <li className="flex items-start gap-3">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
+                                1
+                            </span>
+                            <p className="pt-0.5 text-sm">
+                                <span className="font-medium">
+                                    Install Sayzo on your computer
+                                </span>
+                                <span className="text-muted-foreground">
+                                    {" "}
+                                    — takes under a minute.
+                                </span>
+                            </p>
+                        </li>
+                        <li className="flex items-start gap-3">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
+                                2
+                            </span>
+                            <p className="pt-0.5 text-sm">
+                                <span className="font-medium">
+                                    Join your work calls
+                                </span>
+                                <span className="text-muted-foreground">
+                                    {" "}
+                                    — Sayzo saves them in the background.
+                                </span>
+                            </p>
+                        </li>
+                        <li className="flex items-start gap-3">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
+                                3
+                            </span>
+                            <p className="pt-0.5 text-sm">
+                                <span className="font-medium">
+                                    Find your feedback and drills here
+                                </span>
+                                <span className="text-muted-foreground">
+                                    {" "}
+                                    — after every call.
+                                </span>
+                            </p>
+                        </li>
+                    </ol>
+                </div>
+
+                <div className="rounded-xl border border-sky-100 bg-white/70 p-5 shadow-sm backdrop-blur-sm">
+                    {isMobile ? (
+                        <div className="flex flex-col gap-3">
+                            <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-800 ring-1 ring-sky-200/70">
+                                <Smartphone className="size-3" />
+                                You&apos;re on mobile — save this for your
+                                computer
+                            </div>
+                            <SaveLinkActions
+                                source="install_page"
+                                layout="stacked"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Sayzo runs on Windows and macOS. Send yourself
+                                the link and finish setup on your computer.
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-800 ring-1 ring-sky-200/70">
+                                <OSIcon className="size-3" />
+                                Detected {active.label}
+                            </div>
+
+                            <a
+                                href={active.downloadUrl}
+                                download
+                                onClick={handleDownloadClick}
+                                className={cn(
+                                    buttonVariants({ size: "lg" }),
+                                    "mt-4 w-full justify-center bg-sky-600 text-white shadow-lg shadow-sky-600/25 ring-1 ring-inset ring-sky-400/30 transition-all hover:bg-sky-700 hover:shadow-xl hover:shadow-sky-600/30",
+                                )}
+                            >
+                                <Download className="size-4" />
+                                Download Sayzo for {active.label}
+                            </a>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {active.fileName} · {active.minOS}
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={switchOS}
+                                className="mt-3 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                            >
+                                Need {other.label} instead?
+                            </button>
+
+                            <details className="group mt-4 border-t border-sky-100/80 pt-3">
+                                <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                                    <Terminal className="size-3" />
+                                    <span className="group-open:hidden">
+                                        Prefer the terminal?
+                                    </span>
+                                    <span className="hidden group-open:inline">
+                                        Hide terminal one-liner
+                                    </span>
+                                </summary>
+                                <div className="mt-3">
+                                    <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                                        {active.shell}
+                                    </p>
+                                    <div className="flex items-stretch gap-2">
+                                        <code className="flex-1 overflow-x-auto rounded-lg border border-border/70 bg-background px-3 py-2 font-mono text-xs leading-relaxed">
+                                            {active.command}
+                                        </code>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                void handleCopy(active.command)
+                                            }
+                                            aria-label={`Copy ${active.shell} command`}
+                                        >
+                                            {copied ? (
+                                                <Check className="size-3.5" />
+                                            ) : (
+                                                <Copy className="size-3.5" />
+                                            )}
+                                            {copied ? "Copied" : "Copy"}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </details>
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );

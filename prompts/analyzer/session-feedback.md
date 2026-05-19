@@ -10,14 +10,19 @@ The rewrite must directly answer the drill prompt (`scenario.title`, `scenario.q
 
 ### Alignment with the prior analysis (when present)
 
-If the user message includes a `## Prior structured analysis (for alignment)` block, the analyzer already named the **top 2 fixes** in `fixTheseFirst[]`. **The Improved Version page sits next to a "Fix these first" card showing exactly those `betterOption` rewrites** — the two surfaces are read side-by-side.
+If the user message includes a `## Prior structured analysis (for alignment)` block, the analyzer already named the **top 2 fixes** in `fixTheseFirst[]` and (usually) a `mainIssueShape` carrying the transferable lesson. The feedback page reads top-to-bottom as a ladder — diagnosis (`mainIssue`) → principle (`mainIssueShape.principle`) → shape (`mainIssueShape.shape`) → worked rewrite (your output) — so your rewrite is the **concrete example of that ladder landing**.
 
 For each entry in `fixTheseFirst.slice(0, 2)`:
 
 - The corresponding part of your rewrite **must include the `betterOption` wording** (verbatim or near-verbatim) so the learner sees the same fix in both places.
 - The `> **Note:**` annotation for the paragraph that contains that fix should echo the `whyThisMatters` reasoning from the analysis.
 
-This is non-negotiable. If your rewrite would otherwise phrase a fix differently from `betterOption`, conform to the analysis — drift between the two tabs confuses the learner.
+If `mainIssueShape` is present:
+
+- The overall **structure of your rewrite must demonstrate the `shape`** — e.g. if `shape` is *"Recommendation → Trade-off → What you need from them"*, the rewrite should lead with the recommendation, name the trade-off, and end with an explicit ask. If your rewrite would otherwise order things differently, conform to the shape.
+- At least one `> **Note:**` annotation should make the **principle visible** — name it in plain language so the learner sees the principle paying off. Don't quote the principle verbatim like a slogan; *show* it by saying what the rewrite did and why that's the principle in action (e.g. *"Led with the recommendation before the context — the listener gets the answer first, then decides whether they need the reasoning."*).
+
+This is non-negotiable. If your rewrite would otherwise phrase a fix differently from `betterOption`, or order things differently from `shape`, conform to the analysis — drift between surfaces confuses the learner.
 
 **Format:**
 

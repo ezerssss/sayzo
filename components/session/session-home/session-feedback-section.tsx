@@ -1,4 +1,5 @@
 import { CalloutCard } from "@/components/coaching/callout-card";
+import { PrincipleCard } from "@/components/coaching/principle-card";
 import { TopFixesCard } from "@/components/coaching/top-fixes-card";
 import { PostDrillInstallCard } from "@/components/install/post-drill-install-card";
 import { DrillTranscriptView } from "@/components/session/drill-transcript-view";
@@ -41,6 +42,16 @@ function buildChatContext(
     }
     if (analysis.mainIssue?.trim()) {
         lines.push(`# Main issue\n${analysis.mainIssue.trim()}`);
+    }
+    if (analysis.mainIssueShape) {
+        const principle = analysis.mainIssueShape.principle?.trim();
+        const shape = analysis.mainIssueShape.shape?.trim();
+        if (principle || shape) {
+            const parts: string[] = ["# Principle"];
+            if (principle) parts.push(principle);
+            if (shape) parts.push(`Shape for this drill: ${shape}`);
+            lines.push(parts.join("\n"));
+        }
     }
     const top = analysis.fixTheseFirst?.slice(0, 2) ?? [];
     if (top.length > 0) {
@@ -152,6 +163,7 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                     </p>
                 </div>
             )}
+            <PrincipleCard shape={currentAnalysis?.mainIssueShape} />
             {fixes.length > 0 ? (
                 <TopFixesCard moments={fixes} onSeek={onSeekToSecond} />
             ) : null}

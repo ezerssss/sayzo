@@ -56,9 +56,24 @@ const llmTeachableMomentSchema = z.object({
     severity: z.enum(["minor", "moderate", "major"]),
 });
 
+const mainIssueShapeSchema = z.object({
+    principle: z.string(),
+    shape: z.string(),
+});
+
 const sessionAnalysisSchema = z.object({
     overview: z.string(),
     mainIssue: z.string(),
+    /**
+     * Transferable lesson the learner carries to their next attempt:
+     * `principle` (the heuristic to internalize, one quotable line) +
+     * `shape` (a 2-5 step skeleton showing how that principle takes form
+     * for this drill, with `→` separators). Renders between MAIN ISSUE
+     * and "Fix these first" — the three surfaces form a ladder
+     * (diagnosis → principle → worked rewrite). Null when the response
+     * was clean enough that no top fix earned a slot.
+     */
+    mainIssueShape: mainIssueShapeSchema.nullable(),
     secondaryIssues: z.array(z.string()),
     /**
      * Specific evidence-anchored positive observation, or null. Only set
