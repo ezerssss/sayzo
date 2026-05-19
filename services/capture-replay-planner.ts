@@ -18,6 +18,8 @@ import {
 import type { SkillMemoryType } from "@/types/skill-memory";
 import type { UserProfileType } from "@/types/user";
 
+import { filterDrillCandidateTranscript } from "@/lib/captures/drill-input-filter";
+
 const PROMPTS_DIR = join(process.cwd(), "prompts", "planner");
 
 // Same Zod shape as the regular planner — kept local so this module is
@@ -122,7 +124,12 @@ function formatTeachableMoments(analysis: CaptureAnalysis): string {
 
 function buildReplayUserMessage(input: CaptureReplayPlannerInput): string {
     const { capture, userProfile, skillMemory } = input;
-    const transcript = capture.serverTranscript ?? [];
+    // The planner doesn't emit transcriptIdx-typed fields, so we filter the
+    // array directly rather than skipping inside formatTranscript. Short
+    // user lines hidden so echo-bleed fragments can't seed a drill.
+    const transcript = filterDrillCandidateTranscript(
+        capture.serverTranscript ?? [],
+    );
     const title = capture.serverTitle ?? capture.title;
     const summary = capture.serverSummary ?? capture.summary;
     const analysis = capture.analysis;

@@ -3,7 +3,10 @@ import { test } from "node:test";
 
 import {
     isEchoLeakUtterance,
+    isPhoneticEchoOfOtherChannel,
+    type EchoC0Window,
     type EchoEnergyView,
+    type EchoTextWindow,
     type EchoUtteranceWindow,
 } from "./echo-leak.ts";
 
@@ -142,4 +145,105 @@ test("loud reiteration at meeting volume is preserved (core coaching signal)", (
     );
     const c1 = [{ start: 0, end: 0.9 }];
     strictEqual(isEchoLeakUtterance(u, energy, c1), false);
+});
+
+// ---------------------------------------------------------------------------
+// Phonetic detector tests — catches degraded-but-recognizable post-AEC bleed
+// that survives the energy detector. See echo-leak.ts header for design.
+
+// 11. Phonetic match + tight time window + LOW c0 confidence → drop.
+//     Models the `89f515f9fd10` bug: c1 said "seatback or iPad", c0 was
+//     transcribed as the degraded "steam back or drive pad". Bleed signature.
+test("phonetic match with tight window and low confidence is dropped", () => {
+    const c0: EchoC0Window = {
+        start: 0.5,
+        end: 2.0,
+        text: "steam back or is this like drive pad or something",
+        confidence: 0.6,
+    };
+    const c1: EchoTextWindow[] = [
+        {
+            start: 0.0,
+            end: 1.8,
+            text: "seatback or was this like on your iPad or something",
+        },
+    ];
+    strictEqual(isPhoneticEchoOfOtherChannel(c0, c1), true);
+});
+
+// 12. Phonetic match + tight time window + HIGH c0 confidence → keep.
+//     This is the phonetic-detector analog of test #10 for the energy
+//     detector. Clean reiteration must survive — the confidence floor is
+//     the gate that distinguishes degraded echo from real practice.
+//     DO NOT remove this test without re-deriving how the phonetic detector
+//     discriminates bleed from coaching reiteration.
+test("phonetic match with high confidence is preserved (reiteration invariant)", () => {
+    const c0: EchoC0Window = {
+        start: 0.5,
+        end: 2.0,
+        text: "steam back or is this like drive pad or something",
+        confidence: 0.95,
+    };
+    const c1: EchoTextWindow[] = [
+        {
+            start: 0.0,
+            end: 1.8,
+            text: "seatback or was this like on your iPad or something",
+        },
+    ];
+    strictEqual(isPhoneticEchoOfOtherChannel(c0, c1), false);
+});
+
+// 13. Phonetic match but c1 ended well before c0 (wide time window).
+//     A coincidence of vocabulary across non-adjacent turns is not echo.
+test("phonetic match with wide time gap is preserved (coincidence)", () => {
+    const c0: EchoC0Window = {
+        start: 10.0,
+        end: 11.5,
+        text: "steam back or is this like drive pad or something",
+        confidence: 0.6,
+    };
+    const c1: EchoTextWindow[] = [
+        {
+            start: 0.0,
+            end: 1.8,
+            text: "seatback or was this like on your iPad or something",
+        },
+    ];
+    strictEqual(isPhoneticEchoOfOtherChannel(c0, c1), false);
+});
+
+// 14. Loose phonetic + tight window + low confidence → keep.
+//     Just because c0 is degraded and a c1 utterance is close in time
+//     doesn't mean c0 is echo. Phonetic content must actually overlap.
+test("loose phonetic similarity in tight window is preserved", () => {
+    const c0: EchoC0Window = {
+        start: 0.5,
+        end: 2.0,
+        text: "the weather today is really nice",
+        confidence: 0.6,
+    };
+    const c1: EchoTextWindow[] = [
+        {
+            start: 0.0,
+            end: 1.8,
+            text: "seatback or was this like on your iPad",
+        },
+    ];
+    strictEqual(isPhoneticEchoOfOtherChannel(c0, c1), false);
+});
+
+// 15. Single-word c0 → keep (too short for reliable phonetic match,
+//     also too short to seed a meaningful drill).
+test("single-word c0 is not flagged as phonetic echo", () => {
+    const c0: EchoC0Window = {
+        start: 0.5,
+        end: 0.9,
+        text: "seatback",
+        confidence: 0.5,
+    };
+    const c1: EchoTextWindow[] = [
+        { start: 0.0, end: 0.8, text: "seatback or iPad" },
+    ];
+    strictEqual(isPhoneticEchoOfOtherChannel(c0, c1), false);
 });

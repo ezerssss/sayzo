@@ -6,6 +6,7 @@ import { type ChannelEnergy, computeChannelEnergy } from "./audio";
 import {
     ECHO_LEAK_RULE_VERSION,
     isEchoLeakUtterance,
+    isPhoneticEchoOfOtherChannel,
 } from "./echo-leak";
 
 const DEEPGRAM_URL = "https://api.deepgram.com/v1/listen";
@@ -166,9 +167,15 @@ function mapUtterancesToLines(
     // Precomputed so overlap check is O(c1) per c0. Loud right-channel music
     // doesn't transcribe, so it produces no c1 utterance → overlap gate fails
     // → concurrent user speech is correctly preserved. Intentional.
-    const c1Intervals = utterances
+    // Carries `text` for the phonetic detector; energy detector ignores it
+    // (structural typing — accepts `{ start, end }` shape).
+    const c1Windows = utterances
         .filter((u) => (u.channel ?? 0) === 1)
-        .map((u) => ({ start: u.start, end: u.end }));
+        .map((u) => ({
+            start: u.start,
+            end: u.end,
+            text: (u.transcript ?? "").trim(),
+        }));
 
     const droppedSpans: { start: number; end: number }[] = [];
     const droppedPreviews: string[] = [];
@@ -179,15 +186,29 @@ function mapUtterancesToLines(
 
         // Echo suppression only runs when both channels are alive — the
         // dead-channel branch of tagSpeaker already handles one-sided cases.
+        // Two detectors OR-composed: energy (loud residual + silence
+        // hallucination) and phonetic (degraded-but-recognizable post-AEC
+        // bleed). See lib/captures/echo-leak.ts header for rationale.
+        // Missing Deepgram confidence defaults to 1.0 (fail-open — phonetic
+        // detector's confidence gate then short-circuits → no drop).
         if (
             (u.channel ?? 0) === 0 &&
             leftAlive &&
             rightAlive &&
-            isEchoLeakUtterance(
+            (isEchoLeakUtterance(
                 { start: u.start, end: u.end },
                 energy,
-                c1Intervals,
-            )
+                c1Windows,
+            ) ||
+                isPhoneticEchoOfOtherChannel(
+                    {
+                        start: u.start,
+                        end: u.end,
+                        text,
+                        confidence: u.confidence ?? 1.0,
+                    },
+                    c1Windows,
+                ))
         ) {
             droppedSpans.push({ start: u.start, end: u.end });
             if (droppedPreviews.length < 3) {

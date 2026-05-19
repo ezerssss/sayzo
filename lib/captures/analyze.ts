@@ -20,6 +20,7 @@ import {
     reconcileWithAnchor,
     resolveAnchorIdx,
 } from "@/lib/transcripts/anchor-resolver";
+import { isShortUserDrillLine } from "./drill-input-filter";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
@@ -193,13 +194,19 @@ function defaultModel(): string {
     );
 }
 
-function formatTranscript(transcript: CaptureTranscriptLine[]): string {
-    return transcript
-        .map(
-            (line, idx) =>
-                `[${idx}] [${line.start.toFixed(1)}s - ${line.end.toFixed(1)}s] ${line.speaker}: ${line.text}`,
-        )
-        .join("\n");
+function formatTranscript(
+    transcript: CaptureTranscriptLine[],
+    skip: (line: CaptureTranscriptLine, idx: number) => boolean = () => false,
+): string {
+    const lines: string[] = [];
+    for (let idx = 0; idx < transcript.length; idx++) {
+        const line = transcript[idx];
+        if (skip(line, idx)) continue;
+        lines.push(
+            `[${idx}] [${line.start.toFixed(1)}s - ${line.end.toFixed(1)}s] ${line.speaker}: ${line.text}`,
+        );
+    }
+    return lines.join("\n");
 }
 
 export async function analyzeCaptureDeep(
@@ -214,7 +221,16 @@ export async function analyzeCaptureDeep(
         skillMemory,
     } = input;
 
-    const userLines = transcript.filter((l) => l.speaker === "user");
+    // Hide short user lines from the LLM so post-AEC echo-bleed fragments
+    // (1-2 word residues) don't get anchored as teachable moments. The
+    // array stays unfiltered — indices in the formatted prompt remain the
+    // original `serverTranscript` indices, so any idx the LLM emits
+    // (`suggestedBeforeIdx`, `affectedTurnIdxs`) and any anchor the
+    // reconciler resolves both land on the right line in stored analysis.
+    // See lib/captures/drill-input-filter.
+    const userLines = transcript.filter(
+        (l) => l.speaker === "user" && !isShortUserDrillLine(l),
+    );
     const totalUserWords = userLines.reduce(
         (sum, l) => sum + l.text.split(/\s+/).length,
         0,
@@ -247,7 +263,8 @@ User speaking minutes: ~${userSpeakingMins.toFixed(1)}
 
 ## Full transcript (indexed, speaker-tagged — THIS is the source of truth)
 The "user" speaker is the learner. ALL other speakers (other_1, other_2, etc.) are not the learner. Base ALL coaching, ALL facts, and ALL identity on the transcript speaker labels — NOT on the agent title/summary above which may have gotten the identity wrong.
-${formatTranscript(transcript)}`;
+Indices are NOT contiguous — a few sub-coaching-threshold user fragments are hidden. Only the indices shown above are valid; do not reference any index that does not appear in the transcript block.
+${formatTranscript(transcript, isShortUserDrillLine)}`;
 
     const result = await generateText({
         model: openai(defaultModel()),
@@ -280,7 +297,8 @@ ${formatTranscript(transcript)}`;
 
     // Turn rewrites: resolve transcriptIdx from the verbatim `original`
     // text. `suggestedBeforeIdx` is a forward reference to another turn —
-    // we can't anchor that from text, so we just bounds-check.
+    // we can't anchor that from text, so we bounds-check AND reject
+    // indices pointing at filtered (short-user) lines that the prompt hid.
     const turnRewrites: TurnRewrite[] = reconcileWithAnchor(
         result.output.turnRewrites,
         (t) => t.original,
@@ -294,7 +312,8 @@ ${formatTranscript(transcript)}`;
                 t.suggestedBeforeIdx != null &&
                 Number.isInteger(t.suggestedBeforeIdx) &&
                 t.suggestedBeforeIdx >= 0 &&
-                t.suggestedBeforeIdx < transcript.length
+                t.suggestedBeforeIdx < transcript.length &&
+                !isShortUserDrillLine(transcript[t.suggestedBeforeIdx])
                     ? t.suggestedBeforeIdx
                     : null,
         }),
@@ -329,16 +348,20 @@ ${formatTranscript(transcript)}`;
         .filter((gp) => gp.examples.length > 0);
 
     // Structural observations: `affectedTurnIdxs` references other turns
-    // (cross-turn observation) — bounds-check and drop out-of-range ones.
-    // If the observation ends up with no valid affected turns, keep it
-    // anyway because the prose `observation` + `explanation` still teach.
+    // (cross-turn observation) — bounds-check, AND drop indices pointing
+    // at filtered (short-user) lines that the prompt hid. If the observation
+    // ends up with no valid affected turns, keep it anyway because the prose
+    // `observation` + `explanation` still teach.
     const structuralObservations: StructuralObservation[] =
         result.output.structuralObservations.map((o) => ({
             observation: o.observation,
             explanation: o.explanation,
             affectedTurnIdxs: o.affectedTurnIdxs.filter(
                 (idx) =>
-                    Number.isInteger(idx) && idx >= 0 && idx < transcript.length,
+                    Number.isInteger(idx) &&
+                    idx >= 0 &&
+                    idx < transcript.length &&
+                    !isShortUserDrillLine(transcript[idx]),
             ),
         }));
 
