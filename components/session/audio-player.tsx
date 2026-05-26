@@ -19,7 +19,11 @@ function formatTime(seconds: number): string {
     return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function AudioPlayer({ src, className, audioRef: externalRef }: AudioPlayerProps) {
+export function AudioPlayer({
+    src,
+    className,
+    audioRef: externalRef,
+}: AudioPlayerProps) {
     const internalRef = useRef<HTMLAudioElement | null>(null);
     const progressRef = useRef<HTMLDivElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -36,7 +40,9 @@ export function AudioPlayer({ src, className, audioRef: externalRef }: AudioPlay
         (el: HTMLAudioElement | null) => {
             internalRef.current = el;
             if (externalRef) {
-                (externalRef as React.MutableRefObject<HTMLAudioElement | null>).current = el;
+                (
+                    externalRef as React.MutableRefObject<HTMLAudioElement | null>
+                ).current = el;
             }
         },
         [externalRef],
@@ -198,7 +204,7 @@ export function AudioPlayer({ src, className, audioRef: externalRef }: AudioPlay
 
             <div
                 ref={progressRef}
-                className="relative flex-1 cursor-pointer py-2"
+                className="relative flex-1 cursor-pointer touch-none py-3 md:py-2"
                 onClick={handleProgressClick}
                 onPointerDown={handleProgressDrag}
             >

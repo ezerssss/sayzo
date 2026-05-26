@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CreditsBanner } from "@/components/credits/credits-banner";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
+import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { AudioPlayer } from "@/components/session/audio-player";
 import { Button } from "@/components/ui/button";
 import { useAllCaptures } from "@/hooks/use-all-captures";
@@ -22,7 +23,11 @@ import {
 } from "@/lib/ky-error-message";
 import type { SessionFeedbackType } from "@/types/sessions";
 
-import { DEFAULT_MAX_SECONDS, FALLBACK_PLAN, HARD_MAX_SECONDS } from "./constants";
+import {
+    DEFAULT_MAX_SECONDS,
+    FALLBACK_PLAN,
+    HARD_MAX_SECONDS,
+} from "./constants";
 import { DrillBriefCard } from "./drill-brief-card";
 import { SessionFeedbackSection } from "./session-feedback-section";
 import { SessionHomeHeader } from "./session-home-header";
@@ -106,14 +111,11 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     );
     const hasServerResults = Boolean(
         session?.completionStatus !== "pending" &&
-            (isSkipped ||
-                session?.transcript?.trim() ||
-                hasFeedback),
+        (isSkipped || session?.transcript?.trim() || hasFeedback),
     );
     const shouldShowResults = hasServerResults;
     const showRecordAction =
-        !isSkipped &&
-        (isRecordingNow || !shouldShowResults || requiresRetry);
+        !isSkipped && (isRecordingNow || !shouldShowResults || requiresRetry);
     const shouldShowAnalyzingState =
         !shouldShowResults &&
         (isServerProcessing ||
@@ -379,10 +381,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 return;
             }
             setDrillError(
-                await getKyErrorMessage(
-                    error,
-                    "Could not start a new drill.",
-                ),
+                await getKyErrorMessage(error, "Could not start a new drill."),
             );
         } finally {
             setIsCreatingDrill(false);
@@ -402,10 +401,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             // ("needs_retry") and the page re-renders into the retry UI.
         } catch (error) {
             setDrillError(
-                await getKyErrorMessage(
-                    error,
-                    "Could not retry this drill.",
-                ),
+                await getKyErrorMessage(error, "Could not retry this drill."),
             );
         } finally {
             setIsRetrying(false);
@@ -421,7 +417,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
 
     return (
         <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
-            <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
+            <MobileBanner page="app" />
+            <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
                 <CreditsBanner />
                 <SessionHomeHeader />
 
@@ -431,7 +428,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             aria-hidden
                             className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
                         />
-                        <div className="relative flex flex-wrap items-start justify-between gap-3">
+                        <div className="relative flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
                                     {isSkipped
@@ -527,9 +524,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             stream={stream}
                             requiresRetry={requiresRetry}
                             showRecordAction={showRecordAction}
-                            shouldShowAnalyzingState={
-                                shouldShowAnalyzingState
-                            }
+                            shouldShowAnalyzingState={shouldShowAnalyzingState}
                             drillState={drillState}
                             onStartRecording={() => void startRecording()}
                             onStopRecording={() => void stopRecording()}
@@ -603,9 +598,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             currentAnalysis={session?.analysis ?? null}
                             currentFeedback={currentFeedback}
                             requiresRetry={requiresRetry}
-                            completionReason={
-                                session?.completionReason ?? null
-                            }
+                            completionReason={session?.completionReason ?? null}
                             onSeekToSecond={seekToSecond}
                             sessionId={session?.id}
                             uid={uid}
@@ -638,10 +631,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                 ) : null}
 
                 {authError ? (
-                    <p
-                        className="mt-4 text-xs text-destructive"
-                        role="alert"
-                    >
+                    <p className="mt-4 text-xs text-destructive" role="alert">
                         {authError}
                     </p>
                 ) : null}

@@ -6,8 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics/client";
 import { useIsMobile } from "@/lib/device/is-mobile";
 
-import { SaveLinkActions } from "./save-link-actions";
-
 const DISMISS_KEY = "sayzo.mobile.bannerDismissedAt";
 
 type Props = {
@@ -54,10 +52,10 @@ export function MobileBanner({ page }: Props) {
     return (
         <div className="sticky top-0 z-40 border-b border-border/70 bg-background/90 px-3 py-2 text-xs backdrop-blur">
             <div className="mx-auto flex w-full max-w-5xl items-center gap-2">
-                <p className="flex-1 truncate font-medium">
-                    Sayzo works best on desktop
+                <p className="flex-1 font-medium">
+                    Drills work great on mobile — desktop adds coaching from
+                    your real meetings.
                 </p>
-                <SaveLinkActions source="banner" layout="inline" />
                 <button
                     type="button"
                     onClick={handleDismiss}

@@ -5,22 +5,22 @@ import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
     ArrowRight,
-    FileText,
     Lightbulb,
     Loader2,
     Lock,
     Play,
-    Sparkles,
     Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
 import { AnalysisView } from "@/components/conversations/analysis-view";
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
 import { TranscriptView } from "@/components/conversations/transcript-view";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { CreditsBanner } from "@/components/credits/credits-banner";
 import { CreditsIndicator } from "@/components/credits/credits-indicator";
+import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { AudioPlayer } from "@/components/session/audio-player";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -31,7 +31,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCapture } from "@/hooks/use-capture";
 import { usePracticeSessionForCapture } from "@/hooks/use-practice-session-for-capture";
 import { track } from "@/lib/analytics/client";
@@ -275,10 +274,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
             router.push("/app?tab=captures");
         } catch (err) {
             setPracticeError(
-                await getKyErrorMessage(
-                    err,
-                    "Could not delete capture.",
-                ),
+                await getKyErrorMessage(err, "Could not delete capture."),
             );
         } finally {
             setDeleting(false);
@@ -287,7 +283,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
 
     return (
         <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
-            <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
+            <MobileBanner page="app" />
+            <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
                 <CreditsBanner />
                 <ConversationDetailHeader />
 
@@ -305,7 +302,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                         aria-hidden
                         className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
                     />
-                    <div className="relative flex flex-wrap items-start justify-between gap-3">
+                    <div className="relative flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                         <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
                                 Captured
@@ -333,7 +330,9 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                 )}
                                 <span>
                                     {speakerCount}{" "}
-                                    {speakerCount === 1 ? "speaker" : "speakers"}
+                                    {speakerCount === 1
+                                        ? "speaker"
+                                        : "speakers"}
                                 </span>
                                 <CaptureStatusBadge
                                     status={capture.status}
@@ -411,53 +410,43 @@ export function ConversationDetailView(props: Readonly<Props>) {
 
                 {/* Tabbed content — same 2-tab shape as drill feedback. */}
                 {isAnalyzed ? (
-                    <Tabs defaultValue="now">
-                        <TabsList className="w-full justify-start gap-1 overflow-x-auto">
-                            <TabsTrigger value="now" className="shrink-0">
-                                <FileText className="size-3.5" />
-                                Now
-                            </TabsTrigger>
-                            <TabsTrigger value="rewrites" className="shrink-0">
-                                <Sparkles className="size-3.5" />
-                                Improved Version
-                            </TabsTrigger>
-                        </TabsList>
-
-                        {/* Now tab: main issue + top 2 fix-firsts + transcript */}
-                        <TabsContent value="now" className="mt-3 space-y-4">
-                            <AnalysisView
-                                analysis={analysis}
-                                onSeekToSecond={seekToSecond}
-                                section="overview"
-                                captureId={captureId}
-                                uid={uid}
-                            />
-                            {transcript.length > 0 && (
-                                <div className="rounded-xl border border-border/70">
-                                    <div className="flex items-center justify-between p-4">
-                                        <span className="text-sm font-medium">
-                                            Transcript
-                                        </span>
+                    <FeedbackTabs
+                        now={
+                            <>
+                                <AnalysisView
+                                    analysis={analysis}
+                                    onSeekToSecond={seekToSecond}
+                                    section="overview"
+                                    captureId={captureId}
+                                    uid={uid}
+                                />
+                                {transcript.length > 0 && (
+                                    <div className="rounded-xl border border-border/70">
+                                        <div className="flex items-center justify-between p-4">
+                                            <span className="text-sm font-medium">
+                                                Transcript
+                                            </span>
+                                        </div>
+                                        <div className="border-t border-border/50 px-4 pb-4 pt-3">
+                                            <TranscriptView
+                                                transcript={transcript}
+                                                teachableMoments={[
+                                                    ...(analysis.fixTheseFirst ??
+                                                        []),
+                                                    ...(analysis.moreMoments ??
+                                                        []),
+                                                ]}
+                                                turnRewrites={
+                                                    analysis.turnRewrites
+                                                }
+                                                onSeekToSecond={seekToSecond}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="border-t border-border/50 px-4 pb-4 pt-3">
-                                        <TranscriptView
-                                            transcript={transcript}
-                                            teachableMoments={[
-                                                ...(analysis.fixTheseFirst ?? []),
-                                                ...(analysis.moreMoments ?? []),
-                                            ]}
-                                            turnRewrites={
-                                                analysis.turnRewrites
-                                            }
-                                            onSeekToSecond={seekToSecond}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </TabsContent>
-
-                        {/* Improved Version tab: per-turn rewrites + structural notes. */}
-                        <TabsContent value="rewrites" className="mt-3">
+                                )}
+                            </>
+                        }
+                        improved={
                             <AnalysisView
                                 analysis={analysis}
                                 transcript={transcript}
@@ -466,8 +455,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                 captureId={captureId}
                                 uid={uid}
                             />
-                        </TabsContent>
-                    </Tabs>
+                        }
+                    />
                 ) : capture.status !== "analyzed" ? (
                     <div className="rounded-xl border border-dashed border-border/70 p-6 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -494,8 +483,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             <DialogTitle>Delete this capture?</DialogTitle>
                             <DialogDescription>
                                 This will permanently delete{" "}
-                                <strong>{title}</strong> and its recording.
-                                This action cannot be undone.
+                                <strong>{title}</strong> and its recording. This
+                                action cannot be undone.
                             </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>

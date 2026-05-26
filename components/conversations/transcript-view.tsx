@@ -121,9 +121,7 @@ export function TranscriptView(props: Readonly<Props>) {
                             {onSeekToSecond ? (
                                 <button
                                     type="button"
-                                    onClick={() =>
-                                        onSeekToSecond(line.start)
-                                    }
+                                    onClick={() => onSeekToSecond(line.start)}
                                     className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground hover:bg-muted/80"
                                     title={`Seek to ${formatTimestamp(line.start)}`}
                                 >
@@ -146,7 +144,7 @@ export function TranscriptView(props: Readonly<Props>) {
                                 >
                                     {speakerLabel(line.speaker)}
                                 </span>
-                                <p className="mt-1 text-sm leading-relaxed">
+                                <p className="mt-1 text-sm leading-relaxed break-words">
                                     {line.text}
                                 </p>
 
@@ -259,11 +257,14 @@ export function TranscriptView(props: Readonly<Props>) {
                                                         return why ? (
                                                             <div className="mt-3">
                                                                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                                    Why this matters
+                                                                    Why this
+                                                                    matters
                                                                 </p>
                                                                 <div className="mt-1">
                                                                     <InlineMarkdown
-                                                                        text={why}
+                                                                        text={
+                                                                            why
+                                                                        }
                                                                         tone="small-muted"
                                                                     />
                                                                 </div>

@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { InstallPanel } from "@/components/install/install-panel";
+import { MobileBanner } from "@/components/mobile/mobile-banner";
 import {
     OnboardingDrillStep,
     type OnboardingDrillResult,
@@ -22,10 +23,7 @@ import {
     getKyErrorMessage,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
-import type {
-    OnboardingDrillProgress,
-    UserProfileType,
-} from "@/types/user";
+import type { OnboardingDrillProgress, UserProfileType } from "@/types/user";
 
 interface PropsInterface {
     uid: string;
@@ -349,6 +347,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
 
     return (
         <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
+            <MobileBanner page="app" />
             <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-10 sm:px-8">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
                     <Sparkles className="size-4 shrink-0" />

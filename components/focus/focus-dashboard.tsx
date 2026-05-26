@@ -38,7 +38,8 @@ export function FocusDashboard({
     uid: string | undefined;
     onStartDrill?: () => void;
 }) {
-    const { insights, loading, refreshing, error, refresh } = useFocusInsights(uid);
+    const { insights, loading, refreshing, error, refresh } =
+        useFocusInsights(uid);
 
     const hasInsights = insights !== null;
     const isEmpty = insights?.insufficientData === true;
@@ -46,12 +47,15 @@ export function FocusDashboard({
     const wins = insights?.wins ?? [];
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6 px-8 py-8">
+        <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h2 className="text-lg font-semibold tracking-tight">Focus</h2>
+                    <h2 className="text-lg font-semibold tracking-tight">
+                        Focus
+                    </h2>
                     <p className="text-sm text-muted-foreground">
-                        Where to put your attention — built from every drill and capture so far.
+                        Where to put your attention — built from every drill and
+                        capture so far.
                     </p>
                 </div>
                 <Button
@@ -104,7 +108,10 @@ export function FocusDashboard({
                             </h3>
                             <div className="space-y-3">
                                 {themes.map((theme) => (
-                                    <FocusThemeCard key={theme.id} theme={theme} />
+                                    <FocusThemeCard
+                                        key={theme.id}
+                                        theme={theme}
+                                    />
                                 ))}
                             </div>
                         </section>
@@ -129,19 +136,26 @@ export function FocusDashboard({
                                             {win.lastSeen ? (
                                                 <Link
                                                     href={
-                                                        win.lastSeen.source === "session"
+                                                        win.lastSeen.source ===
+                                                        "session"
                                                             ? `/app/drills/${win.lastSeen.sourceId}`
                                                             : `/app/conversations/${win.lastSeen.sourceId}`
                                                     }
                                                     className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                                                 >
                                                     <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase">
-                                                        {win.lastSeen.source === "session"
+                                                        {win.lastSeen.source ===
+                                                        "session"
                                                             ? "Drill"
                                                             : "Capture"}
                                                     </span>
                                                     <span className="truncate">
-                                                        Last seen in &ldquo;{win.lastSeen.sourceTitle}&rdquo;
+                                                        Last seen in &ldquo;
+                                                        {
+                                                            win.lastSeen
+                                                                .sourceTitle
+                                                        }
+                                                        &rdquo;
                                                     </span>
                                                 </Link>
                                             ) : null}
@@ -155,10 +169,11 @@ export function FocusDashboard({
                     {insights ? (
                         <p className="pt-2 text-center text-xs text-muted-foreground/80">
                             Built from {insights.sessionsConsidered} drill
-                            {insights.sessionsConsidered === 1 ? "" : "s"} and{" "}
-                            {insights.capturesConsidered} capture
-                            {insights.capturesConsidered === 1 ? "" : "s"} · Updated{" "}
-                            {formatRelativeTime(insights.updatedAt)}
+                            {insights.sessionsConsidered === 1
+                                ? ""
+                                : "s"} and {insights.capturesConsidered} capture
+                            {insights.capturesConsidered === 1 ? "" : "s"} ·
+                            Updated {formatRelativeTime(insights.updatedAt)}
                         </p>
                     ) : null}
                 </>
@@ -211,13 +226,11 @@ function InsufficientDataState({
             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border/60">
                 <Target className="h-4 w-4 text-muted-foreground" />
             </div>
-            <p className="mt-4 text-sm font-medium">
-                Not enough to go on yet
-            </p>
+            <p className="mt-4 text-sm font-medium">Not enough to go on yet</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
                 A few more drills or a real conversation capture and we&apos;ll
-                surface the patterns that are actually costing you — plus what&apos;s
-                improving.
+                surface the patterns that are actually costing you — plus
+                what&apos;s improving.
             </p>
             <div className="mt-4 flex items-center justify-center gap-2">
                 {onStartDrill ? (

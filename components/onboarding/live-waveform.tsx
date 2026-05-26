@@ -87,7 +87,7 @@ export function LiveWaveform(props: Readonly<PropsInterface>) {
     return (
         <div
             className={cn(
-                "flex h-14 items-end justify-center gap-0.5 rounded-xl border border-border/80 bg-muted/40 px-3 py-2",
+                "flex h-12 items-end justify-center gap-0.5 rounded-xl border border-border/80 bg-muted/40 px-3 py-2 sm:h-14",
                 className,
             )}
             aria-hidden

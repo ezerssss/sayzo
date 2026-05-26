@@ -10,11 +10,14 @@ import {
     Copy,
     Download,
     Loader2,
+    Mic,
     Monitor,
     SkipForward,
     Smartphone,
+    Target,
     Terminal,
     Trash2,
+    Waves,
     XCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -30,6 +33,7 @@ import {
     type OS,
     PLATFORMS,
 } from "@/components/install/install-panel";
+import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { SaveLinkActions } from "@/components/mobile/save-link-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -67,9 +71,7 @@ type Props = {
 };
 
 function formatCategory(slug: string): string {
-    return slug
-        .replaceAll("_", " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+    return slug.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatDate(dateStr: string): string {
@@ -170,9 +172,9 @@ export function SessionsDashboard(props: Readonly<Props>) {
     const [deletingCaptureId, setDeletingCaptureId] = useState<string | null>(
         null,
     );
-    const [captureDeleteError, setCaptureDeleteError] = useState<
-        string | null
-    >(null);
+    const [captureDeleteError, setCaptureDeleteError] = useState<string | null>(
+        null,
+    );
     const [confirmDeleteCapture, setConfirmDeleteCapture] =
         useState<CaptureType | null>(null);
 
@@ -260,17 +262,20 @@ export function SessionsDashboard(props: Readonly<Props>) {
     };
 
     return (
-        <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
-            <CreditsBanner />
+        <section className="fixed inset-0 flex flex-col bg-background">
+            <MobileBanner page="app" />
 
             <Tabs
                 value={activeTab}
                 onValueChange={(value) => setActiveTab(value as DashboardTab)}
                 className="flex min-h-0 flex-1 flex-col"
             >
-                <div className="border-b border-border/50 bg-card/50 px-8">
+                <div className="shrink-0 border-b border-border/50 bg-card/50 px-4 sm:px-6 lg:px-8">
                     <div className="mx-auto flex max-w-4xl items-end justify-between gap-4">
-                        <TabsList className="-mb-px h-auto w-auto gap-6 rounded-none bg-transparent p-0">
+                        <span className="py-3 text-base font-semibold tracking-tight md:hidden">
+                            Sayzo
+                        </span>
+                        <TabsList className="-mb-px hidden h-auto w-auto gap-6 rounded-none bg-transparent p-0 md:flex">
                             <TabsTrigger
                                 value="drills"
                                 className="rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-1 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
@@ -300,7 +305,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                             variant: "ghost",
                                             size: "sm",
                                         }),
-                                        "text-muted-foreground",
+                                        "hidden text-muted-foreground md:inline-flex",
                                     )}
                                 >
                                     <Download className="h-3.5 w-3.5" />
@@ -318,87 +323,244 @@ export function SessionsDashboard(props: Readonly<Props>) {
                     </div>
                 </div>
 
-                {/* Drills tab — auto-pick hero */}
-                <TabsContent value="drills" className="mt-0 flex-1">
-                    <div className="mx-auto max-w-4xl space-y-6 px-8 py-8">
-                        <div>
-                            <h2 className="text-lg font-semibold tracking-tight">
-                                Drills
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                                A bite-sized speaking practice each day. We
-                                pick the drill, you bring 60 seconds.
-                            </p>
-                        </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                    <CreditsBanner />
 
-                        {loading ? (
-                            <p className="text-sm text-muted-foreground">
-                                Loading your drills…
-                            </p>
-                        ) : todaysDrill ? (
-                            <TodaysDrillHero session={todaysDrill} />
-                        ) : (
-                            <NoDrillReadyHero
-                                onPick={() => setPickerOpen(true)}
-                            />
-                        )}
-
-                        {todaysDrill ? (
-                            <div className="-mt-2 flex justify-center">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (!creditGate.guard()) return;
-                                        setPickerOpen(true);
-                                        setCreateError(null);
-                                    }}
-                                    disabled={creatingDrill}
-                                    className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-                                >
-                                    Want a different drill? →
-                                </button>
+                    {/* Drills tab — auto-pick hero */}
+                    <TabsContent value="drills" className="mt-0">
+                        <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+                            <div>
+                                <h2 className="text-lg font-semibold tracking-tight">
+                                    Drills
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    A bite-sized speaking practice each day. We
+                                    pick the drill, you bring 60 seconds.
+                                </p>
                             </div>
-                        ) : null}
 
-                        {error ? (
-                            <p className="text-sm text-destructive">{error}</p>
-                        ) : pastSessions.length === 0 &&
-                          practiceSessions.length === 0 ? (
-                            <p className="pt-2 text-center text-xs text-muted-foreground/70">
-                                No past sessions yet — finish your first drill
-                                and it&apos;ll show up here.
-                            </p>
-                        ) : (
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-medium text-muted-foreground">
-                                    Past sessions (
-                                    {pastSessions.length +
-                                        practiceSessions.length}
-                                    )
-                                </h3>
-                                {deleteError ? (
-                                    <p
-                                        className="text-sm text-destructive"
-                                        role="alert"
+                            {loading ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Loading your drills…
+                                </p>
+                            ) : todaysDrill ? (
+                                <TodaysDrillHero session={todaysDrill} />
+                            ) : (
+                                <NoDrillReadyHero
+                                    onPick={() => setPickerOpen(true)}
+                                />
+                            )}
+
+                            {todaysDrill ? (
+                                <div className="-mt-2 flex justify-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!creditGate.guard()) return;
+                                            setPickerOpen(true);
+                                            setCreateError(null);
+                                        }}
+                                        disabled={creatingDrill}
+                                        className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
                                     >
-                                        {deleteError}
-                                    </p>
-                                ) : null}
-                                <div className="space-y-1">
-                                    {[...pastSessions, ...practiceSessions]
-                                        .sort(
-                                            (a, b) =>
-                                                Date.parse(b.createdAt) -
-                                                Date.parse(a.createdAt),
+                                        Want a different drill? →
+                                    </button>
+                                </div>
+                            ) : null}
+
+                            {error ? (
+                                <p className="text-sm text-destructive">
+                                    {error}
+                                </p>
+                            ) : pastSessions.length === 0 &&
+                              practiceSessions.length === 0 ? (
+                                <p className="pt-2 text-center text-xs text-muted-foreground/70">
+                                    No past sessions yet — finish your first
+                                    drill and it&apos;ll show up here.
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    <h3 className="text-sm font-medium text-muted-foreground">
+                                        Past sessions (
+                                        {pastSessions.length +
+                                            practiceSessions.length}
                                         )
-                                        .map((session) => {
+                                    </h3>
+                                    {deleteError ? (
+                                        <p
+                                            className="text-sm text-destructive"
+                                            role="alert"
+                                        >
+                                            {deleteError}
+                                        </p>
+                                    ) : null}
+                                    <div className="space-y-1">
+                                        {[...pastSessions, ...practiceSessions]
+                                            .sort(
+                                                (a, b) =>
+                                                    Date.parse(b.createdAt) -
+                                                    Date.parse(a.createdAt),
+                                            )
+                                            .map((session) => {
+                                                const isDeleting =
+                                                    deletingSessionId ===
+                                                    session.id;
+                                                const isReplay =
+                                                    session.type ===
+                                                    "scenario_replay";
+                                                return (
+                                                    <div
+                                                        key={session.id}
+                                                        className={`group rounded-lg border border-border/50 bg-background transition-colors hover:border-border hover:bg-muted/50 ${
+                                                            isDeleting
+                                                                ? "opacity-50"
+                                                                : ""
+                                                        }`}
+                                                    >
+                                                        <Link
+                                                            href={drillHref(
+                                                                session,
+                                                            )}
+                                                            className={`block w-full p-3 text-left ${
+                                                                isDeleting
+                                                                    ? "pointer-events-none"
+                                                                    : ""
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="truncate text-sm font-medium">
+                                                                        {
+                                                                            session
+                                                                                .plan
+                                                                                .scenario
+                                                                                .title
+                                                                        }
+                                                                    </p>
+                                                                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            {formatCategory(
+                                                                                session
+                                                                                    .plan
+                                                                                    .scenario
+                                                                                    .category,
+                                                                            )}
+                                                                        </span>
+                                                                        {isReplay ? (
+                                                                            <>
+                                                                                <span className="text-xs text-muted-foreground/50">
+                                                                                    ·
+                                                                                </span>
+                                                                                <span className="text-xs text-muted-foreground">
+                                                                                    from
+                                                                                    a
+                                                                                    real
+                                                                                    conversation
+                                                                                </span>
+                                                                            </>
+                                                                        ) : null}
+                                                                        <span className="text-xs text-muted-foreground/50">
+                                                                            ·
+                                                                        </span>
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            {formatDate(
+                                                                                session.createdAt,
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex shrink-0 items-center gap-2">
+                                                                    <StatusBadge
+                                                                        status={
+                                                                            session.completionStatus
+                                                                        }
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={
+                                                                            isDeleting
+                                                                        }
+                                                                        className="rounded-md p-2 text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive md:p-1 md:text-muted-foreground/0 md:group-hover:text-muted-foreground/60"
+                                                                        title="Delete session"
+                                                                        onClick={(
+                                                                            e,
+                                                                        ) =>
+                                                                            handleDeleteClick(
+                                                                                e,
+                                                                                session,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {isDeleting ? (
+                                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                        ) : (
+                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                        )}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </TabsContent>
+
+                    {/* Captures tab */}
+                    <TabsContent value="captures" className="mt-0">
+                        <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+                            <div>
+                                <h2 className="text-lg font-semibold tracking-tight">
+                                    My Captures
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Real conversations from your calls. Get
+                                    feedback on how you did, and turn any moment
+                                    into a drill to practice again.
+                                </p>
+                            </div>
+                            {capturesLoading ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Loading your captures…
+                                </p>
+                            ) : capturesError ? (
+                                <p className="text-sm text-destructive">
+                                    {capturesError}
+                                </p>
+                            ) : captures.length === 0 ? (
+                                <CapturesEmptyState />
+                            ) : (
+                                <div className="space-y-2">
+                                    <h3 className="text-sm font-medium text-muted-foreground">
+                                        Captures ({captures.length})
+                                    </h3>
+                                    {captureDeleteError ? (
+                                        <p
+                                            className="text-sm text-destructive"
+                                            role="alert"
+                                        >
+                                            {captureDeleteError}
+                                        </p>
+                                    ) : null}
+                                    <div className="space-y-1">
+                                        {captures.map((capture, idx) => {
+                                            const captureId =
+                                                capture.id ?? `capture-${idx}`;
                                             const isDeleting =
-                                                deletingSessionId === session.id;
-                                            const isReplay =
-                                                session.type === "scenario_replay";
+                                                deletingCaptureId === captureId;
+                                            const title =
+                                                capture.serverTitle ??
+                                                capture.title;
+                                            const duration = formatDuration(
+                                                capture.durationSecs,
+                                            );
+
                                             return (
                                                 <div
-                                                    key={session.id}
+                                                    key={captureId}
                                                     className={`group rounded-lg border border-border/50 bg-background transition-colors hover:border-border hover:bg-muted/50 ${
                                                         isDeleting
                                                             ? "opacity-50"
@@ -406,7 +568,7 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                     }`}
                                                 >
                                                     <Link
-                                                        href={drillHref(session)}
+                                                        href={`/app/conversations/${captureId}`}
                                                         className={`block w-full p-3 text-left ${
                                                             isDeleting
                                                                 ? "pointer-events-none"
@@ -416,46 +578,38 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div className="min-w-0 flex-1">
                                                                 <p className="truncate text-sm font-medium">
-                                                                    {
-                                                                        session
-                                                                            .plan
-                                                                            .scenario
-                                                                            .title
-                                                                    }
+                                                                    {title}
                                                                 </p>
                                                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                                                     <span className="text-xs text-muted-foreground">
-                                                                        {formatCategory(
-                                                                            session
-                                                                                .plan
-                                                                                .scenario
-                                                                                .category,
+                                                                        {formatDate(
+                                                                            capture.startedAt,
                                                                         )}
                                                                     </span>
-                                                                    {isReplay ? (
+                                                                    {duration && (
                                                                         <>
                                                                             <span className="text-xs text-muted-foreground/50">
-                                                                                ·
+                                                                                &middot;
                                                                             </span>
                                                                             <span className="text-xs text-muted-foreground">
-                                                                                from a real conversation
+                                                                                {
+                                                                                    duration
+                                                                                }
                                                                             </span>
                                                                         </>
-                                                                    ) : null}
-                                                                    <span className="text-xs text-muted-foreground/50">
-                                                                        ·
-                                                                    </span>
-                                                                    <span className="text-xs text-muted-foreground">
-                                                                        {formatDate(
-                                                                            session.createdAt,
-                                                                        )}
-                                                                    </span>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                             <div className="flex shrink-0 items-center gap-2">
-                                                                <StatusBadge
+                                                                <CaptureStatusBadge
                                                                     status={
-                                                                        session.completionStatus
+                                                                        capture.status
+                                                                    }
+                                                                    rejectionReason={
+                                                                        capture.rejectionReason
+                                                                    }
+                                                                    error={
+                                                                        capture.error
                                                                     }
                                                                 />
                                                                 <button
@@ -464,13 +618,13 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                                         isDeleting
                                                                     }
                                                                     className="rounded-md p-1 text-muted-foreground/0 transition-colors hover:bg-destructive/10 hover:text-destructive group-hover:text-muted-foreground/60"
-                                                                    title="Delete session"
+                                                                    title="Delete capture"
                                                                     onClick={(
                                                                         e,
                                                                     ) =>
-                                                                        handleDeleteClick(
+                                                                        handleCaptureDeleteClick(
                                                                             e,
-                                                                            session,
+                                                                            capture,
                                                                         )
                                                                     }
                                                                 >
@@ -486,156 +640,26 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                 </div>
                                             );
                                         })}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                </TabsContent>
-
-                {/* Captures tab */}
-                <TabsContent value="captures" className="mt-0 flex-1">
-                    <div className="mx-auto max-w-4xl space-y-6 px-8 py-8">
-                        <div>
-                            <h2 className="text-lg font-semibold tracking-tight">
-                                My Captures
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                                Real conversations from your calls. Get
-                                feedback on how you did, and turn any moment
-                                into a drill to practice again.
-                            </p>
+                            )}
                         </div>
-                        {capturesLoading ? (
-                            <p className="text-sm text-muted-foreground">
-                                Loading your captures…
-                            </p>
-                        ) : capturesError ? (
-                            <p className="text-sm text-destructive">
-                                {capturesError}
-                            </p>
-                        ) : captures.length === 0 ? (
-                            <CapturesEmptyState />
-                        ) : (
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-medium text-muted-foreground">
-                                    Captures ({captures.length})
-                                </h3>
-                                {captureDeleteError ? (
-                                    <p
-                                        className="text-sm text-destructive"
-                                        role="alert"
-                                    >
-                                        {captureDeleteError}
-                                    </p>
-                                ) : null}
-                                <div className="space-y-1">
-                                    {captures.map((capture, idx) => {
-                                        const captureId =
-                                            capture.id ?? `capture-${idx}`;
-                                        const isDeleting =
-                                            deletingCaptureId === captureId;
-                                        const title =
-                                            capture.serverTitle ??
-                                            capture.title;
-                                        const duration = formatDuration(
-                                            capture.durationSecs,
-                                        );
+                    </TabsContent>
 
-                                        return (
-                                            <div
-                                                key={captureId}
-                                                className={`group rounded-lg border border-border/50 bg-background transition-colors hover:border-border hover:bg-muted/50 ${
-                                                    isDeleting
-                                                        ? "opacity-50"
-                                                        : ""
-                                                }`}
-                                            >
-                                                <Link
-                                                    href={`/app/conversations/${captureId}`}
-                                                    className={`block w-full p-3 text-left ${
-                                                        isDeleting
-                                                            ? "pointer-events-none"
-                                                            : ""
-                                                    }`}
-                                                >
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="truncate text-sm font-medium">
-                                                                {title}
-                                                            </p>
-                                                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {formatDate(
-                                                                        capture.startedAt,
-                                                                    )}
-                                                                </span>
-                                                                {duration && (
-                                                                    <>
-                                                                        <span className="text-xs text-muted-foreground/50">
-                                                                            &middot;
-                                                                        </span>
-                                                                        <span className="text-xs text-muted-foreground">
-                                                                            {duration}
-                                                                        </span>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex shrink-0 items-center gap-2">
-                                                            <CaptureStatusBadge
-                                                                status={
-                                                                    capture.status
-                                                                }
-                                                                rejectionReason={
-                                                                    capture.rejectionReason
-                                                                }
-                                                                error={
-                                                                    capture.error
-                                                                }
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                disabled={
-                                                                    isDeleting
-                                                                }
-                                                                className="rounded-md p-1 text-muted-foreground/0 transition-colors hover:bg-destructive/10 hover:text-destructive group-hover:text-muted-foreground/60"
-                                                                title="Delete capture"
-                                                                onClick={(e) =>
-                                                                    handleCaptureDeleteClick(
-                                                                        e,
-                                                                        capture,
-                                                                    )
-                                                                }
-                                                            >
-                                                                {isDeleting ? (
-                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                ) : (
-                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                )}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </Link>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </TabsContent>
+                    <TabsContent value="focus" className="mt-0">
+                        <FocusDashboard
+                            uid={uid}
+                            onStartDrill={() => {
+                                if (!creditGate.guard()) return;
+                                setActiveTab("drills");
+                                setPickerOpen(true);
+                                setCreateError(null);
+                            }}
+                        />
+                    </TabsContent>
+                </div>
 
-                <TabsContent value="focus" className="mt-0 flex-1">
-                    <FocusDashboard
-                        uid={uid}
-                        onStartDrill={() => {
-                            if (!creditGate.guard()) return;
-                            setActiveTab("drills");
-                            setPickerOpen(true);
-                            setCreateError(null);
-                        }}
-                    />
-                </TabsContent>
+                <MobileTabBar activeTab={activeTab} onChange={setActiveTab} />
             </Tabs>
 
             {/* "Want a different drill?" picker */}
@@ -649,8 +673,8 @@ export function SessionsDashboard(props: Readonly<Props>) {
                     <DialogHeader>
                         <DialogTitle>Pick a different drill</DialogTitle>
                         <DialogDescription>
-                            We&apos;ll generate a fresh 60-second drill in
-                            this category and skip the current one.
+                            We&apos;ll generate a fresh 60-second drill in this
+                            category and skip the current one.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3">
@@ -685,7 +709,9 @@ export function SessionsDashboard(props: Readonly<Props>) {
                                                     : "border-border/60 hover:border-border hover:bg-muted/50 disabled:opacity-50",
                                             )}
                                             onClick={() =>
-                                                void handlePickCategory(category)
+                                                void handlePickCategory(
+                                                    category,
+                                                )
                                             }
                                         >
                                             <div className="flex items-center gap-2">
@@ -787,10 +813,56 @@ export function SessionsDashboard(props: Readonly<Props>) {
     );
 }
 
+const TAB_ITEMS: {
+    value: DashboardTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+}[] = [
+    { value: "drills", label: "Drills", icon: Mic },
+    { value: "captures", label: "Captures", icon: Waves },
+    { value: "focus", label: "Focus", icon: Target },
+];
+
+function MobileTabBar({
+    activeTab,
+    onChange,
+}: {
+    activeTab: DashboardTab;
+    onChange: (tab: DashboardTab) => void;
+}) {
+    return (
+        <nav
+            aria-label="Primary"
+            className="flex shrink-0 items-stretch border-t border-border/60 bg-card/80 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        >
+            {TAB_ITEMS.map(({ value, label, icon: Icon }) => {
+                const active = activeTab === value;
+                return (
+                    <button
+                        key={value}
+                        type="button"
+                        onClick={() => onChange(value)}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                            "flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                            active
+                                ? "text-foreground"
+                                : "text-muted-foreground hover:text-foreground",
+                        )}
+                    >
+                        <Icon className="size-5" />
+                        {label}
+                    </button>
+                );
+            })}
+        </nav>
+    );
+}
+
 function TodaysDrillHero({ session }: { session: SessionType }) {
     const isReplay = session.type === "scenario_replay";
     return (
-        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-8 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-6 shadow-sm sm:p-8">
             <div
                 aria-hidden
                 className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
@@ -816,10 +888,7 @@ function TodaysDrillHero({ session }: { session: SessionType }) {
                 </div>
                 <Link
                     href={drillHref(session)}
-                    className={cn(
-                        buttonVariants({ size: "lg" }),
-                        "shrink-0",
-                    )}
+                    className={cn(buttonVariants({ size: "lg" }), "shrink-0")}
                 >
                     <ArrowRight className="h-4 w-4" />
                     Start
@@ -886,7 +955,7 @@ function CapturesEmptyState() {
     const OSIcon = os === "macos" ? Apple : Monitor;
 
     return (
-        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-8 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-6 shadow-sm sm:p-8">
             <div
                 aria-hidden
                 className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
@@ -1045,7 +1114,7 @@ function CapturesEmptyState() {
 
 function NoDrillReadyHero({ onPick }: { onPick: () => void }) {
     return (
-        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-8 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-6 shadow-sm sm:p-8">
             <div
                 aria-hidden
                 className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
@@ -1059,8 +1128,8 @@ function NoDrillReadyHero({ onPick }: { onPick: () => void }) {
                         Pick a drill to get started
                     </h2>
                     <p className="text-sm text-muted-foreground sm:text-base">
-                        Sixty seconds, one specific output. We&apos;ll
-                        generate the next one automatically when you finish.
+                        Sixty seconds, one specific output. We&apos;ll generate
+                        the next one automatically when you finish.
                     </p>
                 </div>
                 <Button onClick={onPick} size="lg" className="shrink-0">

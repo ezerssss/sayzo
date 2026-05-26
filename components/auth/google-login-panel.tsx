@@ -18,7 +18,7 @@ export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
         props;
 
     return (
-        <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card px-8 py-12 shadow-sm">
+        <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card px-6 py-10 shadow-sm sm:px-8 sm:py-12">
             <div className="space-y-6">
                 <div className="flex justify-center">
                     <Image
@@ -31,9 +31,7 @@ export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
                     />
                 </div>
                 <div className="space-y-3 text-center text-sm leading-relaxed text-muted-foreground">
-                    <p>
-                        Your English coach — tuned to how you actually speak.
-                    </p>
+                    <p>Your English coach — tuned to how you actually speak.</p>
                     <p>
                         Sign in to start practicing. Short drills, real
                         feedback, built for the situations in your week.

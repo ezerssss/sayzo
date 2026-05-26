@@ -1,4 +1,5 @@
 import { CalloutCard } from "@/components/coaching/callout-card";
+import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
 import { PrincipleCard } from "@/components/coaching/principle-card";
 import { TopFixesCard } from "@/components/coaching/top-fixes-card";
 import { PostDrillInstallCard } from "@/components/install/post-drill-install-card";
@@ -32,9 +33,7 @@ type Props = {
     drillCreatedAt?: string | null;
 };
 
-function buildChatContext(
-    analysis: SessionAnalysisType | null,
-): string {
+function buildChatContext(analysis: SessionAnalysisType | null): string {
     if (!analysis) return "";
     const lines: string[] = [];
     if (analysis.whatWentWell?.trim()) {
@@ -121,8 +120,7 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
 
     return (
         <div className="mt-6 space-y-4">
-            {requiresRetry &&
-            completionReason === VOLUNTARY_RETRY_REASON ? (
+            {requiresRetry && completionReason === VOLUNTARY_RETRY_REASON ? (
                 <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 dark:border-sky-900/40 dark:bg-sky-950/20">
                     <p className="text-sm font-medium">
                         Re-recording this drill
@@ -142,63 +140,95 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                     </p>
                 </div>
             ) : null}
-            {currentAnalysis?.whatWentWell ? (
-                <CalloutCard
-                    tone="positive"
-                    label="What went well"
-                    body={currentAnalysis.whatWentWell}
-                />
-            ) : null}
-            {currentAnalysis?.mainIssue ? (
-                <CalloutCard
-                    tone="warning"
-                    label="Main issue"
-                    body={currentAnalysis.mainIssue}
-                />
-            ) : (
-                <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm font-medium">Main issue</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Waiting for analysis…
-                    </p>
-                </div>
-            )}
-            <PrincipleCard shape={currentAnalysis?.mainIssueShape} />
-            {fixes.length > 0 ? (
-                <TopFixesCard moments={fixes} onSeek={onSeekToSecond} />
-            ) : null}
-            {hasImprovedVersion && currentFeedback?.improvedVersion ? (
-                <ImprovedVersionView
-                    content={currentFeedback.improvedVersion}
-                />
-            ) : null}
-            {currentTranscript ||
-            (currentServerTranscript &&
-                currentServerTranscript.length > 0) ? (
-                <DrillTranscriptView
-                    serverTranscript={currentServerTranscript}
-                    transcript={currentTranscript}
-                    fixTheseFirst={fixes}
-                    onSeekToSecond={onSeekToSecond}
-                />
-            ) : (
-                <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm font-medium">Transcript</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Waiting for transcription…
-                    </p>
-                </div>
-            )}
-            {showChat && sessionId ? (
-                <FeedbackChat
-                    source="session"
-                    sourceId={sessionId}
-                    sectionKey="now"
-                    sectionTitle="Now"
-                    feedbackContent={chatContext}
-                    onSeekToSecond={onSeekToSecond}
-                />
-            ) : null}
+            <FeedbackTabs
+                now={
+                    <>
+                        {currentAnalysis?.whatWentWell ? (
+                            <CalloutCard
+                                tone="positive"
+                                label="What went well"
+                                body={currentAnalysis.whatWentWell}
+                            />
+                        ) : null}
+                        {currentAnalysis?.mainIssue ? (
+                            <CalloutCard
+                                tone="warning"
+                                label="Main issue"
+                                body={currentAnalysis.mainIssue}
+                            />
+                        ) : (
+                            <div className="rounded-xl border border-border/70 p-4">
+                                <p className="text-sm font-medium">
+                                    Main issue
+                                </p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    Waiting for analysis…
+                                </p>
+                            </div>
+                        )}
+                        <PrincipleCard
+                            shape={currentAnalysis?.mainIssueShape}
+                        />
+                        {fixes.length > 0 ? (
+                            <TopFixesCard
+                                moments={fixes}
+                                onSeek={onSeekToSecond}
+                            />
+                        ) : null}
+                        {showChat && sessionId ? (
+                            <FeedbackChat
+                                source="session"
+                                sourceId={sessionId}
+                                sectionKey="now"
+                                sectionTitle="Now"
+                                feedbackContent={chatContext}
+                                onSeekToSecond={onSeekToSecond}
+                            />
+                        ) : null}
+                        {currentTranscript ||
+                        (currentServerTranscript &&
+                            currentServerTranscript.length > 0) ? (
+                            <DrillTranscriptView
+                                serverTranscript={currentServerTranscript}
+                                transcript={currentTranscript}
+                                fixTheseFirst={fixes}
+                                onSeekToSecond={onSeekToSecond}
+                            />
+                        ) : (
+                            <div className="rounded-xl border border-border/70 p-4">
+                                <p className="text-sm font-medium">
+                                    Transcript
+                                </p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    Waiting for transcription…
+                                </p>
+                            </div>
+                        )}
+                    </>
+                }
+                improved={
+                    <>
+                        <ImprovedVersionView
+                            content={currentFeedback?.improvedVersion ?? ""}
+                        />
+                        {hasImprovedVersion &&
+                        sessionId &&
+                        uid &&
+                        currentFeedback?.improvedVersion ? (
+                            <FeedbackChat
+                                source="session"
+                                sourceId={sessionId}
+                                sectionKey="rewrites"
+                                sectionTitle="Improved version"
+                                feedbackContent={
+                                    currentFeedback.improvedVersion
+                                }
+                                onSeekToSecond={onSeekToSecond}
+                            />
+                        ) : null}
+                    </>
+                }
+            />
             <PostDrillInstallCard
                 captureCount={captureCount}
                 firstDrillCompletedAt={firstDrillCompletedAt}
