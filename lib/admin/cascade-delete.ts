@@ -72,12 +72,20 @@ export async function deleteUserCompletely(
     };
 
     // 1. Disable Firebase Auth user so any in-flight client loses access now.
+    //    Fail CLOSED: if we can't disable the account, abort before deleting
+    //    anything. A partial delete that leaves a live, ENABLED user would let
+    //    a concurrent token grant/refresh re-provision them — the token route
+    //    rejects disabled/missing users, but only once this disable lands.
+    //    `user-not-found` means the account is already gone, so cleanup of any
+    //    residual Firestore docs can safely continue.
     try {
         await adminAuth.updateUser(targetUid, { disabled: true });
     } catch (error) {
+        if ((error as { code?: string }).code !== "auth/user-not-found") {
+            throw error;
+        }
         console.warn(
-            `[cascade-delete] could not disable auth user ${targetUid}`,
-            error,
+            `[cascade-delete] auth user ${targetUid} already absent; continuing cleanup`,
         );
     }
 

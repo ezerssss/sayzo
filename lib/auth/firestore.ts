@@ -145,6 +145,25 @@ export async function deleteAuthCode(code: string): Promise<void> {
         .delete();
 }
 
+/**
+ * Atomically claim a single-use authorization code: reads and deletes it in one
+ * transaction so two concurrent token exchanges can't both succeed (and both
+ * mint a refresh token) for the same code. Returns the code data to the single
+ * winner, or null if the code was absent / already claimed.
+ */
+export async function consumeAuthCode(
+    code: string,
+): Promise<AuthCodeData | null> {
+    const db = getAdminFirestore();
+    const ref = db.collection(FirestoreCollections.authCodes.path).doc(code);
+    return db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.delete(ref);
+        return snap.data() as AuthCodeData;
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Refresh Tokens (stored by hash for security)
 // ---------------------------------------------------------------------------

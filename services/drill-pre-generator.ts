@@ -61,6 +61,14 @@ export type PregenerateOptions = {
      * tap it to redo via the existing voluntary-retry flow.
      */
     dailyRefresh?: boolean;
+    /**
+     * Bypass the onboarding gate below. Set ONLY by `/api/onboarding/complete`,
+     * which pre-generates the user's first drill while `onboardingComplete` is
+     * still `false` (it flips to `true` only after pre-gen writes the pending
+     * drill). Every other caller leaves this unset so an un-onboarded
+     * desktop-first user doesn't burn a planner LLM call on an empty profile.
+     */
+    allowUnonboarded?: boolean;
 };
 
 export type PregenerateOutcome =
@@ -73,6 +81,8 @@ export type PregenerateOutcome =
     /** Latest regular drill is still processing. Caller may show a "still processing" message. */
     | { ok: false; reason: "still_processing"; session: SessionType }
     | { ok: false; reason: "no_user" }
+    /** User exists but hasn't completed onboarding — no personalized profile to plan from. */
+    | { ok: false; reason: "not_onboarded" }
     | { ok: false; reason: "error"; message: string };
 
 async function refreshSkillMemoryFromLatestSession(
@@ -312,6 +322,18 @@ export async function pregenerateNextDrillFor(
         if (!userDoc.exists) return { ok: false, reason: "no_user" };
 
         const userProfile = userDoc.data() as UserProfileType;
+
+        // Drills are personalized off the onboarding profile (role/industry/
+        // goals/etc.). A desktop-first user is provisioned + `active` but may
+        // not have onboarded yet — skip the planner LLM call (and the resulting
+        // generic ghost drill) until they do. `/api/onboarding/complete` passes
+        // `allowUnonboarded` because it pre-gens before flipping the flag.
+        if (
+            !options.allowUnonboarded &&
+            userProfile.onboardingComplete !== true
+        ) {
+            return { ok: false, reason: "not_onboarded" };
+        }
 
         const recentSessionsSnap = await db
             .collection(FirestoreCollections.sessions.path)
