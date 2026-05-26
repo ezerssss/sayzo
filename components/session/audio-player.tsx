@@ -33,16 +33,12 @@ export function AudioPlayer({
     const [isDragging, setIsDragging] = useState(false);
     const resolvingDurationRef = useRef(false);
 
-    const audio = internalRef.current;
-
     // Sync internal ref with external ref
     const setRef = useCallback(
         (el: HTMLAudioElement | null) => {
             internalRef.current = el;
             if (externalRef) {
-                (
-                    externalRef as React.MutableRefObject<HTMLAudioElement | null>
-                ).current = el;
+                externalRef.current = el;
             }
         },
         [externalRef],

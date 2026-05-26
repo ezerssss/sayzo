@@ -1,4 +1,4 @@
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { verifyAccessToken } from "@/lib/auth/jwt";
 import {
     IngestError,

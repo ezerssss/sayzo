@@ -1,6 +1,6 @@
 # Conversations UI Spec
 
-**Status:** Shipped (v1). Implemented as SPA state modes (`conversations` / `conversation-detail`) in `app/page.tsx`, not file-based routes. See `components/conversations/` for the UI components. Dashboard has a "Conversations" button linking to the list view. Detail view shows transcript with inline teachable-moment and native-speaker-rewrite highlights, full analysis with collapsible dimensional cards (four-part CoachingMoment shape), audio playback, and a "Practice this conversation" button that creates a scenario-replay drill with comparison-aware analysis.
+**Status:** Shipped (v1). Implemented as SPA state modes (`conversations` / `conversation-detail`) in `app/page.tsx`, not file-based routes. See `components/conversations/` for the UI components. Dashboard has a "Conversations" button linking to the list view. Detail view shows transcript with inline teachable-moment and native-speaker-rewrite highlights, full analysis with collapsible dimensional cards (three-part CoachingMoment shape), audio playback, and a "Practice this conversation" button that creates a scenario-replay drill with comparison-aware analysis.
 
 ---
 
@@ -72,13 +72,13 @@ The capture analysis is rich — show it in collapsible cards:
 - **Overview** — `analysis.overview` (1-2 paragraphs)
 - **Main issue** — `analysis.mainIssue` prominently displayed
 - **Secondary issues** — `analysis.secondaryIssues` as a bulleted list
-- **Dimensional findings** (collapsible cards) — each dimension is a `{ assessment: string, findings: CoachingMoment[] }` object. Display the `assessment` paragraph at the top of the card. Each `finding` is a four-part `CoachingMoment` (`anchor`, `whyIssue`, `betterOption`, `keyTakeaway`) — render as a structured card with all four parts visible (the `keyTakeaway` is the most important — it's what makes the lesson transferable). **`structureAndFlow` should be the most prominent card** — structure is the most important dimensional analysis and the prompt produces the richest assessment for it.
+- **Dimensional findings** (collapsible cards) — each dimension is a `{ assessment: string, findings: CoachingMoment[] }` object. Display the `assessment` paragraph at the top of the card. Each `finding` is a three-part `CoachingMoment` (`anchor`, `betterOption`, `whyThisMatters`) — render as a structured card with all three parts visible (the `whyThisMatters` carries the cost + reusable principle — it's what makes the lesson transferable). **`structureAndFlow` should be the most prominent card** — structure is the most important dimensional analysis and the prompt produces the richest assessment for it.
   - Structure & flow — `analysis.structureAndFlow.assessment` + `analysis.structureAndFlow.findings[]`
   - Clarity & conciseness — `analysis.clarityAndConciseness.assessment` + `.findings[]`
   - Relevance & focus — `analysis.relevanceAndFocus.assessment` + `.findings[]`
   - Engagement — `analysis.engagement.assessment` + `.findings[]`
   - Professionalism — `analysis.professionalism.assessment` + `.findings[]`
-- **Teachable moments** — `analysis.teachableMoments` listed with clickable anchors back into the transcript. Each moment has the four-part `CoachingMoment` shape (`anchor`, `whyIssue`, `betterOption`, `keyTakeaway`) plus `type`, `severity`, `timestamp`, `transcriptIdx`. Display all four coaching parts — surfacing only "what's wrong" without "why the better one is better" loses the lesson.
+- **Teachable moments** — `analysis.fixTheseFirst` / `analysis.moreMoments` listed with clickable anchors back into the transcript. Each moment has the three-part `CoachingMoment` shape (`anchor`, `betterOption`, `whyThisMatters`) plus `type`, `severity`, `timestamp`, `transcriptIdx`. Display all three coaching parts — surfacing only "what's wrong" without "why the better one is better" loses the lesson.
 - **Quantitative metrics** — small data cards:
   - Filler rate — `analysis.fillerWords.perMinute` per minute, with a breakdown bar chart
   - Speaking pace — `analysis.fluency.wordsPerMinute` WPM

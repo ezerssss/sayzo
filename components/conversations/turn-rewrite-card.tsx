@@ -1,7 +1,7 @@
 import { Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { RewriteVerdict, TurnRewrite } from "@/types/captures";
+import type { RewriteVerdict, TurnRewrite } from "@/schemas";
 
 const VERDICT_LABELS: Record<RewriteVerdict, string> = {
     keep: "Already strong",

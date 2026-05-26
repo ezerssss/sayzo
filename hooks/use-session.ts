@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { db } from "@/lib/firebase/client";
-import type { SessionType } from "@/types/sessions";
+import type { SessionType } from "@/schemas";
 
 /**
  * Real-time listener for a single session document by ID.
@@ -21,6 +21,9 @@ export function useSession(sessionId?: string) {
 
     useEffect(() => {
         if (!sessionId) {
+            // Intentional synchronous reset when the subscribed id disappears;
+            // every other transition happens in the onSnapshot callback below.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSession(null);
             setLoading(false);
             return;

@@ -1,4 +1,4 @@
-import type { SessionPlanType } from "@/types/sessions";
+import type { SessionPlanType } from "@/schemas";
 
 /**
  * Bite-sized drill format: a single 60-second response. Both the default

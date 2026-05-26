@@ -9,7 +9,7 @@ import type {
     FocusEvidence,
     FocusTheme,
     FocusThemeTrend,
-} from "@/types/focus-insights";
+} from "@/schemas";
 
 function formatRelativeDate(iso: string): string {
     try {

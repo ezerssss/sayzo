@@ -1,6 +1,6 @@
 import "server-only";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { isStaleProcessing } from "@/constants/session-processing";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import {
@@ -15,13 +15,17 @@ import {
     summarizeSessionsForPlanner,
 } from "@/services/planner";
 import { updateSkillMemoryFromLatestSession } from "@/services/skill-memory-updater";
-import type { CaptureType } from "@/types/captures";
-import type { SkillMemoryType } from "@/types/skill-memory";
+import {
+    getOrHydrateLearnerModel,
+    learnerModelDoc,
+} from "@/lib/learner-model/store";
+import type { CaptureType } from "@/schemas";
+import type { LearnerModel } from "@/schemas";
 import {
     hasSessionFeedbackContent,
     type SessionType,
-} from "@/types/sessions";
-import type { UserProfileType } from "@/types/user";
+} from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 
 /** Captures within this window are eligible for capture-derived drills. */
 const FRESH_CAPTURE_DAYS = 7;
@@ -71,40 +75,12 @@ export type PregenerateOutcome =
     | { ok: false; reason: "no_user" }
     | { ok: false; reason: "error"; message: string };
 
-function hydrateSkillMemory(
-    uid: string,
-    skillMemoryData: unknown,
-): SkillMemoryType {
-    const data = (skillMemoryData ?? {}) as Partial<SkillMemoryType>;
-    const nowIso = new Date().toISOString();
-
-    return {
-        uid,
-        strengths: Array.isArray(data.strengths) ? data.strengths : [],
-        weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
-        masteredFocus: Array.isArray(data.masteredFocus)
-            ? data.masteredFocus
-            : [],
-        reinforcementFocus: Array.isArray(data.reinforcementFocus)
-            ? data.reinforcementFocus
-            : [],
-        lastProcessedSessionId:
-            typeof data.lastProcessedSessionId === "string"
-                ? data.lastProcessedSessionId
-                : null,
-        createdAt:
-            typeof data.createdAt === "string" ? data.createdAt : nowIso,
-        updatedAt:
-            typeof data.updatedAt === "string" ? data.updatedAt : nowIso,
-    };
-}
-
 async function refreshSkillMemoryFromLatestSession(
     db: ReturnType<typeof getAdminFirestore>,
     uid: string,
-    current: SkillMemoryType,
+    current: LearnerModel,
     preloadedLatestSession?: SessionType,
-): Promise<SkillMemoryType> {
+): Promise<LearnerModel> {
     let latestSession = preloadedLatestSession;
     if (latestSession == null) {
         const latestSessionSnap = await db
@@ -130,6 +106,8 @@ async function refreshSkillMemoryFromLatestSession(
             masteredFocus: current.masteredFocus,
             reinforcementFocus: current.reinforcementFocus,
         },
+        currentTrackedPatterns: current.trackedPatterns,
+        sourceId: latestSession.id,
         latestSession: {
             completionStatus: latestSession?.completionStatus,
             completionReason: latestSession?.completionReason ?? null,
@@ -139,19 +117,30 @@ async function refreshSkillMemoryFromLatestSession(
         },
     });
 
-    const updatedSkillMemory: SkillMemoryType = {
+    const now = new Date().toISOString();
+    const updatedModel: LearnerModel = {
         ...current,
         ...updatedFields,
         lastProcessedSessionId: latestSession.id,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
     };
 
-    await db
-        .collection(FirestoreCollections.skillMemories.path)
-        .doc(uid)
-        .set(updatedSkillMemory, { merge: true });
+    // Merge only the skill fields + tracked patterns back into the learner
+    // model doc so we don't clobber context / cursors written by other steps.
+    await learnerModelDoc(db, uid).set(
+        {
+            trackedPatterns: updatedModel.trackedPatterns,
+            strengths: updatedModel.strengths,
+            weaknesses: updatedModel.weaknesses,
+            masteredFocus: updatedModel.masteredFocus,
+            reinforcementFocus: updatedModel.reinforcementFocus,
+            lastProcessedSessionId: updatedModel.lastProcessedSessionId,
+            updatedAt: now,
+        },
+        { merge: true },
+    );
 
-    return updatedSkillMemory;
+    return updatedModel;
 }
 
 async function refreshCompanyResearchIfNeeded(
@@ -213,7 +202,7 @@ async function tryCaptureDerivedDrill(
     db: ReturnType<typeof getAdminFirestore>,
     uid: string,
     userProfile: UserProfileType,
-    skillMemory: SkillMemoryType,
+    model: LearnerModel,
     recentSessions: SessionType[],
 ): Promise<SessionType | null> {
     const cutoff = new Date(Date.now() - FRESH_CAPTURE_MS).toISOString();
@@ -262,10 +251,10 @@ async function tryCaptureDerivedDrill(
             additionalContext: userProfile.additionalContext,
         },
         skillMemory: {
-            strengths: skillMemory.strengths,
-            weaknesses: skillMemory.weaknesses,
-            masteredFocus: skillMemory.masteredFocus,
-            reinforcementFocus: skillMemory.reinforcementFocus,
+            strengths: model.strengths,
+            weaknesses: model.weaknesses,
+            masteredFocus: model.masteredFocus,
+            reinforcementFocus: model.reinforcementFocus,
         },
     });
 
@@ -428,15 +417,11 @@ export async function pregenerateNextDrillFor(
             userProfile,
         );
 
-        const skillDoc = await db
-            .collection(FirestoreCollections.skillMemories.path)
-            .doc(uid)
-            .get();
-        const hydratedSkillMemory = hydrateSkillMemory(uid, skillDoc.data());
-        const skillMemory = await refreshSkillMemoryFromLatestSession(
+        const learnerModel = await getOrHydrateLearnerModel(db, uid);
+        const model = await refreshSkillMemoryFromLatestSession(
             db,
             uid,
-            hydratedSkillMemory,
+            learnerModel,
             latestSession,
         );
 
@@ -453,7 +438,7 @@ export async function pregenerateNextDrillFor(
                 db,
                 uid,
                 enrichedUserProfile,
-                skillMemory,
+                model,
                 recentSessions,
             );
             if (captureSession) {
@@ -489,19 +474,13 @@ export async function pregenerateNextDrillFor(
                 goals: enrichedUserProfile.goals,
                 additionalContext: enrichedUserProfile.additionalContext,
                 companyResearch: enrichedUserProfile.companyResearch,
-                internalLearnerContext:
-                    enrichedUserProfile.internalLearnerContext,
-                internalCaptureContext:
-                    enrichedUserProfile.internalCaptureContext?.trim() ?? "",
-                internalCaptureDeliveryNotes:
-                    enrichedUserProfile.internalCaptureDeliveryNotes?.trim() ??
-                    "",
             },
+            context: model.context,
             skillMemory: {
-                strengths: skillMemory.strengths,
-                weaknesses: skillMemory.weaknesses,
-                masteredFocus: skillMemory.masteredFocus,
-                reinforcementFocus: skillMemory.reinforcementFocus,
+                strengths: model.strengths,
+                weaknesses: model.weaknesses,
+                masteredFocus: model.masteredFocus,
+                reinforcementFocus: model.reinforcementFocus,
             },
             recentDrills,
             requestedCategory: options.requestedCategory,

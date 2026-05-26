@@ -6,7 +6,7 @@ import { Loader2, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
-import type { UserProfileType } from "@/types/user";
+import type { UserProfileType } from "@/schemas";
 
 export function AdminToggle({
     uid,

@@ -9,9 +9,9 @@ import {
     where,
 } from "firebase/firestore";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { db } from "@/lib/firebase/client";
-import type { SessionType } from "@/types/sessions";
+import type { SessionType } from "@/schemas";
 
 export function useAllSessions(uid?: string) {
     const [sessions, setSessions] = useState<SessionType[]>([]);

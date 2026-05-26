@@ -1,6 +1,6 @@
 import { Lightbulb } from "lucide-react";
 
-import type { MainIssueShape } from "@/types/sessions";
+import type { MainIssueShape } from "@/schemas";
 
 type Props = {
     shape: MainIssueShape | null | undefined;

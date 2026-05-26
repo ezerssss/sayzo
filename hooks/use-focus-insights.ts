@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { api } from "@/lib/api-client";
 import { db } from "@/lib/firebase/client";
-import type { UserFocusInsights } from "@/types/focus-insights";
+import type { UserFocusInsights } from "@/schemas";
 
 type UseFocusInsightsResult = {
     insights: UserFocusInsights | null;

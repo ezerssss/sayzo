@@ -6,14 +6,19 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import {
+    getOrHydrateLearnerModel,
+    learnerModelDoc,
+} from "@/lib/learner-model/store";
+import { mergeTrackedPatterns } from "@/lib/learner-model/tracked-patterns";
+import { llmTrackedPatternSchema } from "@/schemas";
 import type {
-    CaptureAnalysis,
+    ItemAnalysis,
     CaptureTranscriptLine,
-} from "@/types/captures";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+} from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 const MAX_CAPTURE_CONTEXT_CHARS = 5_500;
@@ -27,6 +32,12 @@ const profileUpdateSchema = z.object({
     newStrengths: z.array(z.string()),
     newWeaknesses: z.array(z.string()),
     reinforcementItems: z.array(z.string()),
+    /**
+     * Durable habits this capture evidences. Propose `{id,label,category,kind}`;
+     * reuse an existing id from "Current tracked patterns" for the same habit.
+     * The server owns trend/recency/occurrences.
+     */
+    trackedPatterns: z.array(llmTrackedPatternSchema).max(15),
 });
 
 function readPrompt(): string {
@@ -55,8 +66,7 @@ function formatDimension(dim: {
     findings: {
         anchor: string;
         betterOption: string;
-        whyThisMatters?: string;
-        whyIssue?: string;
+        whyThisMatters: string;
     }[];
 }): string {
     const assessment = dim.assessment.trim();
@@ -64,7 +74,7 @@ function formatDimension(dim: {
     // profiler model has the gist without the full narrative.
     const findingsText = dim.findings
         .map((f) => {
-            const why = (f.whyThisMatters ?? f.whyIssue ?? "").trim();
+            const why = f.whyThisMatters.trim();
             return `${f.anchor.trim()} — ${why} (Better: ${f.betterOption.trim()})`;
         })
         .join("; ");
@@ -102,39 +112,39 @@ export async function updateUserProfileFromCapture(
     uid: string,
     captureId: string,
     transcript: CaptureTranscriptLine[],
-    analysis: CaptureAnalysis,
+    analysis: ItemAnalysis,
     title: string,
     summary: string,
 ): Promise<void> {
     const db = getAdminFirestore();
 
-    const [userSnap, skillSnap] = await Promise.all([
+    const [userSnap, model] = await Promise.all([
         db.collection(FirestoreCollections.users.path).doc(uid).get(),
-        db.collection(FirestoreCollections.skillMemories.path).doc(uid).get(),
+        getOrHydrateLearnerModel(db, uid),
     ]);
 
     const userProfile = userSnap.data() as UserProfileType | undefined;
     if (!userProfile) return;
 
     // Idempotency: skip if this capture has already been merged into the
-    // user's capture context fields.
-    if (userProfile.lastInternalCaptureContextCaptureId === captureId) {
+    // learner model's capture context.
+    if (model.lastCaptureContextCaptureId === captureId) {
         return;
     }
 
-    const skillData = skillSnap.data() as Partial<SkillMemoryType> | undefined;
-    const currentStrengths = Array.isArray(skillData?.strengths)
-        ? (skillData.strengths as string[])
-        : [];
-    const currentWeaknesses = Array.isArray(skillData?.weaknesses)
-        ? (skillData.weaknesses as string[])
-        : [];
-    const currentReinforcement = Array.isArray(skillData?.reinforcementFocus)
-        ? (skillData.reinforcementFocus as string[])
-        : [];
-    const currentMastered = Array.isArray(skillData?.masteredFocus)
-        ? (skillData.masteredFocus as string[])
-        : [];
+    const currentStrengths = model.strengths;
+    const currentWeaknesses = model.weaknesses;
+    const currentReinforcement = model.reinforcementFocus;
+    const currentMastered = model.masteredFocus;
+
+    const trackedPatternsBlock = model.trackedPatterns.length
+        ? model.trackedPatterns
+              .map(
+                  (p) =>
+                      `- [id: ${p.id}] (${p.kind}, ${p.trend}, seen ${p.occurrences}×) ${p.label}`,
+              )
+              .join("\n")
+        : "(none yet)";
 
     const result = await generateText({
         model: openai(defaultModel()),
@@ -151,16 +161,19 @@ export async function updateUserProfileFromCapture(
 - Company: ${userProfile.companyName || "(not set)"}
 
 ## Existing internal capture context (what/who/how the user converses)
-${userProfile.internalCaptureContext?.trim() || "(empty — no captures merged yet)"}
+${model.context.realWorldNotes.trim() || "(empty — no captures merged yet)"}
 
 ## Existing internal capture delivery notes (HOW the user speaks)
-${userProfile.internalCaptureDeliveryNotes?.trim() || "(empty — no captures merged yet)"}
+${model.context.deliveryNotes.trim() || "(empty — no captures merged yet)"}
 
 ## Current skill memory
 - Strengths: ${currentStrengths.join("; ") || "(none)"}
 - Weaknesses: ${currentWeaknesses.join("; ") || "(none)"}
 - Mastered focus: ${currentMastered.join("; ") || "(none)"}
 - Reinforcement focus: ${currentReinforcement.join("; ") || "(none)"}
+
+## Current tracked patterns (reuse the id when this capture shows the same habit)
+${trackedPatternsBlock}
 
 ## Capture context
 Title: ${title}
@@ -187,10 +200,10 @@ Summary: ${summary}
     ];
     return `${all.length} (${all.filter((m) => m.severity === "major").length} major)`;
 })()}
-- Grammar patterns: ${analysis.grammarPatterns.map((p) => `${p.pattern} (${p.frequency}x)`).join("; ") || "(none)"}
-- Filler words: ${analysis.fillerWords.perMinute.toFixed(1)}/min
-- Fluency: ${analysis.fluency.wordsPerMinute} WPM, ${analysis.fluency.selfCorrections} self-corrections, ${analysis.fluency.avgResponseLatencyMs}ms avg response latency
-- Communication style: directness=${analysis.communicationStyle.directness.toFixed(2)}, formality=${analysis.communicationStyle.formality.toFixed(2)}, confidence=${analysis.communicationStyle.confidence.toFixed(2)}, turnTaking=${analysis.communicationStyle.turnTaking}
+- Grammar patterns: ${(analysis.grammarPatterns ?? []).map((p) => `${p.pattern} (${p.frequency}x)`).join("; ") || "(none)"}
+- Filler words: ${(analysis.fillerWords?.perMinute ?? 0).toFixed(1)}/min
+- Fluency: ${analysis.fluency?.wordsPerMinute ?? 0} WPM, ${analysis.fluency?.selfCorrections ?? 0} self-corrections, ${analysis.fluency?.avgResponseLatencyMs ?? 0}ms avg response latency
+- Communication style: directness=${(analysis.communicationStyle?.directness ?? 0).toFixed(2)}, formality=${(analysis.communicationStyle?.formality ?? 0).toFixed(2)}, confidence=${(analysis.communicationStyle?.confidence ?? 0).toFixed(2)}, turnTaking=${analysis.communicationStyle?.turnTaking ?? "n/a"}
 
 ## Transcript
 ${formatTranscript(transcript)}`,
@@ -203,72 +216,58 @@ ${formatTranscript(transcript)}`,
         newStrengths,
         newWeaknesses,
         reinforcementItems,
+        trackedPatterns,
     } = result.output;
 
-    // Merge into user profile capture context fields
-    const userUpdate: Record<string, unknown> = {
-        lastInternalCaptureContextCaptureId: captureId,
-        updatedAt: new Date().toISOString(),
-    };
-
+    // Write ONLY the fields this capture-side writer owns. We must not spread
+    // the whole `...model` snapshot back: it was read before the (slow) LLM
+    // call, so re-committing it would clobber fields a concurrent drill writer
+    // advanced in the meantime — `context.drillNotes`, `masteredFocus`, and the
+    // `lastProcessedSessionId` / `lastLearnerContextSessionId` cursors (rewinding
+    // a cursor would re-process an already-consumed session). Firestore
+    // deep-merges nested maps, so writing only the changed `context` keys
+    // preserves `drillNotes`. (`currentMastered` is read for the prompt only.)
+    const now = new Date().toISOString();
+    const contextPatch: Record<string, string> = {};
     if (contextAdditions.trim()) {
-        userUpdate.internalCaptureContext = appendBullets(
-            userProfile.internalCaptureContext ?? "",
+        contextPatch.realWorldNotes = appendBullets(
+            model.context.realWorldNotes,
             contextAdditions,
             captureId,
             MAX_CAPTURE_CONTEXT_CHARS,
         );
     }
     if (deliveryAdditions.trim()) {
-        userUpdate.internalCaptureDeliveryNotes = appendBullets(
-            userProfile.internalCaptureDeliveryNotes ?? "",
+        contextPatch.deliveryNotes = appendBullets(
+            model.context.deliveryNotes,
             deliveryAdditions,
             captureId,
             MAX_CAPTURE_DELIVERY_CHARS,
         );
     }
 
-    await db
-        .collection(FirestoreCollections.users.path)
-        .doc(uid)
-        .set(userUpdate, { merge: true });
-
-    // Merge skill memory updates
-    const mergedStrengths = deduplicateAndCap(
-        [...currentStrengths, ...newStrengths],
-        8,
-    );
-    const mergedWeaknesses = deduplicateAndCap(
-        [...currentWeaknesses, ...newWeaknesses],
-        8,
-    );
-    const mergedReinforcement = deduplicateAndCap(
-        [...currentReinforcement, ...reinforcementItems],
-        5,
-    );
-
-    const skillUpdate: Record<string, unknown> = {
-        strengths: mergedStrengths,
-        weaknesses: mergedWeaknesses,
-        reinforcementFocus: mergedReinforcement,
-        updatedAt: new Date().toISOString(),
+    const patch: Record<string, unknown> = {
+        trackedPatterns: mergeTrackedPatterns(
+            model.trackedPatterns,
+            trackedPatterns,
+            captureId,
+            now,
+        ),
+        strengths: deduplicateAndCap([...currentStrengths, ...newStrengths], 8),
+        weaknesses: deduplicateAndCap(
+            [...currentWeaknesses, ...newWeaknesses],
+            8,
+        ),
+        reinforcementFocus: deduplicateAndCap(
+            [...currentReinforcement, ...reinforcementItems],
+            5,
+        ),
+        lastCaptureContextCaptureId: captureId,
+        updatedAt: now,
     };
-
-    if (skillSnap.exists) {
-        await db
-            .collection(FirestoreCollections.skillMemories.path)
-            .doc(uid)
-            .set(skillUpdate, { merge: true });
-    } else {
-        await db
-            .collection(FirestoreCollections.skillMemories.path)
-            .doc(uid)
-            .set({
-                uid,
-                ...skillUpdate,
-                masteredFocus: [],
-                lastProcessedSessionId: null,
-                createdAt: new Date().toISOString(),
-            });
+    if (Object.keys(contextPatch).length > 0) {
+        patch.context = contextPatch;
     }
+
+    await learnerModelDoc(db, uid).set(patch, { merge: true });
 }

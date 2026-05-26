@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics/client";
 import { bucketLength } from "@/lib/analytics/events";
 import { api } from "@/lib/api-client";
-import type { SessionPlanType } from "@/types/sessions";
+import type { SessionPlanType } from "@/schemas";
 
 type Props = {
     plan: SessionPlanType;
@@ -99,6 +99,7 @@ export function DrillBriefCard(props: Readonly<Props>) {
 
     // Hydrate pref from localStorage on mount (avoids SSR/client mismatch).
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAutoplayEnabled(readAutoplayPref());
     }, []);
 
@@ -121,6 +122,8 @@ export function DrillBriefCard(props: Readonly<Props>) {
             audioUrlRef.current = null;
         }
         autoplayAttemptedRef.current = false;
+        // Intentional: reset playback UI when the drill's narrated text changes.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPlaybackState("idle");
         setPlaybackError(null);
     }, [narrationText]);
@@ -217,6 +220,9 @@ export function DrillBriefCard(props: Readonly<Props>) {
         autoplayAttemptedRef.current = true;
 
         const controller = new AbortController();
+        // loadAndPlay sets playback state internally; firing it here is the
+        // intended autoplay effect (guarded to run once per drill via the ref).
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         void loadAndPlay(controller.signal);
 
         return () => {

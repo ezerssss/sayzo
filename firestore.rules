@@ -69,8 +69,11 @@ service cloud.firestore {
     // Server-only collections — admin can read, no one writes from client
     // ----------------------------------------------------------------
 
-    // Internal coaching memory (raw strengths/weaknesses notes).
-    match /skill-memories/{userId} {
+    // Merged learner model: skills/habits + prose coaching context. Server-only
+    // (admin read, no client write) — this closes the leak where the prose
+    // context used to live on the owner-readable users doc. (user-focus-insights
+    // intentionally stays its own owner-readable collection.)
+    match /learner-models/{userId} {
       allow read: if isAdmin();
       allow write: if false;
     }

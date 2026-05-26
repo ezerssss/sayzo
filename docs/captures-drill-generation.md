@@ -19,7 +19,7 @@ Standard platform drills (entries in the `sessions` collection) seeded with the 
 - "Reduce filler word usage in explanations" — based on the user's actual filler frequency
 - "Expand vocabulary for describing project status" — based on the user's repeated reliance on simple words
 
-**The good news:** these mostly already work via the existing planner. Captures already write to `skill-memories` via `lib/captures/profile.ts` (strengths, weaknesses, reinforcement focus), and the planner naturally pulls capture-derived weaknesses into future drills via the existing `services/planner.ts` flow. The new `internalCaptureContext` and `internalCaptureDeliveryNotes` fields on `UserProfileType` (added this session) further inform planning.
+**The good news:** these mostly already work via the existing planner. Captures write coaching state to the merged `learner-models/{uid}` doc via `lib/captures/profile.ts` (tracked patterns, strengths, weaknesses, reinforcement focus, plus `context.realWorldNotes` / `context.deliveryNotes`), and the planner pulls that context + capture-derived weaknesses into future drills via `services/planner.ts`.
 
 **What's still missing:**
 - **Traceability** — there's no link from a drill back to the capture that motivated it. Users don't see "this drill exists because of your meeting on April 10". We should add a `sourceCaptureId` field on `SessionType`.

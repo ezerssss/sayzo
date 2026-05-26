@@ -79,6 +79,9 @@ export function PostDrillInstallCard({
     const [locallyDismissed, setLocallyDismissed] = useState(false);
 
     useEffect(() => {
+        // Read the dismissal stamp from localStorage after mount (SSR-safe) —
+        // reading during render would risk a hydration mismatch.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDismissedAt(readDismissedAt());
         setHasMounted(true);
     }, []);

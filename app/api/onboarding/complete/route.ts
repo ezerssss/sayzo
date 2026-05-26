@@ -1,4 +1,4 @@
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { analyzeSession } from "@/services/analyzer";
@@ -9,8 +9,9 @@ import {
     type OnboardingDrillTranscript,
     type UserProfileFieldsFromAI,
 } from "@/services/profile-context-builder";
-import { type SkillMemoryType } from "@/types/skill-memory";
-import { type UserProfileType } from "@/types/user";
+import { createEmptyLearnerModel } from "@/schemas";
+import { learnerModelDoc } from "@/lib/learner-model/store";
+import { type UserProfileType } from "@/schemas";
 import { NextResponse, type NextRequest } from "next/server";
 
 type CompleteOnboardingPayload = {
@@ -136,8 +137,6 @@ export async function POST(request: NextRequest) {
                 profileFields.workplaceCommunicationContext,
             motivation: profileFields.motivation,
             companyResearch: companyResearch ?? null,
-            internalLearnerContext: "",
-            lastInternalLearnerContextSessionId: "",
             firstDrillCompletedAt: null,
             createdAt: profileNowIso,
             updatedAt: profileNowIso,
@@ -167,6 +166,8 @@ export async function POST(request: NextRequest) {
                     masteredFocus: [],
                     reinforcementFocus: [],
                 },
+                // Onboarding is the baseline — no history to be differential against.
+                differential: { trackedPatterns: [], recentMainIssues: [] },
                 session: {
                     plan: {
                         scenario: {
@@ -202,15 +203,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const skillMemory: SkillMemoryType = {
-            uid,
+        // Seed the learner model with the onboarding-derived strengths/weaknesses.
+        const learnerModel = {
+            ...createEmptyLearnerModel(uid, profileNowIso),
             strengths,
             weaknesses,
-            masteredFocus: [],
-            reinforcementFocus: [],
-            lastProcessedSessionId: null,
-            createdAt: profileNowIso,
-            updatedAt: profileNowIso,
         };
 
         const userRef = db.collection(FirestoreCollections.users.path).doc(uid);
@@ -230,23 +227,25 @@ export async function POST(request: NextRequest) {
             await userRef.set(profile);
         }
 
-        const skillMemoryRef = db
-            .collection(FirestoreCollections.skillMemories.path)
-            .doc(uid);
-        const skillMemoryExisting = await skillMemoryRef.get();
-        if (skillMemoryExisting.exists) {
-            await skillMemoryRef.set(
+        const learnerModelRef = learnerModelDoc(db, uid);
+        const existingModel = await learnerModelRef.get();
+        if (existingModel.exists) {
+            // Re-onboard resets the skill baseline (matching the prior
+            // behavior) but preserves accumulated prose context + other cursors
+            // via deep-merge.
+            await learnerModelRef.set(
                 {
-                    ...skillMemory,
-                    createdAt:
-                        (skillMemoryExisting.data()?.["createdAt"] as
-                            | string
-                            | undefined) ?? profileNowIso,
+                    strengths,
+                    weaknesses,
+                    masteredFocus: [],
+                    reinforcementFocus: [],
+                    lastProcessedSessionId: null,
+                    updatedAt: profileNowIso,
                 },
                 { merge: true },
             );
         } else {
-            await skillMemoryRef.set(skillMemory);
+            await learnerModelRef.set(learnerModel);
         }
 
         // Pre-generate the user's first drill so the home page lands on

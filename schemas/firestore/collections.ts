@@ -1,11 +1,27 @@
-import { FirestoreCollectionName } from "@/enums/firebase";
+export enum FirestoreCollectionName {
+    USERS = "users",
+    SESSIONS = "sessions",
+    CAPTURES = "captures",
+    /** Focus dashboard projection. Folds into `learner-models` in Phase 3. */
+    USER_FOCUS_INSIGHTS = "user-focus-insights",
+    /**
+     * Merged per-user coaching model — replaces the old `skill-memories`
+     * collection plus the `users/*` internal-context fields. Server-only
+     * (admin read, no client write). Phase 3 folds `user-focus-insights` in too.
+     */
+    LEARNER_MODELS = "learner-models",
+    AUTH_SESSIONS = "auth_sessions",
+    AUTH_CODES = "auth_codes",
+    REFRESH_TOKENS = "refresh_tokens",
+    ACCESS_REQUESTS = "access_requests",
+    SUPPORT_REPORTS = "support_reports",
+    SUPPORT_REPORTS_RATE = "support_reports_rate",
+    AUDIT_LOG = "audit_log",
+}
 
 export const FirestoreCollections = {
     users: {
         path: FirestoreCollectionName.USERS,
-    },
-    skillMemories: {
-        path: FirestoreCollectionName.SKILL_MEMORIES,
     },
     sessions: {
         path: FirestoreCollectionName.SESSIONS,
@@ -15,6 +31,9 @@ export const FirestoreCollections = {
     },
     userFocusInsights: {
         path: FirestoreCollectionName.USER_FOCUS_INSIGHTS,
+    },
+    learnerModels: {
+        path: FirestoreCollectionName.LEARNER_MODELS,
     },
     authSessions: {
         path: FirestoreCollectionName.AUTH_SESSIONS,

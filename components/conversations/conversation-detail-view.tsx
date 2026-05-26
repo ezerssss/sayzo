@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
     ArrowRight,
-    Lightbulb,
     Loader2,
     Lock,
     Play,
@@ -37,7 +36,7 @@ import { track } from "@/lib/analytics/client";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { getKyErrorMessage, isKyHttpStatus } from "@/lib/ky-error-message";
-import type { CaptureStatus, CaptureType } from "@/types/captures";
+import type { CaptureStatus, CaptureType } from "@/schemas";
 
 type Props = {
     captureId: string;

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import {
     consumeCreditOrThrow,
@@ -12,10 +12,10 @@ import {
 } from "@/lib/firebase/admin";
 import { planScenarioReplayFromCapture } from "@/services/capture-replay-planner";
 import { buildSessionFromPlan } from "@/services/planner";
-import type { CaptureType } from "@/types/captures";
-import type { SessionType } from "@/types/sessions";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+import type { CaptureType } from "@/schemas";
+import type { SessionType } from "@/schemas";
+import { getOrHydrateLearnerModel } from "@/lib/learner-model/store";
+import type { UserProfileType } from "@/schemas";
 
 export const runtime = "nodejs";
 
@@ -92,12 +92,9 @@ export async function POST(
         }
 
         // 4. Load user profile + skill memory in parallel
-        const [userSnap, skillSnap] = await Promise.all([
+        const [userSnap, model] = await Promise.all([
             db.collection(FirestoreCollections.users.path).doc(uid).get(),
-            db
-                .collection(FirestoreCollections.skillMemories.path)
-                .doc(uid)
-                .get(),
+            getOrHydrateLearnerModel(db, uid),
         ]);
 
         const userProfile = userSnap.data() as UserProfileType | undefined;
@@ -107,8 +104,6 @@ export async function POST(
                 { status: 404 },
             );
         }
-
-        const skillData = (skillSnap.data() ?? {}) as Partial<SkillMemoryType>;
 
         // 4. Plan the replay drill
         const plan = await planScenarioReplayFromCapture({
@@ -127,18 +122,10 @@ export async function POST(
                 additionalContext: userProfile.additionalContext ?? "",
             },
             skillMemory: {
-                strengths: Array.isArray(skillData.strengths)
-                    ? (skillData.strengths as string[])
-                    : [],
-                weaknesses: Array.isArray(skillData.weaknesses)
-                    ? (skillData.weaknesses as string[])
-                    : [],
-                masteredFocus: Array.isArray(skillData.masteredFocus)
-                    ? (skillData.masteredFocus as string[])
-                    : [],
-                reinforcementFocus: Array.isArray(skillData.reinforcementFocus)
-                    ? (skillData.reinforcementFocus as string[])
-                    : [],
+                strengths: model.strengths,
+                weaknesses: model.weaknesses,
+                masteredFocus: model.masteredFocus,
+                reinforcementFocus: model.reinforcementFocus,
             },
         });
 

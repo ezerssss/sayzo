@@ -4,9 +4,9 @@ import { FieldValue } from "firebase-admin/firestore";
 import { NextResponse } from "next/server";
 
 import { DEFAULT_FREE_CREDIT_LIMIT } from "@/constants/credits";
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import type { UserProfileType } from "@/types/user";
+import type { UserProfileType } from "@/schemas";
 
 export class CreditLimitReachedError extends Error {
     readonly code = "credit_limit_reached" as const;

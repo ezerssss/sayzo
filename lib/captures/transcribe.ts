@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { CaptureTranscriptLine } from "@/types/captures";
+import type { CaptureTranscriptLine } from "@/schemas";
 
 import { type ChannelEnergy, computeChannelEnergy } from "./audio";
 import {

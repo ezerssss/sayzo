@@ -6,8 +6,9 @@ You will receive, in order:
 
 1. **User profile** — stable context.
 2. **Skill memory** — current strengths/weaknesses belief.
-3. **Current focus view** — themes (with ids, titles, evidence, trends, wins) and the overview from the last synthesis. This is prior belief about what the user is working on.
-4. **New activity since last update** — only the sessions and captures added since the last synthesis. Often this is 1–3 items. Occasionally 0 if the caller forced a re-evaluation without new data.
+3. **Tracked habits** — durable habits tracked internally, each with a stable `id`. Reuse a habit's `id` as a theme's id when they describe the same pattern.
+4. **Current focus view** — themes (with ids, titles, evidence, trends, wins) and the overview from the last synthesis. This is prior belief about what the user is working on.
+5. **New activity since last update** — only the sessions and captures added since the last synthesis. Often this is 1–3 items. Occasionally 0 if the caller forced a re-evaluation without new data.
 
 Output the **updated focus view** in the same JSON schema as the original synthesizer. Apply the rules below.
 

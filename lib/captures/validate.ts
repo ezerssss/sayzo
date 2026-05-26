@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import type { CaptureTranscriptLine } from "@/types/captures";
+import type { CaptureTranscriptLine } from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 

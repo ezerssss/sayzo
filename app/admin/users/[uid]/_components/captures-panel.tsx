@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable } from "@/app/admin/_components/data-table";
-import type { CaptureType } from "@/types/captures";
+import type { CaptureType } from "@/schemas";
 
 export function CapturesPanel({
     captures,

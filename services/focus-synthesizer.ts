@@ -6,17 +6,17 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import type { CaptureType } from "@/types/captures";
+import type { CaptureType, ItemAnalysis } from "@/schemas";
 import type {
     FocusEvidence,
     FocusTheme,
     FocusThemeCategory,
     FocusWin,
     UserFocusInsights,
-} from "@/types/focus-insights";
-import type { SessionType } from "@/types/sessions";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+} from "@/schemas";
+import type { SessionType } from "@/schemas";
+import type { LearnerModel, TrackedPattern } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "focus");
 
@@ -93,13 +93,15 @@ type FocusUserProfileSlice = Pick<
 >;
 
 type FocusSkillMemorySlice = Pick<
-    SkillMemoryType,
+    LearnerModel,
     "strengths" | "weaknesses" | "masteredFocus" | "reinforcementFocus"
 >;
 
 export type FocusSynthesizerInput = {
     userProfile: FocusUserProfileSlice;
     skillMemory: FocusSkillMemorySlice;
+    /** Durable tracked habits — themes should align to these (reuse a habit's id where they overlap). */
+    trackedPatterns: TrackedPattern[];
     /** All user sessions, newest first. Non-analyzed / replay-only sessions are filtered inside. */
     sessions: SessionType[];
     /** All user captures, newest first. Non-analyzed captures are filtered inside. */
@@ -115,6 +117,7 @@ export type FocusSynthesizerInput = {
 export type FocusIncrementalUpdaterInput = {
     userProfile: FocusUserProfileSlice;
     skillMemory: FocusSkillMemorySlice;
+    trackedPatterns: TrackedPattern[];
     priorInsights: UserFocusInsights;
     /** Only sessions with `analysis`, newest first, added since `priorInsights.lastSessionId`. */
     newSessions: SessionType[];
@@ -180,76 +183,25 @@ function formatMemoryBlock(memory: FocusSkillMemorySlice): string {
 `.trim();
 }
 
-function condenseSession(session: SessionType): string | null {
-    if (!session.analysis) return null;
-    const analysis = session.analysis;
-    const feedback = session.feedback;
-
-    const parts: string[] = [];
-    parts.push(
-        `### Session ${session.id} — "${session.plan.scenario.title}" — ${formatIsoDate(session.createdAt)} — category: ${session.plan.scenario.category} — status: ${session.completionStatus}${session.type === "scenario_replay" ? " — scenario_replay" : ""}`,
+function formatTrackedPatternsBlock(patterns: TrackedPattern[]): string {
+    if (patterns.length === 0) {
+        return "## Tracked habits (internal)\n(none yet)";
+    }
+    const lines = patterns.map(
+        (p) =>
+            `- id: \`${p.id}\` — (${p.kind}, ${p.trend}, seen ${p.occurrences}×) ${p.label}`,
     );
-    if (analysis.mainIssue?.trim()) {
-        parts.push(`Main issue: ${analysis.mainIssue.trim()}`);
-    }
-    if (analysis.secondaryIssues.length > 0) {
-        parts.push(
-            `Secondary: ${analysis.secondaryIssues.filter((s) => s.trim()).join("; ")}`,
-        );
-    }
-    if (analysis.improvements.length > 0) {
-        parts.push(
-            `Improvements: ${analysis.improvements.filter((s) => s.trim()).join("; ")}`,
-        );
-    }
-    if (analysis.regressions.length > 0) {
-        parts.push(
-            `Regressions: ${analysis.regressions.filter((s) => s.trim()).join("; ")}`,
-        );
-    }
-    const dimensionalLines: string[] = [];
-    if (analysis.structureAndFlow.length > 0)
-        dimensionalLines.push(
-            `- structure: ${analysis.structureAndFlow.join("; ")}`,
-        );
-    if (analysis.clarityAndConciseness.length > 0)
-        dimensionalLines.push(
-            `- clarity: ${analysis.clarityAndConciseness.join("; ")}`,
-        );
-    if (analysis.relevanceAndFocus.length > 0)
-        dimensionalLines.push(
-            `- relevance: ${analysis.relevanceAndFocus.join("; ")}`,
-        );
-    if (analysis.engagement.length > 0)
-        dimensionalLines.push(`- engagement: ${analysis.engagement.join("; ")}`);
-    if (analysis.professionalism.length > 0)
-        dimensionalLines.push(
-            `- professionalism: ${analysis.professionalism.join("; ")}`,
-        );
-    if (dimensionalLines.length > 0) {
-        parts.push(`Dimensional findings:\n${dimensionalLines.join("\n")}`);
-    }
-    if (feedback?.improvedVersion?.trim()) {
-        parts.push(
-            `Improved-version excerpt:\n- ${truncate(feedback.improvedVersion, MAX_FEEDBACK_EXCERPT_CHARS)}`,
-        );
-    }
-    return parts.join("\n");
+    return `## Tracked habits (internal ids — when an emergent theme describes one of these, reuse its id as the theme id)\n${lines.join("\n")}`;
 }
 
-function condenseCapture(capture: CaptureType): string | null {
-    if (!capture.analysis || !capture.id) return null;
-    const analysis = capture.analysis;
-    const title = capture.serverTitle ?? capture.title;
-
+/**
+ * Lines shared by drill + capture condensation — main issue, secondary issues,
+ * improvements, regressions, and the five-dimension assessment block.
+ * Modality-specific tails (improved-version excerpt for drills; teachable
+ * moments + delivery metrics for captures) are appended by the callers.
+ */
+function condenseCommonAnalysisLines(analysis: ItemAnalysis): string[] {
     const parts: string[] = [];
-    parts.push(
-        `### Capture ${capture.id} — "${title}" — ${formatIsoDate(capture.startedAt)}${
-            typeof capture.durationSecs === "number"
-                ? ` — duration: ${Math.round(capture.durationSecs)}s`
-                : ""
-        }`,
-    );
     if (analysis.mainIssue?.trim()) {
         parts.push(`Main issue: ${analysis.mainIssue.trim()}`);
     }
@@ -290,8 +242,42 @@ function condenseCapture(capture: CaptureType): string | null {
             `- professionalism: ${analysis.professionalism.assessment.trim()}`,
         );
     if (dimensionalLines.length > 0) {
-        parts.push(`Dimensional assessments:\n${dimensionalLines.join("\n")}`);
+        parts.push(`Dimensional findings:\n${dimensionalLines.join("\n")}`);
     }
+    return parts;
+}
+
+function condenseSession(session: SessionType): string | null {
+    if (!session.analysis) return null;
+    const analysis = session.analysis;
+    const feedback = session.feedback;
+
+    const parts: string[] = [
+        `### Session ${session.id} — "${session.plan.scenario.title}" — ${formatIsoDate(session.createdAt)} — category: ${session.plan.scenario.category} — status: ${session.completionStatus}${session.type === "scenario_replay" ? " — scenario_replay" : ""}`,
+        ...condenseCommonAnalysisLines(analysis),
+    ];
+    if (feedback?.improvedVersion?.trim()) {
+        parts.push(
+            `Improved-version excerpt:\n- ${truncate(feedback.improvedVersion, MAX_FEEDBACK_EXCERPT_CHARS)}`,
+        );
+    }
+    return parts.join("\n");
+}
+
+function condenseCapture(capture: CaptureType): string | null {
+    if (!capture.analysis || !capture.id) return null;
+    const analysis = capture.analysis;
+    const title = capture.serverTitle ?? capture.title;
+
+    const parts: string[] = [];
+    parts.push(
+        `### Capture ${capture.id} — "${title}" — ${formatIsoDate(capture.startedAt)}${
+            typeof capture.durationSecs === "number"
+                ? ` — duration: ${Math.round(capture.durationSecs)}s`
+                : ""
+        }`,
+    );
+    parts.push(...condenseCommonAnalysisLines(analysis));
 
     const teachable = [
         ...(analysis.fixTheseFirst ?? []),
@@ -306,20 +292,26 @@ function condenseCapture(capture: CaptureType): string | null {
     }
 
     const fw = analysis.fillerWords;
-    const topFillers = fw.breakdown
-        .slice(0, 3)
-        .map((b) => `${b.word} (${b.count})`)
-        .join(", ");
-    parts.push(
-        `Filler rate: ${fw.perMinute.toFixed(1)}/min${topFillers ? ` — top: ${topFillers}` : ""}`,
-    );
+    if (fw) {
+        const topFillers = fw.breakdown
+            .slice(0, 3)
+            .map((b) => `${b.word} (${b.count})`)
+            .join(", ");
+        parts.push(
+            `Filler rate: ${fw.perMinute.toFixed(1)}/min${topFillers ? ` — top: ${topFillers}` : ""}`,
+        );
+    }
     const style = analysis.communicationStyle;
-    parts.push(
-        `Style: directness=${style.directness.toFixed(2)}, formality=${style.formality.toFixed(2)}, confidence=${style.confidence.toFixed(2)}, turn-taking=${style.turnTaking}`,
-    );
-    parts.push(
-        `Fluency: WPM=${analysis.fluency.wordsPerMinute}, self-corrections=${analysis.fluency.selfCorrections}`,
-    );
+    if (style) {
+        parts.push(
+            `Style: directness=${style.directness.toFixed(2)}, formality=${style.formality.toFixed(2)}, confidence=${style.confidence.toFixed(2)}, turn-taking=${style.turnTaking}`,
+        );
+    }
+    if (analysis.fluency) {
+        parts.push(
+            `Fluency: WPM=${analysis.fluency.wordsPerMinute}, self-corrections=${analysis.fluency.selfCorrections}`,
+        );
+    }
 
     return parts.join("\n");
 }
@@ -329,7 +321,8 @@ function buildFullSynthesisMessage(input: FocusSynthesizerInput): {
     sessionsUsed: SessionType[];
     capturesUsed: CaptureType[];
 } {
-    const { userProfile, skillMemory, sessions, captures } = input;
+    const { userProfile, skillMemory, trackedPatterns, sessions, captures } =
+        input;
 
     const analyzedSessions = sessions
         .filter((s) => !!s.analysis)
@@ -365,6 +358,7 @@ function buildFullSynthesisMessage(input: FocusSynthesizerInput): {
     const content = [
         formatProfileBlock(userProfile),
         formatMemoryBlock(skillMemory),
+        formatTrackedPatternsBlock(trackedPatterns),
         countsBlock,
         sessionsBlock,
         capturesBlock,
@@ -380,8 +374,14 @@ function buildFullSynthesisMessage(input: FocusSynthesizerInput): {
 function buildIncrementalUpdateMessage(
     input: FocusIncrementalUpdaterInput,
 ): { content: string; newSessionsUsed: SessionType[]; newCapturesUsed: CaptureType[] } {
-    const { userProfile, skillMemory, priorInsights, newSessions, newCaptures } =
-        input;
+    const {
+        userProfile,
+        skillMemory,
+        trackedPatterns,
+        priorInsights,
+        newSessions,
+        newCaptures,
+    } = input;
 
     const analyzedNewSessions = newSessions.filter((s) => !!s.analysis);
     const analyzedNewCaptures = newCaptures.filter(
@@ -427,6 +427,7 @@ ${JSON.stringify(priorView, null, 2)}
     const content = [
         formatProfileBlock(userProfile),
         formatMemoryBlock(skillMemory),
+        formatTrackedPatternsBlock(trackedPatterns),
         priorBlock,
         newSessionsBlock,
         newCapturesBlock,

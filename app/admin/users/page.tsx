@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import { cn } from "@/lib/utils";
-import type { UserProfileType } from "@/types/user";
+import type { UserProfileType } from "@/schemas";
 
 type AdminUserRow = Partial<UserProfileType> & {
     uid: string;

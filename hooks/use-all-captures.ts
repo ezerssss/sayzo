@@ -9,9 +9,9 @@ import {
     where,
 } from "firebase/firestore";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { db } from "@/lib/firebase/client";
-import type { CaptureType } from "@/types/captures";
+import type { CaptureType } from "@/schemas";
 
 export function useAllCaptures(uid?: string) {
     const [captures, setCaptures] = useState<CaptureType[]>([]);

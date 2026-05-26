@@ -8,11 +8,11 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
-import type { CaptureType } from "@/types/captures";
-import type { UserFocusInsights } from "@/types/focus-insights";
-import type { SessionType } from "@/types/sessions";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+import type { CaptureType } from "@/schemas";
+import type { UserFocusInsights } from "@/schemas";
+import type { SessionType } from "@/schemas";
+import type { LearnerModel } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 
 import { AdminToggle } from "./_components/admin-toggle";
 import { CapturesPanel } from "./_components/captures-panel";
@@ -29,7 +29,7 @@ type UserDetailResponse = {
         createdAt: string;
     } | null;
     profile: UserProfileType | null;
-    skillMemory: SkillMemoryType | null;
+    learnerModel: LearnerModel | null;
     focusInsights: UserFocusInsights | null;
     counts: { sessions: number; captures: number };
 };
@@ -168,7 +168,7 @@ export default function AdminUserDetailPage() {
             <ProfilePanel
                 profile={data.profile}
                 authRecord={data.authRecord}
-                skillMemory={data.skillMemory}
+                learnerModel={data.learnerModel}
                 focusInsights={data.focusInsights}
                 counts={data.counts}
             />

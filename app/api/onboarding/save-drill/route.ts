@@ -1,7 +1,7 @@
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import type { OnboardingDrillProgress } from "@/types/user";
+import type { OnboardingDrillProgress } from "@/schemas";
 import { NextResponse, type NextRequest } from "next/server";
 
 type SaveDrillPayload = {

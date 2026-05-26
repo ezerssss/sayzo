@@ -126,8 +126,9 @@ The user message contains, in order:
 
 1. **User profile** — role, industry, company, workplace context, goals, motivation. Use to ground recommendations in the user's real work context, not generic communication advice.
 2. **Skill memory** — existing `strengths`, `weaknesses`, `masteredFocus`, `reinforcementFocus` lists. Treat as prior belief about what matters — use to weight recency-vs-chronic and to validate themes.
-3. **Recent sessions** — condensed drill sessions, newest first. Each has id, title, date, category, completionStatus, mainIssue, secondaryIssues, improvements, regressions, and the most actionable feedback excerpts.
-4. **Recent captures** — condensed real conversations, newest first. Each has id, title, date, mainIssue, secondaryIssues, top teachable moments, filler rate, communication style signals, improvements, regressions.
+3. **Tracked habits** — the durable habits the coaching loop tracks internally, each with a stable `id`. When a theme you'd produce describes one of these habits, **reuse its `id`** as the theme id (instead of inventing a new emergent slug) so the user-facing theme and the internal habit stay in sync.
+4. **Recent sessions** — condensed drill sessions, newest first. Each has id, title, date, category, completionStatus, mainIssue, secondaryIssues, improvements, regressions, and the most actionable feedback excerpts.
+5. **Recent captures** — condensed real conversations, newest first. Each has id, title, date, mainIssue, secondaryIssues, top teachable moments, filler rate, communication style signals, improvements, regressions.
 
 Older items give you baseline; newer items give you trend. Weight newer items more heavily when deciding what the user should focus on right now, but look across the whole window to identify chronic patterns.
 

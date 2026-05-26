@@ -2,10 +2,10 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth, type AuthedUser } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import type { UserProfileType } from "@/types/user";
+import type { UserProfileType } from "@/schemas";
 
 /**
  * Verify the caller is signed in AND has `isAdmin: true` on their user profile.

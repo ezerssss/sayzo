@@ -12,7 +12,7 @@ import { InlineMarkdown } from "@/components/session/inline-markdown";
 import { stitchTurnRewrites } from "@/lib/captures/rewrites";
 import { cn } from "@/lib/utils";
 import type {
-    CaptureAnalysis,
+    ItemAnalysis,
     CaptureTranscriptLine,
     CoachingMoment,
     DimensionalAnalysis,
@@ -20,10 +20,10 @@ import type {
     TeachableMoment,
     TeachableMomentSeverity,
     TurnRewrite,
-} from "@/types/captures";
+} from "@/schemas";
 
 type Props = {
-    analysis: CaptureAnalysis;
+    analysis: ItemAnalysis;
     /** Speaker-tagged transcript; used by the Rewrites section to resolve
      *  per-turn timestamps and "Turn N" numbering. */
     transcript?: CaptureTranscriptLine[];
@@ -35,11 +35,7 @@ type Props = {
     uid?: string;
 };
 
-/**
- * Resolve the unified `whyThisMatters` narrative. New analyses populate
- * `whyThisMatters` directly; legacy analyses persisted before the schema
- * change have the old `whyIssue` + `keyTakeaway` pair that we merge on read.
- */
+/** The coaching narrative shown under the single "Why this matters" toggle. */
 function resolveWhyThisMatters(moment: CoachingMoment): string {
     return moment.whyThisMatters?.trim() ?? "";
 }
@@ -52,32 +48,6 @@ function formatCoachingMoment(moment: CoachingMoment): string {
 function dimensionalToText(dim: DimensionalAnalysis): string {
     if (!dim.findings.length) return dim.assessment;
     return `${dim.assessment}\n\n**Specific findings:**\n${dim.findings.map(formatCoachingMoment).join("\n")}`;
-}
-
-function overviewToText(analysis: CaptureAnalysis): string {
-    const parts = [
-        `**Overview:** ${analysis.overview}`,
-        `**Main issue:** ${analysis.mainIssue}`,
-    ];
-    if (analysis.secondaryIssues.length > 0) {
-        parts.push(
-            `**Secondary issues:**\n${analysis.secondaryIssues.map((s) => `- ${s}`).join("\n")}`,
-        );
-    }
-    if (analysis.improvements.length > 0) {
-        parts.push(
-            `**Improvements:**\n${analysis.improvements.map((s) => `- ${s}`).join("\n")}`,
-        );
-    }
-    if (analysis.regressions.length > 0) {
-        parts.push(
-            `**Regressions:**\n${analysis.regressions.map((s) => `- ${s}`).join("\n")}`,
-        );
-    }
-    if (analysis.notes?.trim()) {
-        parts.push(`**Notes:** ${analysis.notes.trim()}`);
-    }
-    return parts.join("\n\n");
 }
 
 function formatTeachableGroup(
@@ -96,7 +66,7 @@ function formatTeachableGroup(
         .join("\n\n")}`;
 }
 
-function coachingToText(analysis: CaptureAnalysis): string {
+function coachingToText(analysis: ItemAnalysis): string {
     const fix = getFixTheseFirst(analysis);
     const more = getMoreMoments(analysis);
     const parts: string[] = [];
@@ -117,17 +87,17 @@ function coachingToText(analysis: CaptureAnalysis): string {
     return parts.join("\n\n");
 }
 
-function getFixTheseFirst(analysis: CaptureAnalysis): TeachableMoment[] {
+function getFixTheseFirst(analysis: ItemAnalysis): TeachableMoment[] {
     return Array.isArray(analysis.fixTheseFirst) ? analysis.fixTheseFirst : [];
 }
 
-function getMoreMoments(analysis: CaptureAnalysis): TeachableMoment[] {
+function getMoreMoments(analysis: ItemAnalysis): TeachableMoment[] {
     return Array.isArray(analysis.moreMoments) ? analysis.moreMoments : [];
 }
 
-function rewritesToText(analysis: CaptureAnalysis): string {
+function rewritesToText(analysis: ItemAnalysis): string {
     const parts: string[] = [];
-    const changed = analysis.turnRewrites.filter((t) => t.verdict !== "keep");
+    const changed = (analysis.turnRewrites ?? []).filter((t) => t.verdict !== "keep");
     if (changed.length > 0) {
         parts.push(
             `**Per-turn rewrites:**\n${changed
@@ -138,9 +108,9 @@ function rewritesToText(analysis: CaptureAnalysis): string {
                 .join("\n")}`,
         );
     }
-    if (analysis.structuralObservations.length > 0) {
+    if ((analysis.structuralObservations ?? []).length > 0) {
         parts.push(
-            `**Structural observations:**\n${analysis.structuralObservations
+            `**Structural observations:**\n${(analysis.structuralObservations ?? [])
                 .map(
                     (o) =>
                         `- ${o.observation}\n  - ${o.explanation}\n  - Turns: ${o.affectedTurnIdxs.join(", ")}`,
@@ -148,7 +118,7 @@ function rewritesToText(analysis: CaptureAnalysis): string {
                 .join("\n")}`,
         );
     }
-    const stitched = stitchTurnRewrites(analysis.turnRewrites).trim();
+    const stitched = stitchTurnRewrites((analysis.turnRewrites ?? [])).trim();
     if (stitched) {
         parts.push(`**Full rewrite (stitched):**\n${stitched}`);
     }
@@ -160,12 +130,6 @@ function formatTimestamp(seconds: number): string {
     const s = Math.floor(seconds % 60);
     return `${m}:${String(s).padStart(2, "0")}`;
 }
-
-const SEVERITY_RANK: Record<TeachableMomentSeverity, number> = {
-    major: 0,
-    moderate: 1,
-    minor: 2,
-};
 
 function CollapsibleCard({
     title,
@@ -727,7 +691,7 @@ function RewritesSection({
     onSeekToSecond,
     renderChat,
 }: {
-    analysis: CaptureAnalysis;
+    analysis: ItemAnalysis;
     transcript?: CaptureTranscriptLine[];
     onSeekToSecond?: (seconds: number) => void;
     renderChat: (
@@ -739,8 +703,8 @@ function RewritesSection({
     const [view, setView] = useState<"turns" | "prose">("turns");
     const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
 
-    const hasRewrites = analysis.turnRewrites.length > 0;
-    const hasStructural = analysis.structuralObservations.length > 0;
+    const hasRewrites = (analysis.turnRewrites ?? []).length > 0;
+    const hasStructural = (analysis.structuralObservations ?? []).length > 0;
 
     if (!hasRewrites && !hasStructural) {
         return (
@@ -757,8 +721,8 @@ function RewritesSection({
         );
     }
 
-    const groups = groupTurnRewrites(analysis.turnRewrites);
-    const stitched = stitchTurnRewrites(analysis.turnRewrites);
+    const groups = groupTurnRewrites((analysis.turnRewrites ?? []));
+    const stitched = stitchTurnRewrites((analysis.turnRewrites ?? []));
     const rewriteContent = rewritesToText(analysis);
 
     const toggleRun = (runKey: number) => {
@@ -856,7 +820,7 @@ function RewritesSection({
                                         <ol className="space-y-2 border-t border-border/50 p-3">
                                             {group.turns.map((t) => {
                                                 const turnNo = userTurnNumber(
-                                                    analysis.turnRewrites,
+                                                    (analysis.turnRewrites ?? []),
                                                     t.transcriptIdx,
                                                 );
                                                 const line =
@@ -905,7 +869,7 @@ function RewritesSection({
 
                         const turn = group.turn;
                         const turnNo = userTurnNumber(
-                            analysis.turnRewrites,
+                            (analysis.turnRewrites ?? []),
                             turn.transcriptIdx,
                         );
                         const line = transcript?.[turn.transcriptIdx];
@@ -962,8 +926,8 @@ function RewritesSection({
             {/* Structural observations */}
             {hasStructural && (
                 <StructuralNotesPanel
-                    observations={analysis.structuralObservations}
-                    turnRewrites={analysis.turnRewrites}
+                    observations={(analysis.structuralObservations ?? [])}
+                    turnRewrites={(analysis.turnRewrites ?? [])}
                     transcript={transcript}
                     onSeekToSecond={onSeekToSecond}
                 />

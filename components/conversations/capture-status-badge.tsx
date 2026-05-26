@@ -7,7 +7,7 @@ import {
     XCircle,
 } from "lucide-react";
 
-import type { CaptureStatus } from "@/types/captures";
+import type { CaptureStatus } from "@/schemas";
 
 type Props = {
     status: CaptureStatus;

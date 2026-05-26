@@ -1,8 +1,8 @@
 import "server-only";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
-import type { CaptureCloseReason } from "@/types/captures";
+import type { CaptureCloseReason } from "@/schemas";
 
 const MAX_AUDIO_SIZE = 200 * 1024 * 1024; // 200 MB — ≈ 4 hr @ 64 kbps stereo Opus, ≈ 2 hr @ 128 kbps
 const MIN_AUDIO_SIZE = 256; // bytes — anything smaller can't even fit a valid OGG header

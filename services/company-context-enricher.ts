@@ -5,7 +5,7 @@ import { Output, generateText, zodSchema } from "ai";
 import { z } from "zod";
 
 import { crawlWebsiteText } from "@/services/web-crawler";
-import type { CompanyResearchType } from "@/types/user";
+import type { CompanyResearchType } from "@/schemas";
 
 const enrichmentSchema = z.object({
     summary: z.string(),

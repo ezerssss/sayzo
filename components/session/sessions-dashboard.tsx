@@ -48,9 +48,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { track } from "@/lib/analytics/client";
 import { useIsMobile } from "@/lib/device/is-mobile";
 import { cn } from "@/lib/utils";
-import { RECOMMENDED_SPEAKING_DRILL_CATEGORIES } from "@/types/sessions";
-import type { SessionType } from "@/types/sessions";
-import type { CaptureType } from "@/types/captures";
+import { RECOMMENDED_SPEAKING_DRILL_CATEGORIES } from "@/schemas";
+import type { SessionType } from "@/schemas";
+import type { CaptureType } from "@/schemas";
 
 type DashboardTab = "drills" | "captures" | "focus";
 

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "crypto";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 
 // ---------------------------------------------------------------------------

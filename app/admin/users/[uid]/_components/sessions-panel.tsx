@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable } from "@/app/admin/_components/data-table";
-import type { SessionType } from "@/types/sessions";
+import type { SessionType } from "@/schemas";
 
 export function SessionsPanel({
     sessions,

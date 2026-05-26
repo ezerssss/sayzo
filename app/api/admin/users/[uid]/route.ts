@@ -1,16 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuth } from "firebase-admin/auth";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { deleteUserCompletely } from "@/lib/admin/cascade-delete";
 import {
     getAdminFirestore,
     getFirebaseAdminApp,
 } from "@/lib/firebase/admin";
-import type { UserProfileType } from "@/types/user";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserFocusInsights } from "@/types/focus-insights";
+import type { UserProfileType } from "@/schemas";
+import { getLearnerModel } from "@/lib/learner-model/store";
+import type { UserFocusInsights } from "@/schemas";
 
 export const runtime = "nodejs";
 
@@ -26,16 +26,13 @@ export async function GET(
         const db = getAdminFirestore();
         const adminAuth = getAuth(getFirebaseAdminApp());
 
-        const [profileSnap, skillSnap, focusSnap, sessionsCountSnap, capturesCountSnap] =
+        const [profileSnap, learnerModel, focusSnap, sessionsCountSnap, capturesCountSnap] =
             await Promise.all([
                 db
                     .collection(FirestoreCollections.users.path)
                     .doc(uid)
                     .get(),
-                db
-                    .collection(FirestoreCollections.skillMemories.path)
-                    .doc(uid)
-                    .get(),
+                getLearnerModel(db, uid),
                 db
                     .collection(FirestoreCollections.userFocusInsights.path)
                     .doc(uid)
@@ -71,9 +68,7 @@ export async function GET(
             profile: profileSnap.exists
                 ? (profileSnap.data() as UserProfileType)
                 : null,
-            skillMemory: skillSnap.exists
-                ? (skillSnap.data() as SkillMemoryType)
-                : null,
+            learnerModel,
             focusInsights: focusSnap.exists
                 ? (focusSnap.data() as UserFocusInsights)
                 : null,

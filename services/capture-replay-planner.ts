@@ -7,16 +7,16 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type {
-    CaptureAnalysis,
+    ItemAnalysis,
     CaptureTranscriptLine,
     CaptureType,
-} from "@/types/captures";
+} from "@/schemas";
 import {
     toDrillCategorySlug,
     type SessionPlanType,
-} from "@/types/sessions";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+} from "@/schemas";
+import type { LearnerModel } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 
 import { filterDrillCandidateTranscript } from "@/lib/captures/drill-input-filter";
 
@@ -51,7 +51,7 @@ export type CaptureReplayPlannerInput = {
         | "additionalContext"
     >;
     skillMemory: Pick<
-        SkillMemoryType,
+        LearnerModel,
         "strengths" | "weaknesses" | "masteredFocus" | "reinforcementFocus"
     >;
 };
@@ -77,21 +77,13 @@ function formatTranscript(transcript: CaptureTranscriptLine[]): string {
         .join("\n");
 }
 
-function findingWhy(finding: {
-    whyThisMatters?: string;
-    whyIssue?: string;
-}): string {
-    return (finding.whyThisMatters ?? finding.whyIssue ?? "").trim();
-}
-
 function formatDimensionalAssessment(
     label: string,
     dim: {
         assessment: string;
         findings: {
             anchor: string;
-            whyThisMatters?: string;
-            whyIssue?: string;
+            whyThisMatters: string;
         }[];
     },
 ): string {
@@ -102,13 +94,13 @@ function formatDimensionalAssessment(
     if (assessment) parts.push(assessment);
     if (topFinding) {
         parts.push(
-            `(top issue: ${topFinding.anchor.trim()} — ${findingWhy(topFinding)})`,
+            `(top issue: ${topFinding.anchor.trim()} — ${topFinding.whyThisMatters.trim()})`,
         );
     }
     return `- ${label}: ${parts.join(" ")}`;
 }
 
-function formatTeachableMoments(analysis: CaptureAnalysis): string {
+function formatTeachableMoments(analysis: ItemAnalysis): string {
     const moments = [
         ...(analysis.fixTheseFirst ?? []),
         ...(analysis.moreMoments ?? []),
@@ -117,7 +109,7 @@ function formatTeachableMoments(analysis: CaptureAnalysis): string {
     return moments
         .map(
             (m, i) =>
-                `${i + 1}. [idx ${m.transcriptIdx}, ${m.severity}] anchor: ${m.anchor.trim()} | why: ${findingWhy(m)} | better: ${m.betterOption.trim()}`,
+                `${i + 1}. [idx ${m.transcriptIdx}, ${m.severity}] anchor: ${m.anchor.trim()} | why: ${m.whyThisMatters.trim()} | better: ${m.betterOption.trim()}`,
         )
         .join("\n");
 }

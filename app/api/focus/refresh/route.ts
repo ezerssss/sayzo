@@ -1,20 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import {
     synthesizeFocusInsights,
     updateFocusInsightsIncremental,
 } from "@/services/focus-synthesizer";
-import type { CaptureType } from "@/types/captures";
+import type { CaptureType } from "@/schemas";
 import {
     FOCUS_INSIGHTS_VERSION,
     type UserFocusInsights,
-} from "@/types/focus-insights";
-import type { SessionType } from "@/types/sessions";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+} from "@/schemas";
+import type { SessionType } from "@/schemas";
+import { getOrHydrateLearnerModel } from "@/lib/learner-model/store";
+import type { UserProfileType } from "@/schemas";
 
 export const runtime = "nodejs";
 
@@ -95,13 +95,10 @@ export async function POST(request: NextRequest) {
     try {
         const db = getAdminFirestore();
 
-        const [userSnap, skillSnap, sessionsSnap, capturesSnap, insightsSnap] =
+        const [userSnap, model, sessionsSnap, capturesSnap, insightsSnap] =
             await Promise.all([
                 db.collection(FirestoreCollections.users.path).doc(uid).get(),
-                db
-                    .collection(FirestoreCollections.skillMemories.path)
-                    .doc(uid)
-                    .get(),
+                getOrHydrateLearnerModel(db, uid),
                 db
                     .collection(FirestoreCollections.sessions.path)
                     .where("uid", "==", uid)
@@ -128,23 +125,11 @@ export async function POST(request: NextRequest) {
         }
         const userProfile = userSnap.data() as UserProfileType;
 
-        const skillData = skillSnap.data();
-        const skillMemory: Pick<
-            SkillMemoryType,
-            "strengths" | "weaknesses" | "masteredFocus" | "reinforcementFocus"
-        > = {
-            strengths: Array.isArray(skillData?.strengths)
-                ? (skillData!.strengths as string[])
-                : [],
-            weaknesses: Array.isArray(skillData?.weaknesses)
-                ? (skillData!.weaknesses as string[])
-                : [],
-            masteredFocus: Array.isArray(skillData?.masteredFocus)
-                ? (skillData!.masteredFocus as string[])
-                : [],
-            reinforcementFocus: Array.isArray(skillData?.reinforcementFocus)
-                ? (skillData!.reinforcementFocus as string[])
-                : [],
+        const skillMemory = {
+            strengths: model.strengths,
+            weaknesses: model.weaknesses,
+            masteredFocus: model.masteredFocus,
+            reinforcementFocus: model.reinforcementFocus,
         };
 
         const sessions: SessionType[] = sessionsSnap.docs.map(
@@ -221,6 +206,7 @@ export async function POST(request: NextRequest) {
             ? await updateFocusInsightsIncremental({
                   userProfile: profileSlice,
                   skillMemory,
+                  trackedPatterns: model.trackedPatterns,
                   priorInsights: existing as UserFocusInsights,
                   newSessions: incrementalAttempt.newSessions,
                   newCaptures: incrementalAttempt.newCaptures,
@@ -228,6 +214,7 @@ export async function POST(request: NextRequest) {
             : await synthesizeFocusInsights({
                   userProfile: profileSlice,
                   skillMemory,
+                  trackedPatterns: model.trackedPatterns,
                   sessions,
                   captures,
               });

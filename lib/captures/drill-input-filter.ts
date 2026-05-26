@@ -1,4 +1,4 @@
-import type { CaptureTranscriptLine } from "@/types/captures";
+import type { CaptureTranscriptLine } from "@/schemas";
 
 // Short user utterances are echo-bleed false-positive risk (phonetic match
 // on 1-2 words is unreliable in lib/captures/echo-leak.ts) AND have no

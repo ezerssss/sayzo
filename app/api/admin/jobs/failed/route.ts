@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import type { CaptureStatus, CaptureType } from "@/types/captures";
-import type { SessionType } from "@/types/sessions";
+import type { CaptureStatus, CaptureType } from "@/schemas";
+import type { SessionType } from "@/schemas";
 
 export const runtime = "nodejs";
 

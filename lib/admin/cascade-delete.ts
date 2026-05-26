@@ -2,7 +2,7 @@ import "server-only";
 
 import { getAuth } from "firebase-admin/auth";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import {
     getAdminFirestore,
     getAdminStorageBucket,
@@ -25,7 +25,7 @@ export interface CascadeDeleteResult {
     refreshTokensDeleted: number;
     authCodesDeleted: number;
     profileExisted: boolean;
-    skillMemoryExisted: boolean;
+    learnerModelExisted: boolean;
     focusInsightsExisted: boolean;
     authUserDeleted: boolean;
 }
@@ -34,9 +34,9 @@ export interface CascadeDeleteResult {
  * Hard-delete every trace of a user. Order matters:
  *   1. Disable Firebase Auth (kills sessions instantly; record still exists
  *      so we can audit and finish cleanup).
- *   2. Storage prefixes — drill audio (`{uid}/...`) and capture audio
+ *   2. Storage prefixes — drill audio (`drills/{uid}/...`) and capture audio
  *      (`captures/{uid}/...`).
- *   3. uid-keyed Firestore docs (users, skill-memories, user-focus-insights).
+ *   3. uid-keyed Firestore docs (users, learner-models, user-focus-insights).
  *   4. uid-field queries (sessions, captures, access_requests, support_reports).
  *   5. firebaseUid-field scans (refresh_tokens, auth_codes — short-TTL but
  *      still removed for completeness).
@@ -66,7 +66,7 @@ export async function deleteUserCompletely(
         refreshTokensDeleted: 0,
         authCodesDeleted: 0,
         profileExisted: false,
-        skillMemoryExisted: false,
+        learnerModelExisted: false,
         focusInsightsExisted: false,
         authUserDeleted: false,
     };
@@ -81,9 +81,9 @@ export async function deleteUserCompletely(
         );
     }
 
-    // 2. Storage. Drill audio lives under `{uid}/`; capture audio under
+    // 2. Storage. Drill audio lives under `drills/{uid}/`; capture audio under
     //    `captures/{uid}/`. tts-cache is global and not user-scoped.
-    for (const prefix of [`${targetUid}/`, `captures/${targetUid}/`]) {
+    for (const prefix of [`drills/${targetUid}/`, `captures/${targetUid}/`]) {
         try {
             const [files] = await bucket.getFiles({ prefix });
             await Promise.all(
@@ -123,16 +123,16 @@ export async function deleteUserCompletely(
     }
 
     try {
-        const skillRef = db
-            .collection(FirestoreCollections.skillMemories.path)
+        const modelRef = db
+            .collection(FirestoreCollections.learnerModels.path)
             .doc(targetUid);
-        const snap = await skillRef.get();
+        const snap = await modelRef.get();
         if (snap.exists) {
-            result.skillMemoryExisted = true;
-            await skillRef.delete();
+            result.learnerModelExisted = true;
+            await modelRef.delete();
         }
     } catch (error) {
-        console.warn("[cascade-delete] skill-memories delete failed", error);
+        console.warn("[cascade-delete] learner-models delete failed", error);
     }
 
     try {
@@ -202,7 +202,7 @@ export async function deleteUserCompletely(
             supportReportsDeleted: result.supportReportsDeleted,
             refreshTokensDeleted: result.refreshTokensDeleted,
             authCodesDeleted: result.authCodesDeleted,
-            skillMemoryExisted: result.skillMemoryExisted,
+            learnerModelExisted: result.learnerModelExisted,
             focusInsightsExisted: result.focusInsightsExisted,
         },
     });

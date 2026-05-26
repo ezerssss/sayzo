@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { InlineMarkdown } from "@/components/session/inline-markdown";
 import { cn } from "@/lib/utils";
-import type { TeachableMoment } from "@/types/captures";
+import type { TeachableMoment } from "@/schemas";
 
 type Props = {
     moments: TeachableMoment[];

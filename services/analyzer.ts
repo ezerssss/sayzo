@@ -7,16 +7,20 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type {
-    CaptureAnalysis,
     CaptureTranscriptLine,
-} from "@/types/captures";
-import type {
-    SessionAnalysisType,
+    ItemAnalysis,
     SessionFeedbackType,
     SessionPlanType,
-} from "@/types/sessions";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+} from "@/schemas";
+import {
+    dimensionalAnalysisSchema,
+    llmTeachableMomentSchema,
+    mainIssueShapeSchema,
+} from "@/schemas";
+import type { DifferentialContext } from "@/schemas";
+import type { LearnerModel } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
+import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
 
 /**
  * When the session is a scenario replay of a captured conversation, the
@@ -30,36 +34,11 @@ export type ReplayContext = {
         title: string;
         summary: string;
         transcript: CaptureTranscriptLine[];
-        analysis: CaptureAnalysis;
+        analysis: ItemAnalysis;
     };
 };
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "analyzer");
-
-/**
- * LLM-facing teachable moment shape. `transcriptIdx` and `timestamp` are
- * deliberately absent — LLMs hallucinate numbers, so the server resolves
- * them deterministically from the verbatim `anchor` text via
- * `lib/transcripts/anchor-resolver`.
- */
-const llmTeachableMomentSchema = z.object({
-    anchor: z.string(),
-    betterOption: z.string(),
-    whyThisMatters: z.string(),
-    type: z.enum([
-        "grammar",
-        "filler",
-        "phrasing",
-        "vocabulary",
-        "communication",
-    ]),
-    severity: z.enum(["minor", "moderate", "major"]),
-});
-
-const mainIssueShapeSchema = z.object({
-    principle: z.string(),
-    shape: z.string(),
-});
 
 const sessionAnalysisSchema = z.object({
     overview: z.string(),
@@ -90,23 +69,23 @@ const sessionAnalysisSchema = z.object({
      * reusable principle).
      */
     fixTheseFirst: z.array(llmTeachableMomentSchema),
-    structureAndFlow: z.array(z.string()),
-    clarityAndConciseness: z.array(z.string()),
-    relevanceAndFocus: z.array(z.string()),
-    engagement: z.array(z.string()),
-    professionalism: z.array(z.string()),
+    structureAndFlow: dimensionalAnalysisSchema,
+    clarityAndConciseness: dimensionalAnalysisSchema,
+    relevanceAndFocus: dimensionalAnalysisSchema,
+    engagement: dimensionalAnalysisSchema,
+    professionalism: dimensionalAnalysisSchema,
     improvements: z.array(z.string()),
     regressions: z.array(z.string()),
     notes: z.string(),
 });
 
 /**
- * What `analyzeSession` actually returns: like `SessionAnalysisType` but
+ * What `analyzeSession` actually returns: like `ItemAnalysis` but
  * with `fixTheseFirst[]` missing the server-set `transcriptIdx` /
  * `timestamp` fields. The route fills those in via `reconcileMoments` to
- * produce the persisted `SessionAnalysisType`.
+ * produce the persisted `ItemAnalysis`.
  */
-export type LlmSessionAnalysis = Omit<SessionAnalysisType, "fixTheseFirst"> & {
+export type LlmSessionAnalysis = Omit<ItemAnalysis, "fixTheseFirst"> & {
     fixTheseFirst: z.infer<typeof llmTeachableMomentSchema>[];
 };
 
@@ -125,12 +104,14 @@ export type AnalyzerInput = {
         | "companyResearch"
     >;
     skillMemory: Pick<
-        SkillMemoryType,
+        LearnerModel,
         | "strengths"
         | "weaknesses"
         | "masteredFocus"
         | "reinforcementFocus"
     >;
+    /** History slice that makes feedback differential (tracked habits + recent headlines). */
+    differential: DifferentialContext;
     session: {
         plan: SessionPlanType;
         transcript: string;
@@ -139,7 +120,7 @@ export type AnalyzerInput = {
 
 export type GenerateSessionFeedbackOptions = {
     /** When set, align priorities with structured analysis from `analyzeSession`. */
-    sessionAnalysis?: SessionAnalysisType | null;
+    sessionAnalysis?: ItemAnalysis | null;
 };
 
 const sessionFeedbackSchema = z.object({
@@ -192,14 +173,17 @@ ${userLines || "(no user turns in original)"}
 - Professionalism: ${analysis.professionalism.assessment}
 
 ### Original quantitative metrics
-- Filler rate: ${analysis.fillerWords.perMinute.toFixed(1)}/min
-- Speaking pace: ${analysis.fluency.wordsPerMinute} WPM
-- Self-corrections: ${analysis.fluency.selfCorrections}
-- Communication style: directness=${analysis.communicationStyle.directness.toFixed(2)}, formality=${analysis.communicationStyle.formality.toFixed(2)}, confidence=${analysis.communicationStyle.confidence.toFixed(2)}`;
+- Filler rate: ${(analysis.fillerWords?.perMinute ?? 0).toFixed(1)}/min
+- Speaking pace: ${analysis.fluency?.wordsPerMinute ?? 0} WPM
+- Self-corrections: ${analysis.fluency?.selfCorrections ?? 0}
+- Communication style: directness=${(analysis.communicationStyle?.directness ?? 0).toFixed(2)}, formality=${(analysis.communicationStyle?.formality ?? 0).toFixed(2)}, confidence=${(analysis.communicationStyle?.confidence ?? 0).toFixed(2)}`;
 }
 
 function buildContextUserMessage(input: AnalyzerInput, replay?: ReplayContext): string {
-    const { userProfile, skillMemory, session } = input;
+    const { userProfile, skillMemory, session, differential } = input;
+
+    const { trackedBlock, recentIssuesBlock } =
+        formatDifferentialBlocks(differential);
 
     return `
 ## User profile
@@ -219,6 +203,12 @@ function buildContextUserMessage(input: AnalyzerInput, replay?: ReplayContext): 
 - Mastered focus: ${skillMemory.masteredFocus.length ? skillMemory.masteredFocus.join("; ") : "(none)"}
 - Reinforcement focus: ${skillMemory.reinforcementFocus.length ? skillMemory.reinforcementFocus.join("; ") : "(none)"}
 
+## Tracked habits (what we already know about this learner — be differential, don't re-headline these)
+${trackedBlock}
+
+## Recent main-issue headlines (newest first — do NOT repeat headline #1; acknowledge progress then redirect)
+${recentIssuesBlock}
+
 ## Session plan
 - Drill category: ${session.plan.scenario.category}
 - Scenario title: ${session.plan.scenario.title || "(none)"}
@@ -232,7 +222,7 @@ ${replay ? formatReplayContextBlock(replay) : ""}
 }
 
 /**
- * Structured session analysis — maps to `SessionAnalysisType` for persistence.
+ * Structured session analysis — maps to `ItemAnalysis` for persistence.
  *
  * When `replay` is provided, the analysis becomes comparison-focused: the LLM
  * sees the original capture's transcript + analysis and frames findings as

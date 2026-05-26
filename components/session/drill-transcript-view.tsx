@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { InlineMarkdown } from "@/components/session/inline-markdown";
 import { cn } from "@/lib/utils";
-import type { CaptureTranscriptLine, TeachableMoment } from "@/types/captures";
+import type { CaptureTranscriptLine, TeachableMoment } from "@/schemas";
 
 type Props = {
     serverTranscript?: CaptureTranscriptLine[] | null;

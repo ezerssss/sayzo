@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { db } from "@/lib/firebase/client";
-import type { CaptureType } from "@/types/captures";
+import type { CaptureType } from "@/schemas";
 
 export function useCapture(captureId?: string, initial?: CaptureType) {
     const [capture, setCapture] = useState<CaptureType | null>(initial ?? null);

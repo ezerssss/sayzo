@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getFirebaseAdminApp, getAdminFirestore } from "@/lib/firebase/admin";
-import type { UserProfileType } from "@/types/user";
+import type { UserProfileType } from "@/schemas";
 import { getAuth } from "firebase-admin/auth";
 
 export const runtime = "nodejs";

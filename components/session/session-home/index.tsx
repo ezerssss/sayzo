@@ -21,7 +21,7 @@ import {
     isKyHttpStatus,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
-import type { SessionFeedbackType } from "@/types/sessions";
+import type { SessionFeedbackType } from "@/schemas";
 
 import {
     DEFAULT_MAX_SECONDS,

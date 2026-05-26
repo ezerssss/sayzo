@@ -1,14 +1,14 @@
 import "server-only";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import {
     getAdminFirestore,
     getAdminStorageBucket,
 } from "@/lib/firebase/admin";
 import { firePregenInBackground } from "@/services/drill-pre-generator";
-import type { CaptureStatus, CaptureType } from "@/types/captures";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+import { getOrHydrateLearnerModel } from "@/lib/learner-model/store";
+import type { CaptureStatus, CaptureType } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 
 import { analyzeCaptureDeep } from "./analyze";
 import { generateDrillsFromCapture } from "./drills";
@@ -265,15 +265,32 @@ async function runAnalysisAndProfiling(
     const durationSecs = capture.durationSecs ?? 0;
 
     // Load user profile + skill memory for analysis calibration
-    const [userSnap, skillSnap] = await Promise.all([
+    const [userSnap, model] = await Promise.all([
         db.collection(FirestoreCollections.users.path).doc(capture.uid).get(),
-        db
-            .collection(FirestoreCollections.skillMemories.path)
-            .doc(capture.uid)
-            .get(),
+        getOrHydrateLearnerModel(db, capture.uid),
     ]);
     const userProfile = (userSnap.data() ?? {}) as Partial<UserProfileType>;
-    const skillData = (skillSnap.data() ?? {}) as Partial<SkillMemoryType>;
+
+    // Recent analyzed captures' headlines so the capture analyzer is differential.
+    const recentCapturesSnap = await db
+        .collection(FirestoreCollections.captures.path)
+        .where("uid", "==", capture.uid)
+        .orderBy("startedAt", "desc")
+        .limit(10)
+        .get();
+    const differential = {
+        trackedPatterns: model.trackedPatterns,
+        recentMainIssues: recentCapturesSnap.docs
+            .filter((d) => d.id !== captureId)
+            .map((d) => ({ id: d.id, data: d.data() as CaptureType }))
+            .filter((x) => x.data.analysis?.mainIssue)
+            .slice(0, 5)
+            .map((x) => ({
+                sourceId: x.id,
+                mainIssue: x.data.analysis!.mainIssue,
+                createdAt: x.data.startedAt,
+            })),
+    };
 
     const { serverTitle, serverSummary, analysis } = await analyzeCaptureDeep({
         transcript,
@@ -292,19 +309,12 @@ async function runAnalysisAndProfiling(
             additionalContext: userProfile.additionalContext ?? "",
         },
         skillMemory: {
-            strengths: Array.isArray(skillData.strengths)
-                ? (skillData.strengths as string[])
-                : [],
-            weaknesses: Array.isArray(skillData.weaknesses)
-                ? (skillData.weaknesses as string[])
-                : [],
-            masteredFocus: Array.isArray(skillData.masteredFocus)
-                ? (skillData.masteredFocus as string[])
-                : [],
-            reinforcementFocus: Array.isArray(skillData.reinforcementFocus)
-                ? (skillData.reinforcementFocus as string[])
-                : [],
+            strengths: model.strengths,
+            weaknesses: model.weaknesses,
+            masteredFocus: model.masteredFocus,
+            reinforcementFocus: model.reinforcementFocus,
         },
+        differential,
     });
 
     await captureRef.set(

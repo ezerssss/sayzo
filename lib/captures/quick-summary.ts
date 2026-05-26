@@ -9,7 +9,7 @@ import { z } from "zod";
 import type {
     CaptureCloseReason,
     CaptureTranscriptLine,
-} from "@/types/captures";
+} from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 

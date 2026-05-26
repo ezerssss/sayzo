@@ -4,9 +4,9 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 
 import { DEFAULT_FREE_CREDIT_LIMIT } from "@/constants/credits";
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { db } from "@/lib/firebase/client";
-import type { UserProfileType } from "@/types/user";
+import type { UserProfileType } from "@/schemas";
 
 type UseUserCreditsResult = {
     loading: boolean;

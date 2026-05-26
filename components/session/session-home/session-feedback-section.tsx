@@ -6,11 +6,11 @@ import { PostDrillInstallCard } from "@/components/install/post-drill-install-ca
 import { DrillTranscriptView } from "@/components/session/drill-transcript-view";
 import { FeedbackChat } from "@/components/session/feedback-chat";
 import { ImprovedVersionView } from "@/components/session/improved-version-view";
-import type { CaptureTranscriptLine } from "@/types/captures";
+import type { CaptureTranscriptLine } from "@/schemas";
 import type {
-    SessionAnalysisType,
+    ItemAnalysis,
     SessionFeedbackType,
-} from "@/types/sessions";
+} from "@/schemas";
 
 /** Matches the sentinel written by app/api/sessions/retry/route.ts. */
 const VOLUNTARY_RETRY_REASON = "voluntary_retry";
@@ -20,7 +20,7 @@ type Props = {
     isSkipped: boolean;
     currentTranscript: string;
     currentServerTranscript?: CaptureTranscriptLine[] | null;
-    currentAnalysis: SessionAnalysisType | null;
+    currentAnalysis: ItemAnalysis | null;
     currentFeedback: SessionFeedbackType | null;
     requiresRetry: boolean;
     completionReason: string | null;
@@ -33,7 +33,7 @@ type Props = {
     drillCreatedAt?: string | null;
 };
 
-function buildChatContext(analysis: SessionAnalysisType | null): string {
+function buildChatContext(analysis: ItemAnalysis | null): string {
     if (!analysis) return "";
     const lines: string[] = [];
     if (analysis.whatWentWell?.trim()) {

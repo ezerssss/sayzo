@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import {
     getAdminFirestore,
     getAdminStorageBucket,
 } from "@/lib/firebase/admin";
-import type { CaptureType } from "@/types/captures";
+import type { CaptureType } from "@/schemas";
 
 export const runtime = "nodejs";
 

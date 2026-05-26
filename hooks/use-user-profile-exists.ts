@@ -3,12 +3,12 @@
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { db } from "@/lib/firebase/client";
 import type {
     OnboardingDrillProgress,
     UserProfileType,
-} from "@/types/user";
+} from "@/schemas";
 
 export function useUserProfileExists(uid: string | undefined) {
     const [loading, setLoading] = useState(Boolean(uid));

@@ -2,7 +2,7 @@ import { openai } from "@ai-sdk/openai";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import {
     assertHasCredit,
@@ -10,8 +10,8 @@ import {
     creditLimitResponse,
 } from "@/lib/credits/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import type { CaptureTranscriptLine, CaptureType } from "@/types/captures";
-import type { SessionType } from "@/types/sessions";
+import type { CaptureTranscriptLine, CaptureType } from "@/schemas";
+import type { SessionType } from "@/schemas";
 
 type FeedbackChatSource = "session" | "capture";
 

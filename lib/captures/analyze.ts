@@ -7,84 +7,42 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type {
-    CaptureAnalysis,
     CaptureTranscriptLine,
     GrammarPattern,
+    ItemAnalysis,
     StructuralObservation,
     TurnRewrite,
-} from "@/types/captures";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+} from "@/schemas";
+import type { DifferentialContext } from "@/schemas";
+import type { LearnerModel } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
+import {
+    communicationStyleSchema,
+    dimensionalAnalysisSchema,
+    fillerWordAnalysisSchema,
+    fluencyMetricsSchema,
+    llmGrammarPatternSchema,
+    llmTeachableMomentSchema,
+    llmTurnRewriteSchema,
+    structuralObservationSchema,
+    vocabularyAssessmentSchema,
+} from "@/schemas";
 import {
     reconcileMoments,
     reconcileWithAnchor,
     resolveAnchorIdx,
 } from "@/lib/transcripts/anchor-resolver";
+import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
 import { isShortUserDrillLine } from "./drill-input-filter";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
-// Unified three-part teachable shape used for every coaching moment
-// (`fixTheseFirst`, `moreMoments`, and dimensional `findings`). The old
-// separate `whyIssue` + `keyTakeaway` fields are now merged into one
-// `whyThisMatters` narrative. See `CoachingMoment` in `types/captures.ts`.
-const coachingMomentSchema = z.object({
-    anchor: z.string(),
-    betterOption: z.string(),
-    whyThisMatters: z.string(),
-});
-
-/**
- * LLM-facing teachable moment shape. `transcriptIdx` and `timestamp` are
- * deliberately absent — they are server-set from the verbatim `anchor` text
- * via `lib/transcripts/anchor-resolver` so a hallucinated line number can't
- * pin coaching to the wrong utterance.
- */
-const llmTeachableMomentSchema = coachingMomentSchema.extend({
-    type: z.enum([
-        "grammar",
-        "filler",
-        "phrasing",
-        "vocabulary",
-        "communication",
-    ]),
-    severity: z.enum(["minor", "moderate", "major"]),
-});
-
-const rewriteVerdictSchema = z.enum([
-    "keep",
-    "tighten",
-    "sharpen",
-    "reframe",
-    "reorder",
-]);
-
-/**
- * LLM-facing turn rewrite shape. `transcriptIdx` is server-set from the
- * verbatim `original` text. `suggestedBeforeIdx` stays — it's a forward
- * reference to another turn that can't be resolved from anchor text — but
- * the server bounds-checks it after the fact and clamps invalid values to
- * `null`.
- */
-const llmTurnRewriteSchema = z.object({
-    original: z.string(),
-    rewrite: z.string(),
-    verdict: rewriteVerdictSchema,
-    note: z.string().nullable(),
-    suggestedBeforeIdx: z.number().nullable(),
-});
-
-const structuralObservationSchema = z.object({
-    observation: z.string(),
-    explanation: z.string(),
-    affectedTurnIdxs: z.array(z.number()),
-});
-
-const dimensionalAnalysisSchema = z.object({
-    assessment: z.string(),
-    findings: z.array(coachingMomentSchema),
-});
-
+// Capture LLM output: the idx-less coaching shapes (the server resolves
+// transcript positions from verbatim anchors) plus a server-generated
+// title/summary. Building blocks import from `@/schemas` (single source of
+// truth). All conversation metrics are REQUIRED here — a capture always
+// produces them, unlike the shared `llmItemAnalysisSchema` where they're
+// optional so a 60s drill can omit them.
 const captureAnalysisSchema = z.object({
     serverTitle: z.string(),
     serverSummary: z.string(),
@@ -105,48 +63,11 @@ const captureAnalysisSchema = z.object({
 
     fixTheseFirst: z.array(llmTeachableMomentSchema),
     moreMoments: z.array(llmTeachableMomentSchema),
-    grammarPatterns: z.array(
-        z.object({
-            pattern: z.string(),
-            frequency: z.number(),
-            // `text` must be a verbatim user-line substring — the server
-            // resolves transcriptIdx from it so the LLM doesn't have to
-            // guess the index.
-            examples: z.array(z.object({ text: z.string() })),
-        }),
-    ),
-    vocabulary: z.object({
-        uniqueWords: z.number(),
-        sophisticationScore: z.number(),
-        overusedSimpleWords: z.array(
-            z.object({
-                word: z.string(),
-                count: z.number(),
-                alternatives: z.array(z.string()),
-            }),
-        ),
-        domainVocabulary: z.array(z.string()),
-    }),
-    fillerWords: z.object({
-        totalCount: z.number(),
-        perMinute: z.number(),
-        breakdown: z.array(
-            z.object({ word: z.string(), count: z.number() }),
-        ),
-        timestamps: z.array(z.number()),
-    }),
-    fluency: z.object({
-        wordsPerMinute: z.number(),
-        avgPauseDurationMs: z.number(),
-        selfCorrections: z.number(),
-        avgResponseLatencyMs: z.number(),
-    }),
-    communicationStyle: z.object({
-        directness: z.number(),
-        formality: z.number(),
-        confidence: z.number(),
-        turnTaking: z.enum(["balanced", "passive", "dominant"]),
-    }),
+    grammarPatterns: z.array(llmGrammarPatternSchema),
+    vocabulary: vocabularyAssessmentSchema,
+    fillerWords: fillerWordAnalysisSchema,
+    fluency: fluencyMetricsSchema,
+    communicationStyle: communicationStyleSchema,
 
     turnRewrites: z.array(llmTurnRewriteSchema),
     structuralObservations: z.array(structuralObservationSchema),
@@ -155,7 +76,7 @@ const captureAnalysisSchema = z.object({
 type AnalysisResult = {
     serverTitle: string;
     serverSummary: string;
-    analysis: CaptureAnalysis;
+    analysis: ItemAnalysis;
 };
 
 export type CaptureAnalyzerInput = {
@@ -177,9 +98,11 @@ export type CaptureAnalyzerInput = {
     >;
     /** Existing skill memory so the LLM can flag improvements/regressions. */
     skillMemory: Pick<
-        SkillMemoryType,
+        LearnerModel,
         "strengths" | "weaknesses" | "masteredFocus" | "reinforcementFocus"
     >;
+    /** History slice that makes feedback differential (tracked habits + recent headlines). */
+    differential: DifferentialContext;
 };
 
 function readPrompt(): string {
@@ -219,6 +142,7 @@ export async function analyzeCaptureDeep(
         durationSecs,
         userProfile,
         skillMemory,
+        differential,
     } = input;
 
     // Hide short user lines from the LLM so post-AEC echo-bleed fragments
@@ -238,6 +162,9 @@ export async function analyzeCaptureDeep(
     const userSpeakingMins =
         userLines.reduce((sum, l) => sum + (l.end - l.start), 0) / 60;
 
+    const { trackedBlock, recentIssuesBlock } =
+        formatDifferentialBlocks(differential);
+
     const prompt = `## User profile (for calibration)
 - Role: ${userProfile.role || "(not set)"}
 - Industry: ${userProfile.industry || "(not set)"}
@@ -253,6 +180,12 @@ export async function analyzeCaptureDeep(
 - Weaknesses: ${skillMemory.weaknesses.length ? skillMemory.weaknesses.join("; ") : "(none)"}
 - Mastered focus: ${skillMemory.masteredFocus.length ? skillMemory.masteredFocus.join("; ") : "(none)"}
 - Reinforcement focus: ${skillMemory.reinforcementFocus.length ? skillMemory.reinforcementFocus.join("; ") : "(none)"}
+
+## Tracked habits (what we already know — be differential, don't re-headline these)
+${trackedBlock}
+
+## Recent main-issue headlines (newest first — do NOT repeat headline #1; acknowledge progress then redirect)
+${recentIssuesBlock}
 
 ## Capture context (from the desktop agent's small local LLM — may contain errors)
 Agent-generated title (UNRELIABLE — may misidentify speakers or use wrong names): ${agentTitle}
@@ -365,7 +298,7 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
             ),
         }));
 
-    const analysis: CaptureAnalysis = {
+    const analysis: ItemAnalysis = {
         overview: result.output.overview,
         mainIssue: result.output.mainIssue,
         secondaryIssues: result.output.secondaryIssues,

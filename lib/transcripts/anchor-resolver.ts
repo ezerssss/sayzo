@@ -1,4 +1,4 @@
-import type { CaptureTranscriptLine } from "@/types/captures";
+import type { CaptureTranscriptLine } from "@/schemas";
 
 /**
  * Programmatic resolution of a coaching anchor (a quoted phrase from the

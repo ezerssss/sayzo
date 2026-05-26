@@ -18,7 +18,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { CaptureType } from "@/types/captures";
+import type { CaptureType } from "@/schemas";
 
 type Props = {
     captures: CaptureType[];

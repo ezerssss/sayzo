@@ -6,24 +6,24 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import type { SessionPlanType, SessionType } from "@/types/sessions";
+import type { SessionPlanType, SessionType } from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "learner-context-updater");
 
-const MAX_INTERNAL_LEARNER_CONTEXT_CHARS = 5_500;
+const MAX_DRILL_NOTES_CHARS = 5_500;
 const MAX_TRANSCRIPT_CHARS_IN_PROMPT = 14_000;
 
-const learnerContextOutputSchema = z.object({
-    internalLearnerContext: z
+const drillNotesOutputSchema = z.object({
+    drillNotes: z
         .string()
-        .max(MAX_INTERNAL_LEARNER_CONTEXT_CHARS)
+        .max(MAX_DRILL_NOTES_CHARS)
         .describe(
             "Merged backend-only bullet notes for future drill personalization.",
         ),
 });
 
 export type LearnerContextUpdaterInput = {
-    previousInternalLearnerContext: string;
+    previousDrillNotes: string;
     plan: SessionPlanType;
     transcript: string;
     completionStatus: SessionType["completionStatus"];
@@ -51,8 +51,8 @@ function buildUserMessage(input: LearnerContextUpdaterInput): string {
     }
 
     return `
-## Previous internal learner context
-${input.previousInternalLearnerContext.trim() || "(empty)"}
+## Previous drill notes
+${input.previousDrillNotes.trim() || "(empty)"}
 
 ## This session drill (for grounding)
 - Category: ${plan.scenario.category}
@@ -67,17 +67,18 @@ ${transcriptBlock}
 }
 
 /**
- * Merges evidence from one session transcript into the persisted internal learner context.
- * Call only from trusted server code; output is never user-facing.
+ * Merges evidence from one session transcript into the persisted drill notes
+ * (`learner-models/{uid}.context.drillNotes`). Call only from trusted server
+ * code; the output is backend-only and never user-facing.
  */
-export async function mergeInternalLearnerContextFromSession(
+export async function mergeDrillNotesFromSession(
     input: LearnerContextUpdaterInput,
-): Promise<{ internalLearnerContext: string }> {
+): Promise<{ drillNotes: string }> {
     const result = await generateText({
         model: openai(defaultModel()),
         output: Output.object({
-            schema: zodSchema(learnerContextOutputSchema),
-            name: "InternalLearnerContext",
+            schema: zodSchema(drillNotesOutputSchema),
+            name: "DrillNotes",
             description:
                 "Updated backend-only learner notes for drill personalization.",
         }),
@@ -87,6 +88,6 @@ export async function mergeInternalLearnerContextFromSession(
     });
 
     return {
-        internalLearnerContext: result.output.internalLearnerContext.trim(),
+        drillNotes: result.output.drillNotes.trim(),
     };
 }

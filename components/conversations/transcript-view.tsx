@@ -10,7 +10,7 @@ import type {
     CaptureTranscriptLine,
     TeachableMoment,
     TurnRewrite,
-} from "@/types/captures";
+} from "@/schemas";
 
 type Props = {
     transcript: CaptureTranscriptLine[];

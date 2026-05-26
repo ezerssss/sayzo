@@ -12,9 +12,9 @@ import {
     type PlannerRecentDrillSummary,
     type SessionPlanType,
     type SessionType,
-} from "@/types/sessions";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+} from "@/schemas";
+import type { LearnerContext, LearnerModel } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "planner");
 
@@ -60,12 +60,11 @@ export type PlannerInput = {
         | "motivation"
         | "additionalContext"
         | "companyResearch"
-        | "internalLearnerContext"
-        | "internalCaptureContext"
-        | "internalCaptureDeliveryNotes"
     >;
+    /** Server-only prose context (drill-derived + capture-derived) from the learner model. */
+    context: LearnerContext;
     skillMemory: Pick<
-        SkillMemoryType,
+        LearnerModel,
         | "strengths"
         | "weaknesses"
         | "masteredFocus"
@@ -143,8 +142,7 @@ function pickSeedExamples(category?: string): SeedPrompt[] {
 }
 
 function isFirstDrillForLearner(input: PlannerInput): boolean {
-    const noContext =
-        !input.userProfile.internalLearnerContext?.trim();
+    const noContext = !input.context.drillNotes?.trim();
     const noHistory = input.recentDrills.length === 0;
     return noContext && noHistory;
 }
@@ -158,12 +156,10 @@ function defaultPlannerModel(): string {
 }
 
 function plannerUserMessage(input: PlannerInput): string {
-    const { userProfile, skillMemory, recentDrills } = input;
-    const internalCtx = userProfile.internalLearnerContext.trim() || "";
-    const captureContext =
-        (userProfile.internalCaptureContext ?? "").trim() || "";
-    const captureDeliveryNotes =
-        (userProfile.internalCaptureDeliveryNotes ?? "").trim() || "";
+    const { userProfile, context, skillMemory, recentDrills } = input;
+    const internalCtx = context.drillNotes.trim();
+    const captureContext = context.realWorldNotes.trim();
+    const captureDeliveryNotes = context.deliveryNotes.trim();
     const recentDrillsBlock =
         recentDrills.length === 0
             ? "(none yet — first drills for this learner)"

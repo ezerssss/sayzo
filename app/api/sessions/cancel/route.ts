@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { isStaleProcessing } from "@/constants/session-processing";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import type { SessionType } from "@/types/sessions";
+import type { SessionType } from "@/schemas";
 
 export const runtime = "nodejs";
 

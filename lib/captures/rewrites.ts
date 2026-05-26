@@ -1,4 +1,4 @@
-import type { TurnRewrite } from "@/types/captures";
+import type { TurnRewrite } from "@/schemas";
 
 /**
  * Stitches turn rewrites into a single "read straight through" prose view.

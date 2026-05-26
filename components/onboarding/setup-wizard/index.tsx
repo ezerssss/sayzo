@@ -15,7 +15,7 @@ import {
     SETUP_WIZARD_STEP_ORDER,
     type SetupWizardStep,
 } from "@/components/onboarding/setup-wizard/steps";
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { track } from "@/lib/analytics/client";
 import { api } from "@/lib/api-client";
 import { db } from "@/lib/firebase/client";
@@ -23,7 +23,7 @@ import {
     getKyErrorMessage,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
-import type { OnboardingDrillProgress, UserProfileType } from "@/types/user";
+import type { OnboardingDrillProgress, UserProfileType } from "@/schemas";
 
 interface PropsInterface {
     uid: string;

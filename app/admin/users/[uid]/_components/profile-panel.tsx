@@ -4,9 +4,9 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { UserFocusInsights } from "@/types/focus-insights";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { UserProfileType } from "@/types/user";
+import type { LearnerModel } from "@/schemas";
+import type { UserFocusInsights } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 
 type ProfilePanelProps = {
     profile: UserProfileType | null;
@@ -15,7 +15,7 @@ type ProfilePanelProps = {
         disabled: boolean;
         createdAt: string;
     } | null;
-    skillMemory: SkillMemoryType | null;
+    learnerModel: LearnerModel | null;
     focusInsights: UserFocusInsights | null;
     counts: { sessions: number; captures: number };
 };
@@ -23,7 +23,7 @@ type ProfilePanelProps = {
 export function ProfilePanel({
     profile,
     authRecord,
-    skillMemory,
+    learnerModel,
     focusInsights,
     counts,
 }: ProfilePanelProps) {
@@ -84,8 +84,8 @@ export function ProfilePanel({
                         ["Sessions", String(counts.sessions)],
                         ["Captures", String(counts.captures)],
                         [
-                            "Skill memory",
-                            skillMemory ? "present" : "—",
+                            "Learner model",
+                            learnerModel ? "present" : "—",
                         ],
                         [
                             "Focus insights",
@@ -149,13 +149,13 @@ export function ProfilePanel({
                 />
             </div>
 
-            {profile?.internalLearnerContext ||
-            profile?.internalCaptureContext ||
-            profile?.internalCaptureDeliveryNotes ? (
-                <CollapsibleNotes
-                    profile={profile}
-                    skillMemory={skillMemory}
-                />
+            {learnerModel &&
+            (learnerModel.context.drillNotes ||
+                learnerModel.context.realWorldNotes ||
+                learnerModel.context.deliveryNotes ||
+                learnerModel.strengths.length > 0 ||
+                learnerModel.weaknesses.length > 0) ? (
+                <CollapsibleNotes learnerModel={learnerModel} />
             ) : null}
         </section>
     );
@@ -188,13 +188,7 @@ function KeyValueGroup({
     );
 }
 
-function CollapsibleNotes({
-    profile,
-    skillMemory,
-}: {
-    profile: UserProfileType;
-    skillMemory: SkillMemoryType | null;
-}) {
+function CollapsibleNotes({ learnerModel }: { learnerModel: LearnerModel }) {
     const [open, setOpen] = useState(false);
     return (
         <div className="border-t border-border">
@@ -214,36 +208,34 @@ function CollapsibleNotes({
             {open ? (
                 <div className="grid gap-3 px-4 pb-4 lg:grid-cols-2">
                     <NoteBlock
-                        title="Learner context"
-                        body={profile.internalLearnerContext}
+                        title="Learner context (drills)"
+                        body={learnerModel.context.drillNotes}
                     />
                     <NoteBlock
-                        title="Capture context"
-                        body={profile.internalCaptureContext ?? ""}
+                        title="Real-world context (captures)"
+                        body={learnerModel.context.realWorldNotes}
                     />
                     <NoteBlock
                         title="Delivery notes"
-                        body={profile.internalCaptureDeliveryNotes ?? ""}
+                        body={learnerModel.context.deliveryNotes}
                     />
-                    {skillMemory ? (
-                        <div className="lg:col-span-2 rounded-lg border border-border/50 bg-background/50 p-3 text-xs">
-                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Skill memory
-                            </p>
-                            <p>
-                                <span className="text-muted-foreground">
-                                    Strengths:
-                                </span>{" "}
-                                {skillMemory.strengths.join(", ") || "—"}
-                            </p>
-                            <p>
-                                <span className="text-muted-foreground">
-                                    Weaknesses:
-                                </span>{" "}
-                                {skillMemory.weaknesses.join(", ") || "—"}
-                            </p>
-                        </div>
-                    ) : null}
+                    <div className="lg:col-span-2 rounded-lg border border-border/50 bg-background/50 p-3 text-xs">
+                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Skills / habits
+                        </p>
+                        <p>
+                            <span className="text-muted-foreground">
+                                Strengths:
+                            </span>{" "}
+                            {learnerModel.strengths.join(", ") || "—"}
+                        </p>
+                        <p>
+                            <span className="text-muted-foreground">
+                                Weaknesses:
+                            </span>{" "}
+                            {learnerModel.weaknesses.join(", ") || "—"}
+                        </p>
+                    </div>
                 </div>
             ) : null}
         </div>

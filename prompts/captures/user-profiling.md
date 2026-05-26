@@ -46,6 +46,15 @@ Only add genuinely new weaknesses supported by **multiple instances** in the ana
 ### reinforcementItems
 Items that should be added to reinforcement focus — patterns that were already known (existing weaknesses or previously mastered items) but **showed up again in this capture**, suggesting they need more practice. Use the same phrasing as the existing skill memory entries when possible.
 
+### trackedPatterns
+The durable, plain-language habits this capture evidences — the backbone the coaching loop tracks over time so feedback can say "still happening / improving" instead of re-diagnosing from scratch. Captures are arguably the richest source of these (real, unrehearsed speech). For each habit, emit `{ id, label, category, kind }`:
+- `id`: a stable `snake_case` slug. **Reuse the exact id** from "Current tracked patterns" when it's the same habit; invent a new slug only for a genuinely new one.
+- `label`: one plain-language, second-person sentence — e.g. "You explain background before your point."
+- `category`: one of `clarity | directness | structure | delivery | precision | engagement`.
+- `kind`: `strength` or `weakness`.
+
+Only list habits this capture actually evidences (reuse ids for ones we already track). Do **not** re-list defensively — the server retains un-listed patterns and needless re-listing inflates counts. **Do not** set trend/recency/counts — the server owns those. Aim for the 3-6 most salient.
+
 ## Guidelines
 
 - Read the existing profile fields carefully. Do NOT duplicate what's already there.

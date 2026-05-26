@@ -1,6 +1,6 @@
 import "server-only";
 
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import type { AuditAction, AuditLogEntry } from "@/types/audit-log";
 

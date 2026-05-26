@@ -8,8 +8,8 @@ import { DataTable } from "@/app/admin/_components/data-table";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
-import type { CaptureType } from "@/types/captures";
-import type { SessionType } from "@/types/sessions";
+import type { CaptureType } from "@/schemas";
+import type { SessionType } from "@/schemas";
 
 type FailedResponse = {
     sessions: SessionType[];

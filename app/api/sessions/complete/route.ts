@@ -1,4 +1,4 @@
-import { FirestoreCollections } from "@/constants/firebase/firestore-collections";
+import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import {
     consumeCreditOrThrow,
@@ -15,16 +15,19 @@ import {
 import type {
     CaptureTranscriptLine,
     CaptureType,
-} from "@/types/captures";
+} from "@/schemas";
 import { reconcileMoments } from "@/lib/transcripts/anchor-resolver";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
 import { firePregenInBackground } from "@/services/drill-pre-generator";
-import { mergeInternalLearnerContextFromSession } from "@/services/learner-context-updater";
+import { mergeDrillNotesFromSession } from "@/services/learner-context-updater";
 import { Output, generateText, zodSchema } from "ai";
 import { randomUUID } from "node:crypto";
-import type { SkillMemoryType } from "@/types/skill-memory";
-import type { SessionType } from "@/types/sessions";
-import type { UserProfileType } from "@/types/user";
+import {
+    getOrHydrateLearnerModel,
+    learnerModelDoc,
+} from "@/lib/learner-model/store";
+import type { SessionType } from "@/schemas";
+import type { UserProfileType } from "@/schemas";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -248,51 +251,13 @@ export async function POST(request: NextRequest) {
         }
         const userProfile = userSnap.data() as UserProfileType;
 
-        const skillSnap = await db
-            .collection(FirestoreCollections.skillMemories.path)
-            .doc(uid)
-            .get();
-        const skillData = skillSnap.data();
-        const skillMemory: SkillMemoryType = skillData
-            ? {
-                  uid,
-                  strengths: Array.isArray(skillData.strengths)
-                      ? (skillData.strengths as string[])
-                      : [],
-                  weaknesses: Array.isArray(skillData.weaknesses)
-                      ? (skillData.weaknesses as string[])
-                      : [],
-                  masteredFocus: Array.isArray(skillData.masteredFocus)
-                      ? (skillData.masteredFocus as string[])
-                      : [],
-                  reinforcementFocus: Array.isArray(
-                      skillData.reinforcementFocus,
-                  )
-                      ? (skillData.reinforcementFocus as string[])
-                      : [],
-                  lastProcessedSessionId:
-                      typeof skillData.lastProcessedSessionId === "string"
-                          ? skillData.lastProcessedSessionId
-                          : null,
-                  createdAt:
-                      typeof skillData.createdAt === "string"
-                          ? skillData.createdAt
-                          : new Date().toISOString(),
-                  updatedAt:
-                      typeof skillData.updatedAt === "string"
-                          ? skillData.updatedAt
-                          : new Date().toISOString(),
-              }
-            : {
-                  uid,
-                  strengths: [],
-                  weaknesses: [],
-                  masteredFocus: [],
-                  reinforcementFocus: [],
-                  lastProcessedSessionId: null,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-              };
+        const model = await getOrHydrateLearnerModel(db, uid);
+        const skillMemory = {
+            strengths: model.strengths,
+            weaknesses: model.weaknesses,
+            masteredFocus: model.masteredFocus,
+            reinforcementFocus: model.reinforcementFocus,
+        };
 
         // 1) Transcribe via Deepgram Nova-3 batch. utterances=true gives
         // segment boundaries that buildTimestampedTranscript turns into
@@ -359,7 +324,7 @@ export async function POST(request: NextRequest) {
             { merge: true },
         );
         const ext = extensionForMime(audio.type || "");
-        const objectPath = `${uid}/${sessionId}/${randomUUID()}.${ext}`;
+        const objectPath = `drills/${uid}/${sessionId}/${randomUUID()}.${ext}`;
 
         const file = bucket.file(objectPath);
         await file.save(Buffer.from(audioBytes), {
@@ -517,6 +482,27 @@ ${transcript}`,
                 }
             }
 
+            // Recent same-modality headlines so the analyzer can be differential
+            // (acknowledge a persisting habit, then redirect — don't re-headline).
+            const recentDrillsSnap = await db
+                .collection(FirestoreCollections.sessions.path)
+                .where("uid", "==", uid)
+                .orderBy("createdAt", "desc")
+                .limit(8)
+                .get();
+            const differential = {
+                trackedPatterns: model.trackedPatterns,
+                recentMainIssues: recentDrillsSnap.docs
+                    .map((d) => d.data() as SessionType)
+                    .filter((s) => s.id !== sessionId && s.analysis?.mainIssue)
+                    .slice(0, 5)
+                    .map((s) => ({
+                        sourceId: s.id,
+                        mainIssue: s.analysis!.mainIssue,
+                        createdAt: s.createdAt,
+                    })),
+            };
+
             const llmAnalysis = await analyzeSession({
                 userProfile: {
                     role: userProfile.role,
@@ -537,18 +523,27 @@ ${transcript}`,
                     masteredFocus: skillMemory.masteredFocus,
                     reinforcementFocus: skillMemory.reinforcementFocus,
                 },
+                differential,
                 session: {
                     plan: session.plan,
                     transcript,
                 },
             }, replayContext);
 
+            const reconciledFixes = reconcileMoments(
+                llmAnalysis.fixTheseFirst,
+                serverTranscript,
+            );
             analysis = {
                 ...llmAnalysis,
-                fixTheseFirst: reconcileMoments(
-                    llmAnalysis.fixTheseFirst,
-                    serverTranscript,
-                ),
+                fixTheseFirst: reconciledFixes,
+                // If the anchor resolver dropped every moment, clear the shape
+                // too — the principle ladder (mainIssue → shape → fixes) must
+                // not render a shape card with no fixes to anchor it.
+                mainIssueShape:
+                    reconciledFixes.length > 0
+                        ? (llmAnalysis.mainIssueShape ?? null)
+                        : null,
             };
 
             feedback = await generateSessionFeedback(
@@ -573,6 +568,7 @@ ${transcript}`,
                         masteredFocus: skillMemory.masteredFocus,
                         reinforcementFocus: skillMemory.reinforcementFocus,
                     },
+                    differential,
                     session: {
                         plan: session.plan,
                         transcript,
@@ -632,30 +628,24 @@ ${transcript}`,
 
         try {
             if (!shouldSkipDeepAnalysis && transcript.trim().length >= 120) {
-                const userRef = db
-                    .collection(FirestoreCollections.users.path)
-                    .doc(uid);
-                const freshUserSnap = await userRef.get();
-                const freshProfile = freshUserSnap.data() as
-                    | UserProfileType
-                    | undefined;
-                if (
-                    freshProfile &&
-                    freshProfile.lastInternalLearnerContextSessionId !==
-                        sessionId
-                ) {
-                    const { internalLearnerContext } =
-                        await mergeInternalLearnerContextFromSession({
-                            previousInternalLearnerContext:
-                                freshProfile.internalLearnerContext.trim(),
+                const freshModel = await getOrHydrateLearnerModel(db, uid);
+                if (freshModel.lastLearnerContextSessionId !== sessionId) {
+                    const { drillNotes } =
+                        await mergeDrillNotesFromSession({
+                            previousDrillNotes:
+                                freshModel.context.drillNotes.trim(),
                             plan: session.plan,
                             transcript,
                             completionStatus,
                         });
-                    await userRef.set(
+                    // Write only `context.drillNotes` (Firestore deep-merges
+                    // nested maps, preserving realWorldNotes/deliveryNotes a
+                    // concurrent capture writer may have just set). Spreading
+                    // the stale `freshModel.context` here would clobber them.
+                    await learnerModelDoc(db, uid).set(
                         {
-                            internalLearnerContext,
-                            lastInternalLearnerContextSessionId: sessionId,
+                            context: { drillNotes },
+                            lastLearnerContextSessionId: sessionId,
                             updatedAt: new Date().toISOString(),
                         },
                         { merge: true },
