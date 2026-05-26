@@ -1,14 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getAuth } from "firebase-admin/auth";
 
 import { signAccessToken } from "@/lib/auth/jwt";
 import { verifyPkce } from "@/lib/auth/pkce";
 import {
-    getAuthCode,
-    deleteAuthCode,
+    consumeAuthCode,
     createRefreshToken,
     getRefreshToken,
     deleteRefreshToken,
 } from "@/lib/auth/firestore";
+import { getFirebaseAdminApp } from "@/lib/firebase/admin";
+import { ensureUserProvisioned } from "@/lib/user/provision";
 
 export const runtime = "nodejs";
 
@@ -21,6 +23,27 @@ function oauthError(
         { error, error_description: description },
         { status },
     );
+}
+
+/**
+ * Whether the Firebase Auth user still exists and isn't disabled. This is the
+ * gate that stops `ensureUserProvisioned` from resurrecting an admin-deleted
+ * account: admin cascade-delete disables the auth user (first, before any
+ * Firestore cleanup) and finally deletes it, so even a residual auth code or
+ * refresh token that survived the best-effort cleanup is rejected here before
+ * we provision or mint. A transient `getUser` failure rethrows → the grant
+ * 500s (retryable) rather than silently provisioning.
+ */
+async function isFirebaseUserActive(uid: string): Promise<boolean> {
+    try {
+        const user = await getAuth(getFirebaseAdminApp()).getUser(uid);
+        return user.disabled !== true;
+    } catch (error) {
+        if ((error as { code?: string }).code === "auth/user-not-found") {
+            return false;
+        }
+        throw error;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -40,7 +63,9 @@ async function handleCodeExchange(params: URLSearchParams) {
         );
     }
 
-    const authCode = await getAuthCode(code);
+    // Atomically claim the single-use code so two concurrent exchanges can't
+    // both succeed (and both mint a refresh token).
+    const authCode = await consumeAuthCode(code);
     if (!authCode) {
         return oauthError(
             "invalid_grant",
@@ -50,34 +75,28 @@ async function handleCodeExchange(params: URLSearchParams) {
     }
 
     if (Date.now() > authCode.expiresAt) {
-        await deleteAuthCode(code);
-        return oauthError(
-            "invalid_grant",
-            "Authorization code expired",
-            400,
-        );
+        return oauthError("invalid_grant", "Authorization code expired", 400);
     }
 
     // PKCE verification: SHA256(code_verifier) must match stored code_challenge
     if (!verifyPkce(codeVerifier, authCode.codeChallenge)) {
-        return oauthError(
-            "invalid_grant",
-            "PKCE verification failed",
-            400,
-        );
+        return oauthError("invalid_grant", "PKCE verification failed", 400);
     }
 
     // Verify redirect_uri matches
     if (redirectUri !== authCode.redirectUri) {
-        return oauthError(
-            "invalid_grant",
-            "redirect_uri does not match",
-            400,
-        );
+        return oauthError("invalid_grant", "redirect_uri does not match", 400);
     }
 
-    // Delete the auth code (single-use)
-    await deleteAuthCode(code);
+    // Refuse to (re)provision or mint for a deleted/disabled account, so a code
+    // that outlived an admin cascade-delete can't resurrect the user.
+    if (!(await isFirebaseUserActive(authCode.firebaseUid))) {
+        return oauthError("invalid_grant", "Account is no longer active", 401);
+    }
+
+    // Provision baseline docs for a desktop-first user. Idempotent — a no-op
+    // when the user already exists.
+    await ensureUserProvisioned(authCode.firebaseUid);
 
     // Mint tokens
     const accessToken = await signAccessToken({
@@ -116,6 +135,19 @@ async function handleRefresh(params: URLSearchParams) {
         await deleteRefreshToken(rawToken);
         return oauthError("invalid_grant", "Refresh token expired", 401);
     }
+
+    // Refuse to (re)provision/mint for a deleted or disabled account, and drop
+    // the now-orphaned refresh token. This is what keeps a refresh token that
+    // survived cascade-delete's best-effort cleanup from resurrecting the user
+    // via ensureUserProvisioned below.
+    if (!(await isFirebaseUserActive(tokenData.firebaseUid))) {
+        await deleteRefreshToken(rawToken);
+        return oauthError("invalid_grant", "Account is no longer active", 401);
+    }
+
+    // Idempotent provisioning also self-heals an existing desktop-first user who
+    // was blocked pre-rollout: their doc is created on the next refresh.
+    await ensureUserProvisioned(tokenData.firebaseUid);
 
     // Mint new tokens first, then delete the old refresh token (safe order).
     const accessToken = await signAccessToken({

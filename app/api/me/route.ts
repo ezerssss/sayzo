@@ -12,17 +12,28 @@ export const runtime = "nodejs";
  * on the "finish setup" screen. Bearer auth — same flow as /api/sessions/today.
  *
  * `account_state` is the discriminator the agent uses to decide whether to arm
- * recording. We currently only emit `active` / `onboarding_required`:
+ * recording. It is keyed off whether the user's baseline doc EXISTS, NOT off
+ * onboarding: a provisioned user is `active` and records immediately, even with
+ * `onboarding_complete: false`. The onboarding questionnaire is an optional
+ * "personalize your coaching" step in the webapp and no longer gates the agent.
+ * Baseline docs are provisioned at the token-grant step (/api/auth/token), so a
+ * desktop-first user is already `active` by the time they reach here. We emit:
+ *   - `active`: the user doc exists.
+ *   - `onboarding_required`: no user doc yet. In practice a bounded state — an
+ *     existing pre-rollout token that hasn't re-granted (provisioning runs on
+ *     its next grant/refresh, ≤1h), or a deleted user's residual token.
  *   - `suspended`: no field for it yet; deferred until we add one.
- *   - `deleted`: indistinguishable from a never-onboarded user here. Admin
- *     deletion is a hard cascade-delete (lib/admin/cascade-delete.ts) — the
- *     Firestore profile and refresh tokens are wiped, so a still-valid agent
- *     access token (HS256, signature-only) collapses to "no profile doc",
- *     which we report as `onboarding_required`. The token loses access on
- *     refresh anyway (≤1h), so this is acceptable degradation.
+ *   - `deleted`: indistinguishable from "no doc" here. Admin deletion is a hard
+ *     cascade-delete (lib/admin/cascade-delete.ts) — the Firestore profile and
+ *     refresh tokens are wiped, so a still-valid agent access token (HS256,
+ *     signature-only) collapses to "no profile doc", reported as
+ *     `onboarding_required`. The token loses access on refresh anyway (≤1h), so
+ *     this is acceptable degradation. NOTE: we deliberately DO NOT provision on
+ *     read here — that would let a deleted user's residual token resurrect their
+ *     profile. Provisioning lives only at /api/auth/token.
  *
- * Both states will join the union the moment they have a backing field; the
- * agent already handles them per spec.
+ * `suspended`/`deleted` will join the emitted set the moment they have a backing
+ * field; the agent already handles them per spec.
  */
 
 type AccountState = "active" | "onboarding_required" | "suspended" | "deleted";
@@ -40,6 +51,7 @@ export async function GET(request: NextRequest) {
     const { uid, email } = auth;
 
     let onboardingComplete = false;
+    let userExists = false;
     try {
         const db = getAdminFirestore();
         const snap = await db
@@ -47,6 +59,7 @@ export async function GET(request: NextRequest) {
             .doc(uid)
             .get();
         if (snap.exists) {
+            userExists = true;
             const data = snap.data() as Partial<UserProfileType>;
             onboardingComplete = data.onboardingComplete === true;
         }
@@ -58,7 +71,14 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const accountState: AccountState = onboardingComplete
+    // Precedence: hard account states FIRST, then provisioning/onboarding.
+    // `suspended`/`deleted` have no backing field yet (see header comment), but
+    // they belong AHEAD of the exists→active shortcut so adding one later can't
+    // silently fall through to "active":
+    //   if (isSuspended(data)) accountState = "suspended";
+    //   else if (isDeleted(data)) accountState = "deleted"; else ↓
+    // A provisioned user (doc exists) is `active` regardless of onboarding.
+    const accountState: AccountState = userExists
         ? "active"
         : "onboarding_required";
 

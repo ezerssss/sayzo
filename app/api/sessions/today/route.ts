@@ -50,6 +50,15 @@ export async function GET(request: NextRequest) {
             { status: 404 },
         );
     }
+    if (outcome.reason === "not_onboarded") {
+        return NextResponse.json(
+            {
+                error: "Complete onboarding to get personalized drills.",
+                code: "ONBOARDING_REQUIRED",
+            },
+            { status: 404 },
+        );
+    }
     if (outcome.reason === "needs_retry") {
         return NextResponse.json(
             {

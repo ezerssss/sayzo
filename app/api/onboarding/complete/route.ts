@@ -10,7 +10,10 @@ import {
     type UserProfileFieldsFromAI,
 } from "@/services/profile-context-builder";
 import { createEmptyLearnerModel } from "@/schemas";
-import { learnerModelDoc } from "@/lib/learner-model/store";
+import {
+    hydrateLearnerModel,
+    learnerModelDoc,
+} from "@/lib/learner-model/store";
 import { type UserProfileType } from "@/schemas";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -213,13 +216,21 @@ export async function POST(request: NextRequest) {
         const userRef = db.collection(FirestoreCollections.users.path).doc(uid);
         const userExisting = await userRef.get();
         if (userExisting.exists) {
+            const existingData = userExisting.data();
             await userRef.set(
                 {
                     ...profile,
                     createdAt:
-                        (userExisting.data()?.["createdAt"] as
+                        (existingData?.["createdAt"] as string | undefined) ??
+                        profileNowIso,
+                    // A desktop-first user can complete a drill before running
+                    // the optional questionnaire; `profile` hardcodes null,
+                    // which would otherwise reset the install-nudge cadence.
+                    firstDrillCompletedAt:
+                        (existingData?.["firstDrillCompletedAt"] as
                             | string
-                            | undefined) ?? profileNowIso,
+                            | null
+                            | undefined) ?? null,
                 },
                 { merge: true },
             );
@@ -230,18 +241,41 @@ export async function POST(request: NextRequest) {
         const learnerModelRef = learnerModelDoc(db, uid);
         const existingModel = await learnerModelRef.get();
         if (existingModel.exists) {
-            // Re-onboard resets the skill baseline (matching the prior
-            // behavior) but preserves accumulated prose context + other cursors
-            // via deep-merge.
+            // A desktop-first user can accumulate real coaching state
+            // (strengths, weaknesses, focus, trackedPatterns, cursors) from
+            // captures/drills BEFORE running the optional questionnaire. Don't
+            // wipe it: merge onboarding-derived signals in additively and leave
+            // focus/cursors alone. Only seed the baseline when the model is
+            // still empty (freshly provisioned). Prose context is preserved by
+            // the merge either way.
+            const existing = hydrateLearnerModel(uid, existingModel.data());
+            // Any signal that captures/drills already wrote real coaching state.
+            // `lastCaptureContextCaptureId` is the definitive capture-merge
+            // marker (set on every capture); the rest cover partial writes.
+            const hasAccumulatedState =
+                existing.trackedPatterns.length > 0 ||
+                existing.strengths.length > 0 ||
+                existing.weaknesses.length > 0 ||
+                existing.masteredFocus.length > 0 ||
+                existing.reinforcementFocus.length > 0 ||
+                existing.lastProcessedSessionId !== null ||
+                existing.lastCaptureContextCaptureId !== "";
             await learnerModelRef.set(
-                {
-                    strengths,
-                    weaknesses,
-                    masteredFocus: [],
-                    reinforcementFocus: [],
-                    lastProcessedSessionId: null,
-                    updatedAt: profileNowIso,
-                },
+                hasAccumulatedState
+                    ? {
+                          strengths: Array.from(
+                              new Set([...existing.strengths, ...strengths]),
+                          ),
+                          weaknesses: Array.from(
+                              new Set([...existing.weaknesses, ...weaknesses]),
+                          ),
+                          updatedAt: profileNowIso,
+                      }
+                    : {
+                          strengths,
+                          weaknesses,
+                          updatedAt: profileNowIso,
+                      },
                 { merge: true },
             );
         } else {
@@ -255,6 +289,9 @@ export async function POST(request: NextRequest) {
         // consistent. Force-fresh because the user has no pending drill yet.
         const preGen = await pregenerateNextDrillFor(uid, {
             forceFresh: true,
+            // Pre-gen runs while onboardingComplete is still false (we flip it
+            // only after the pending drill is written), so bypass the gate.
+            allowUnonboarded: true,
         });
         if (!preGen.ok && preGen.reason === "error") {
             console.error(
