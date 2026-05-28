@@ -21,6 +21,7 @@ import type { DifferentialContext } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 
 /**
  * When the session is a scenario replay of a captured conversation, the
@@ -237,8 +238,9 @@ export async function analyzeSession(
     const system = readAnalyzerPrompt("session-analysis.md");
     const userContent = buildContextUserMessage(input, replay);
 
+    const modelName = defaultAnalyzerModel();
     const result = await generateText({
-        model: openai(defaultAnalyzerModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(sessionAnalysisSchema),
             name: "SessionAnalysis",
@@ -247,7 +249,7 @@ export async function analyzeSession(
         }),
         system,
         prompt: userContent,
-        temperature: 0.2,
+        ...temperatureOptions(modelName, 0.2),
     });
 
     return result.output;
@@ -276,8 +278,9 @@ export async function generateSessionFeedback(
         analysisBlock = `\n\n## Prior structured analysis (for alignment)\n\`\`\`json\n${JSON.stringify(options.sessionAnalysis, null, 2)}\n\`\`\``;
     }
 
+    const modelName = defaultAnalyzerModel();
     const result = await generateText({
-        model: openai(defaultAnalyzerModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(sessionFeedbackSchema),
             name: "SessionFeedback",
@@ -286,7 +289,7 @@ export async function generateSessionFeedback(
         }),
         system,
         prompt: `${context}${analysisBlock}`,
-        temperature: 0.35,
+        ...temperatureOptions(modelName, 0.35),
     });
 
     return result.output;

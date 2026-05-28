@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { UserProfileType } from "@/schemas";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "profile-builder");
 
@@ -222,8 +223,9 @@ export async function buildUserProfileFieldsFromOnboarding(
 ): Promise<UserProfileFieldsFromAI> {
     requireMinimumInput(input);
 
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(userProfileFieldsSchema),
             name: "UserProfileFields",
@@ -232,7 +234,7 @@ export async function buildUserProfileFieldsFromOnboarding(
         }),
         system: readPrompt(),
         prompt: buildUserMessage(input),
-        temperature: 0.2,
+        ...temperatureOptions(modelName, 0.2),
     });
 
     return result.output;
@@ -252,8 +254,9 @@ export async function buildUserProfileFieldsFromDrills(
         );
     }
 
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(userProfileFieldsSchema),
             name: "UserProfileFields",
@@ -262,7 +265,7 @@ export async function buildUserProfileFieldsFromDrills(
         }),
         system: DRILL_BASED_SYSTEM_PROMPT,
         prompt: buildDrillBasedUserMessage(input),
-        temperature: 0.2,
+        ...temperatureOptions(modelName, 0.2),
     });
 
     return result.output;

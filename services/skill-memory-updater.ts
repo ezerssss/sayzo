@@ -10,6 +10,7 @@ import type { ItemAnalysis, SessionFeedbackType } from "@/schemas";
 import { llmTrackedPatternSchema } from "@/schemas";
 import type { LearnerModel, TrackedPattern } from "@/schemas";
 import { mergeTrackedPatterns } from "@/lib/learner-model/tracked-patterns";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "skill-memory-updater");
 
@@ -120,8 +121,9 @@ export async function updateSkillMemoryFromLatestSession(
         | "trackedPatterns"
     >
 > {
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(skillMemoryPatchSchema),
             name: "SkillMemoryPatch",
@@ -130,7 +132,7 @@ export async function updateSkillMemoryFromLatestSession(
         }),
         system: readPrompt(),
         prompt: buildUserMessage(input),
-        temperature: 0.2,
+        ...temperatureOptions(modelName, 0.2),
     });
 
     return {

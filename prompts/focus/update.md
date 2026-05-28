@@ -51,7 +51,7 @@ For each new session or capture:
 - Prior trend was `"new"`, new item exhibits the same pattern again → update toward `"stable"`.
 - Prior trend was `"improving"`, new item exhibits the pattern strongly again → update toward `"regressing"` or `"stable"`.
 - The numeric counts in `frequencySummary` must reflect the updated evidence set. Re-count, don't just append.
-- `frequencySummary` is a short metadata phrase, not a sentence. No trailing period, no clinical wording. e.g. "Seen in 8 of 12 sessions, 3 captures" or "Across your last 4 drills". Never "Shows up in 8 of your last 12 sessions." or "X out of Y sessions showed challenges."
+- `frequencySummary` is a short metadata phrase, not a sentence. No trailing period, no clinical wording. Shape: short noun-phrase noting where the pattern was seen, no full sentence. ❌ FORBIDDEN: full sentences like "Shows up in 8 of your last 12 sessions." or "X out of Y sessions showed challenges."
 
 ### 4. Retire themes carefully
 

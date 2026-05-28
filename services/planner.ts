@@ -15,6 +15,7 @@ import {
 } from "@/schemas";
 import type { LearnerContext, LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "planner");
 
@@ -285,8 +286,9 @@ function buildSeedExamplesBlock(input: PlannerInput): string {
 }
 
 export async function planNextSession(input: PlannerInput): Promise<SessionPlanType> {
+    const modelName = defaultPlannerModel();
     const result = await generateText({
-        model: openai(defaultPlannerModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(sessionPlanSchema),
             name: "SessionPlan",
@@ -294,7 +296,7 @@ export async function planNextSession(input: PlannerInput): Promise<SessionPlanT
         }),
         system: readPlannerPrompt(),
         prompt: `${plannerUserMessage(input)}${buildSeedExamplesBlock(input)}`,
-        temperature: 0.25,
+        ...temperatureOptions(modelName, 0.25),
     });
 
     return normalizePlan(result.output);

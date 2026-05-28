@@ -43,7 +43,7 @@ Keep memory stable but adaptive:
 ## Tracked patterns (`trackedPatterns`)
 The durable, plain-language habits the coaching loop tracks over time so per-item feedback can say "still happening / improving" instead of re-diagnosing from scratch. For each habit this session evidences, emit `{ id, label, category, kind }`:
 - `id`: a stable `snake_case` slug. **Reuse the exact id** from "Current tracked patterns" when it's the same habit (so the server keeps tracking it); invent a new slug only for a genuinely new habit.
-- `label`: one plain-language, second-person sentence — e.g. "You explain background before your point."
+- `label`: one plain-language, second-person sentence describing the habit. Phrase the user's actual behavior from THIS session's evidence; do not borrow stock phrasings.
 - `category`: one of `clarity | directness | structure | delivery | precision | engagement`.
 - `kind`: `strength` or `weakness`.
 

@@ -17,6 +17,7 @@ import type {
 import type { SessionType } from "@/schemas";
 import type { LearnerModel, TrackedPattern } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "focus");
 
@@ -523,8 +524,9 @@ export async function synthesizeFocusInsights(
         };
     }
 
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(focusSynthesisSchema),
             name: "UserFocusSynthesis",
@@ -533,7 +535,7 @@ export async function synthesizeFocusInsights(
         }),
         system: readPrompt("synthesize.md"),
         prompt: content,
-        temperature: 0.3,
+        ...temperatureOptions(modelName, 0.3),
     });
 
     const raw = result.output;
@@ -593,8 +595,9 @@ export async function updateFocusInsightsIncremental(
         };
     }
 
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(focusSynthesisSchema),
             name: "UserFocusSynthesisUpdate",
@@ -603,7 +606,7 @@ export async function updateFocusInsightsIncremental(
         }),
         system: readPrompt("update.md"),
         prompt: content,
-        temperature: 0.3,
+        ...temperatureOptions(modelName, 0.3),
     });
 
     const raw = result.output;

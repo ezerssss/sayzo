@@ -17,6 +17,7 @@ import {
 } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 
 import { filterDrillCandidateTranscript } from "@/lib/captures/drill-input-filter";
 
@@ -210,8 +211,9 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
 export async function planScenarioReplayFromCapture(
     input: CaptureReplayPlannerInput,
 ): Promise<SessionPlanType> {
+    const modelName = defaultPlannerModel();
     const result = await generateText({
-        model: openai(defaultPlannerModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(sessionPlanSchema),
             name: "ScenarioReplayPlan",
@@ -220,7 +222,7 @@ export async function planScenarioReplayFromCapture(
         }),
         system: readReplayPrompt(),
         prompt: buildReplayUserMessage(input),
-        temperature: 0.25,
+        ...temperatureOptions(modelName, 0.25),
     });
 
     return normalizePlan(result.output);

@@ -20,7 +20,7 @@ For each entry in `fixTheseFirst.slice(0, 2)`:
 If `mainIssueShape` is present:
 
 - The overall **structure of your rewrite must demonstrate the `shape`** — e.g. if `shape` is *"Recommendation → Trade-off → What you need from them"*, the rewrite should lead with the recommendation, name the trade-off, and end with an explicit ask. If your rewrite would otherwise order things differently, conform to the shape.
-- At least one `> **Note:**` annotation should make the **principle visible** — name it in plain language so the learner sees the principle paying off. Don't quote the principle verbatim like a slogan; *show* it by saying what the rewrite did and why that's the principle in action (e.g. *"Led with the recommendation before the context — the listener gets the answer first, then decides whether they need the reasoning."*).
+- At least one `> **Note:**` annotation should make the **principle visible** — name it in plain language so the learner sees the principle paying off. Don't quote the principle verbatim like a slogan; *show* it by saying what the rewrite did and why that's the principle in action.
 
 This is non-negotiable. If your rewrite would otherwise phrase a fix differently from `betterOption`, or order things differently from `shape`, conform to the analysis — drift between surfaces confuses the learner.
 
@@ -33,10 +33,7 @@ This is non-negotiable. If your rewrite would otherwise phrase a fix differently
   > **Note:** ...
   ```
 
-  The note explains what was changed compared to the learner's version and **why** — be specific. Where applicable, echo the `whyThisMatters` from the corresponding `fixTheseFirst` entry. Examples:
-    - "Removed the filler opener and led with your headline — this earns attention immediately instead of burying the main point."
-    - "Condensed three sentences into one — the original repeated the same idea, which dilutes impact."
-    - "Reordered points so the recommendation comes first — listeners want the conclusion, then the reasoning."
+  The note explains what was changed compared to the learner's version and **why** — be specific. Where applicable, echo the `whyThisMatters` from the corresponding `fixTheseFirst` entry. Each note should name a transferable principle the learner carries forward, derived from THIS rewrite — not a stock phrase.
 
 - These notes are the main learning tool. The learner reads them to internalize *why* the rewrite works better, not just to copy the new wording.
 

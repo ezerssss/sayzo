@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { SessionPlanType, SessionType } from "@/schemas";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "learner-context-updater");
 
@@ -74,8 +75,9 @@ ${transcriptBlock}
 export async function mergeDrillNotesFromSession(
     input: LearnerContextUpdaterInput,
 ): Promise<{ drillNotes: string }> {
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(drillNotesOutputSchema),
             name: "DrillNotes",
@@ -84,7 +86,7 @@ export async function mergeDrillNotesFromSession(
         }),
         system: readPrompt(),
         prompt: buildUserMessage(input),
-        temperature: 0.15,
+        ...temperatureOptions(modelName, 0.15),
     });
 
     return {

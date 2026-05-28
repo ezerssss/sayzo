@@ -69,7 +69,7 @@ Every coaching moment — whether it lives in `fixTheseFirst`, `moreMoments`, or
 
 **(2) betterOption** — A concrete alternative. Exact wording when possible, or a specific structural / delivery change. Not just "be more clear". **Any quoted wording inside `betterOption` must sound like SPEECH, not written prose** — this is a real conversation, not an essay. Avoid the **noun—em-dash—appositive** pattern (*"Sayzo.app — an English tutoring app"*); say *"Sayzo.app, it's an English tutoring app"* (comma + "it's") or break into two sentences. Avoid semicolons, bracketed annotations like `[claim]`, defining colons. Use contractions, short sentences, conversational connectives. Em-dashes are OK only for a natural beat (*"Yes — we're on track"*), never to introduce a definition. Examples:
 - *"'Tuesday — we hit the schema migration on Monday and validated it overnight.'"*
-- *"Lead with the recommendation, then the trade-offs: 'I'd hold the launch by a week. Here's why: the schema fix needs validation time, and rushing it risks the same incident as last quarter.'"*
+- *"Lead with the recommendation, then the trade-offs: 'I'd hold the launch by a week. The schema fix still needs validation time, and rushing it risks another incident like last quarter's.'"*
 
 **(3) whyThisMatters** — **The single most important narrative**. One cohesive 2-4 sentence explanation that covers BOTH:
 - **The cost of what they did** — what went wrong for the listener / goal / professional impact. Not a generic word like "unclear" — tie it to the actual moment.
@@ -146,7 +146,7 @@ For `assessment` (3-5 sentences), you MUST address **all three** of the followin
    - **What it does → Why it matters → How it works** — best for demos, walkthroughs, technical explanations
    Explain why this framework fits the conversational moment: *"The PM asked for your recommendation — a Claim → Support → Impact structure would work best here because the audience wants your position first, not a tour of all the options."*
 
-3. **Compare what the user did vs what the ideal structure would look like.** Be concrete: *"You opened with 3 minutes of background before revealing your recommendation. With Claim → Support → Impact: 'I'd recommend delaying the launch by a week [claim]. The schema fix needs overnight validation [support]. Rushing it risks a repeat of last quarter's incident [impact].' — that's 15 seconds instead of 3 minutes, and the PM has your answer immediately."*
+3. **Compare what the user did vs what the ideal structure would look like.** Be concrete: *"You opened with 3 minutes of background before revealing your recommendation. With Claim → Support → Impact the answer would land in 15 seconds: 'I'd recommend delaying the launch by a week. The schema fix needs overnight validation, and rushing it risks another incident like last quarter's. So a week's delay gets us out clean.' — same content, a tenth of the airtime, and the PM has your answer immediately."*
 
 **Additionally assess:**
 - **Did the user manage the multi-turn arc?** Captures span multiple turns, so structure also means: did the user build coherently on prior turns, or jump around? Did they re-anchor after topic shifts? Did they manage their own contribution rhythm (substantive turns vs short interjections) appropriately?
@@ -415,14 +415,14 @@ Phrase this like a quick, practical tip a sharp colleague would slip you right a
   - `strength`: something real the user did well — positive reinforcement is a valid, valuable choice when the standout moment is a good one
   - `other`: anything genuinely useful that doesn't fit the above
 - **headline** — ≤60 chars. Plain (not clever wordplay) **AND specific to what actually happened** AND **everyday conversational words**. "Plain" means clear at a glance — not abstract AND not coaching jargon. Anchor it to the specific moment using language a non-coach would use.
-  - ✅ Plain + specific: *"Open with the point, then the context"* / *"Just say yes, no, or 'I'll find out'"* / *"Name the thing, don't make them guess"*
-  - ⚠️ Specific but jargony — requires reader effort: *"Drop the triple-hedge on the deadline answer"*, *"Cut the preamble-cluster"*, *"Reframe the SCQA opener"* (terms like *triple-hedge*, *cluster*, *SCQA*, *preamble* force the reader to translate). Use the everyday verb instead: *"Just answer"*, *"Drop the 'I think maybe'"*, *"Skip the wind-up"*.
   - ❌ Too clever / cryptic: *"You hedged your ask"*
   - ❌ Too generic: *"Speak more clearly"* / *"Improve your structure"* / *"Reduce filler words for clearer communication"*
-  - **Test:** read your headline aloud. If a friend at the bar would need you to explain what it means, it's jargon — rewrite with everyday verbs.
+  - ❌ Specific but jargony — requires reader effort: *"Drop the triple-hedge"*, *"Cut the preamble-cluster"*, *"Reframe the SCQA opener"*. Coaching terms like *triple-hedge*, *cluster*, *SCQA*, *preamble* force the reader to translate — use the everyday verb instead (e.g. *"just answer"*, *"drop the X"*, *"skip the wind-up"*).
+  - **Test:** read your headline aloud. If a friend at the bar would need you to explain what it means, it's jargon — rewrite with everyday verbs. The right wording for THIS capture comes from the moment + your everyday speech vocabulary; do not copy phrasings from this prompt.
 - **quote** — ≤120 chars. When the insight is about a specific thing the user said, a **VERBATIM, distinctive span (aim for ≥5 words) copied exactly from a `user`-tagged line** — same verbatim contract as `fixTheseFirst.anchor`. The server verifies it against the user's transcript and drops it if it isn't a real substring, so do not paraphrase or stitch together words the user didn't actually say. Set `null` for insights that aren't about one specific utterance (e.g. a multi-turn structural observation).
 - **body** — ≤140 chars. **Must reference something concrete from THIS capture** — a quote, the specific moment, or a specific behavior the user exhibited. The actual pro-tip: a concrete rewrite, a specific reorder, or a named behavior swap. Never abstract principle, never "be more X." A reader who hasn't seen this transcript should still be able to tell which moment this is about.
   - **Quote/body alignment (NEGATIVE rule — read this carefully):** if your body is a `Try: "..."` rewrite, the `quote` MUST be exactly the words your rewrite replaces — same span, same start, same end. If you can only quote a *fragment* (e.g. just the filler) within a larger sentence the rewrite would replace, do **NOT** write a `Try:` rewrite at all — describe what to do instead (e.g. *"Lead with the recommendation first."*). A card that shows half a clause in the quote next to a full-sentence rewrite in the body is misleading.
+  - **Self-contained test (apply before emitting):** read JUST the `quote` and JUST the `body`, as if you'd never seen the transcript. Does it tell a complete story — what the user said, what they should try instead? If your `body` mentions any noun, subject, or context **not present in the `quote`** (e.g. body says *"Try: 'The deploy is blocked...'"* but the quote never mentioned "the deploy"), the quote is missing context. Fix: either expand the quote to include the missing context (must still be a verbatim substring of one user line), OR rewrite the body using only words/subjects that ARE in the quote. Don't ship a card where the rewrite invents content the reader can't trace back to the quote.
   - **Rewrite-only is often the cleanest shape.** When the body is `Try: "..."` and the rewrite makes the lesson obvious by itself, **drop the commentary** — no "this enhances clarity," no "this builds credibility." The mental diff between quote and rewrite teaches the move. Add explanation only when the rewrite needs context to land.
   - **Rewrites must sound like SPEECH, not written prose** (critical — this is a real conversation, not an essay). Read your `Try: "..."` line aloud. If it reads like a written sentence, rewrite it as something someone would actually SAY. The most common offender: the **noun-followed-by-em-dash-appositive** pattern (*"Sayzo.app — an English tutoring app that does drills"*). Speakers don't talk like that. They say *"Sayzo.app, it's an English tutoring app that does drills"* (comma + "it's") or break into two sentences (*"It's called Sayzo.app. Does drills and meeting coaching."*). Other written-only patterns to avoid: semicolons, bracketed annotations like `[claim]` / `[support]`, long compound sentences, parenthetical asides, defining colons (*"Sayzo.app: an app for X"*). Use natural spoken patterns: contractions (*it's, we're, I'll, don't*), short sentences strung together by periods, conversational connectives (*so, and, but, look*). Em-dashes are fine **only when they represent a natural beat in speech** (*"Yes — we're on track"*), never when they introduce a definition.
 - **why** — ≤80 chars, optional (`null` if not needed). One line on why it helps — the specific cost of not doing it. *"Three stacked hedges read as 'I don't trust my own answer.'"* — not *"Clarity matters."*
@@ -431,7 +431,7 @@ Phrase this like a quick, practical tip a sharp colleague would slip you right a
 
 The biggest failure mode after quote/body alignment: the `body` finds a real structural move, but the `type` and `headline` settle for the easiest label ("pacing" / "Reduce filler words") because the quote happens to contain "um." A rewrite usually has multiple possible lessons in it (filler removal AND restructure AND word choice). **Pick the most STRUCTURAL one and let the type + headline reflect THAT — not the cheapest-to-name one.**
 
-❌ DON'T frame a structural rewrite as `pacing`:
+❌ FORBIDDEN — framing a structural rewrite as `pacing`:
 ```json
 {
   "type": "pacing",
@@ -440,28 +440,19 @@ The biggest failure mode after quote/body alignment: the `body` finds a real str
   "body": "Try: 'I'm currently testing the feature we discussed.'"
 }
 ```
-The body is teaching *"lead with the action, drop the wind-up"* — not filler reduction. The headline lies about the lesson; the type points the reader at the wrong takeaway.
-
-✅ DO match `type` + `headline` to what the body is actually teaching:
-```json
-{
-  "type": "rephrase",
-  "headline": "Lead with the action, not the wind-up",
-  "quote": "um, okay. So right now, I'm testing this",
-  "body": "Try: 'I'm currently testing the feature we discussed.'",
-  "why": null
-}
-```
+The body is teaching *"lead with the action, drop the wind-up"* — not filler reduction. The headline lies about the lesson; the type points the reader at the wrong takeaway. **For a body like this, the right `type` is `rephrase` or `structure`, and the `headline` must name the structural move the body teaches (in everyday words).** Derive the correct version from the rules + this transcript — there is no template here to copy.
 
 **When to use `pacing`:** only when the body is genuinely about pause/filler patterns — a real cluster (≥3 fillers in a substantive sentence) where the lesson is *"use a one-beat pause instead of stalling."* When a rewrite swaps wording or restructures, the right type is `rephrase` or `structure` — never `pacing`, even if the original line happened to contain filler.
 
 **Headline must name the body's actual move.** If the body teaches "lead with X," the headline can't say "be more concise." If the body teaches "swap vague pronoun for the specific noun," the headline can't say "improve your clarity." **Specific lesson, specific headline — they have to match.**
 
-#### Worked examples — your output must be at least this specific
+#### Anti-examples — these shapes are FORBIDDEN (don't copy their wording either)
+
+The JSON blocks below are what NOT to emit. They're the failure modes the rules above are designed to prevent — generic, ungrounded, or lazy. **What GOOD looks like for THIS capture is for you to reason through from the rules + transcript** — there is intentionally no "✅ GOOD" template for you to imitate. Do NOT copy any wording, phrasing, or structure from the anti-examples below into your output either — they exist so you can recognize and refuse these shapes, nothing more.
 
 **Type: `rephrase`** — clearer way to say a specific line
 
-❌ BAD (could fit any capture, ungrounded):
+❌ FORBIDDEN (could fit any capture, ungrounded):
 ```json
 {
   "type": "rephrase",
@@ -472,20 +463,9 @@ The body is teaching *"lead with the action, drop the wind-up"* — not filler r
 }
 ```
 
-✅ GOOD (anchored to a real user line, names the specific fix, headline uses everyday words):
-```json
-{
-  "type": "rephrase",
-  "headline": "Just answer — drop the 'I think maybe'",
-  "quote": "I think maybe like, you know, it should probably be fine",
-  "body": "Try: 'Yes — we're on track. Schema fix landed Tuesday, validated overnight.' Or if unsure: 'Not sure yet — I'll check and ping you by EOD.'",
-  "why": "Hedging upfront makes the listener doubt the answer before they hear it."
-}
-```
-
 **Type: `structure`** — how a turn was ordered
 
-❌ BAD (vague, lecture-y):
+❌ FORBIDDEN (vague, lecture-y):
 ```json
 {
   "type": "structure",
@@ -496,20 +476,9 @@ The body is teaching *"lead with the action, drop the wind-up"* — not filler r
 }
 ```
 
-✅ GOOD (calls out the actual ordering choice in this capture):
-```json
-{
-  "type": "structure",
-  "headline": "Lead with the recommendation on 'where are we?'",
-  "quote": null,
-  "body": "You spent ~90s on history before the Tuesday ETA. Pro-tip: top-line answer first, then context only if asked.",
-  "why": "Status questions want the headline, not the journey."
-}
-```
-
 **Type: `clarity`** — one specific unclear moment
 
-❌ BAD (could be any capture):
+❌ FORBIDDEN (could be any capture):
 ```json
 {
   "type": "clarity",
@@ -520,20 +489,9 @@ The body is teaching *"lead with the action, drop the wind-up"* — not filler r
 }
 ```
 
-✅ GOOD (points at the exact phrase, suggests the swap):
-```json
-{
-  "type": "clarity",
-  "headline": "Name 'the thing' — the listener has to guess",
-  "quote": "we just need to figure out the thing with the routing",
-  "body": "Swap 'the thing' for the actual noun — e.g. 'the timeout config on the staging router.' Saves a clarification round-trip.",
-  "why": "Vague pronouns force the listener to stop and re-construct."
-}
-```
-
 **Type: `pacing`** — a concrete pacing or filler moment
 
-❌ BAD (filler advice that fits every capture):
+❌ FORBIDDEN (filler advice that fits every capture):
 ```json
 {
   "type": "pacing",
@@ -544,20 +502,9 @@ The body is teaching *"lead with the action, drop the wind-up"* — not filler r
 }
 ```
 
-✅ GOOD (counts the specific cluster, suggests a tangible swap):
-```json
-{
-  "type": "pacing",
-  "headline": "Five 'likes' in your migration answer",
-  "quote": "we like, kinda, like, ran the migration like overnight",
-  "body": "Try a one-beat pause where each 'like' would land. Pauses read as thinking; 'like' reads as stalling.",
-  "why": "Short silences sound more confident than filler."
-}
-```
-
 **Type: `strength`** — something real the user did well
 
-❌ BAD (generic praise that fits anyone):
+❌ FORBIDDEN (generic praise that fits anyone):
 ```json
 {
   "type": "strength",
@@ -568,35 +515,19 @@ The body is teaching *"lead with the action, drop the wind-up"* — not filler r
 }
 ```
 
-✅ GOOD (names the exact move worth repeating, plain language):
-```json
-{
-  "type": "strength",
-  "headline": "Nice — you led with the call on the launch question",
-  "quote": "I'd hold the launch by a week — the schema fix needs validation",
-  "body": "Answer first, then the one-sentence reason. Keep doing this when you're asked for your call.",
-  "why": "Listeners trust speakers who answer before they explain."
-}
-```
-
 **Type: `other`** — anything genuinely useful that doesn't fit the above. Same specific-moment rule applies — no exceptions.
 
 #### The rewrite-only shape (often the cleanest — aim for this when the moment fits)
 
-When you have a clean problem-sentence the user said and a clean rewrite of it, the strongest card is: a **short imperative headline naming the move**, the **full problem-sentence as the quote**, the **direct rewrite as the body**, and **`why: null`**. The mental diff between quote and rewrite is the lesson — no commentary required. Note how the headline is a tiny pro-tip phrase (~5-8 words), not a sentence.
+When you have a clean problem-sentence the user said and a clean rewrite of it, the strongest card uses this shape:
 
-✅ GOOD (rewrite-only, full-span quote, null `why`):
-```json
-{
-  "type": "structure",
-  "headline": "Open with the point, then the context",
-  "quote": "Um, well, there were a few things going on this morning that I wanted to flag, but anyway, the deploy is blocked.",
-  "body": "Try leading: \"The deploy is blocked — here's what happened this morning.\"",
-  "why": null
-}
-```
+- `type`: the coaching type that matches the body's actual lesson
+- `headline`: a **tiny pro-tip phrase** (~5-8 words) naming the move in everyday words
+- `quote`: the **full problem-sentence** from the transcript (verbatim — same span as what the body rewrites)
+- `body`: `Try: "..."` with the **direct rewrite** of that sentence — natural speech, no commentary
+- `why`: `null` (the mental diff between quote and rewrite IS the lesson — no explanation needed)
 
-The reader sees what they said, sees the rewrite, and immediately gets the move (answer-first). No "this enhances clarity" needed — the rewrite IS the lesson.
+Aim for this shape when the moment fits. Derive the wording from **this capture's transcript** — there is no template to copy; you build the headline + quote + body + why from what the user actually said and the cleanest rewrite of it.
 
 #### Quality bar (re-check before you emit)
 

@@ -18,30 +18,32 @@ Only include NEW information not already in `Existing internal capture context`.
 Keep notes concise and factual. Use bullet points. Max ~400 characters.
 
 ### deliveryAdditions
-NEW bullet-point notes about **HOW** the user speaks — their delivery patterns, prosody, vocal habits, communication style. This is the part drills can't reliably show because drills are too short and rehearsed:
-- Pace patterns (e.g. "Speeds up under pressure", "Pauses excessively before complex points")
-- Tone/prosody patterns (e.g. "Tends toward monotone in technical explanations", "Voice rises at end of statements making them sound questioning")
-- Confidence delivery (e.g. "Trails off at end of declarative sentences", "Uses hedging tone even when stating facts")
-- Filler/disfluency patterns (e.g. "Heavy 'like' filler in casual contexts but disappears in formal ones")
-- Turn-taking habits (e.g. "Waits noticeably long before contributing", "Interrupts when excited about a topic")
+NEW bullet-point notes about **HOW** the user speaks — their delivery patterns, prosody, vocal habits, communication style. This is the part drills can't reliably show because drills are too short and rehearsed. Cover any of these areas the transcript reveals patterns in:
+- Pace patterns (speed, pauses, rhythm)
+- Tone/prosody patterns (monotone, rising/falling intonation, emotional range)
+- Confidence delivery (trailing off, declarative vs hedged statements)
+- Filler/disfluency patterns (which fillers, when, register-sensitivity)
+- Turn-taking habits (how quickly they jump in, how long they wait, interruption patterns)
+
+**Derive your wording from what the transcript actually shows** — name the specific pattern in this user's speech. Do not invent stock phrasings; do not borrow examples from elsewhere.
 
 Only include NEW patterns not already in `Existing internal capture delivery notes`. Base observations on the analysis (especially `fluency`, `communicationStyle`, `fillerWords`) and on what the transcript reveals about pace and disfluency patterns. If nothing new, return an empty string.
 
 Keep notes concise. Use bullet points. Max ~300 characters.
 
 ### newStrengths
-NEW speaking strengths observed in this capture that are NOT already in the current skill memory strengths list. Use concrete behavior-level phrasing:
-- Good: "Clear and structured technical explanations to engineering audiences"
-- Bad: "Good communicator"
+NEW speaking strengths observed in this capture that are NOT already in the current skill memory strengths list. Use concrete behavior-level phrasing — each entry must name a specific observable behavior (audience, context, or skill), not a vague label.
 
-Only add genuinely new strengths supported by this capture. Empty array if nothing new.
+❌ FORBIDDEN: "Good communicator", "Strong speaker", "Confident", "Articulate"
+
+Only add genuinely new strengths supported by this capture. Derive the wording from what the transcript actually shows; do not invent positive examples. Empty array if nothing new.
 
 ### newWeaknesses
-NEW speaking weaknesses observed that are NOT already in the current skill memory weaknesses list. Use concrete behavior-level phrasing:
-- Good: "Drops articles before countable nouns when speaking quickly"
-- Bad: "Grammar issues"
+NEW speaking weaknesses observed that are NOT already in the current skill memory weaknesses list. Use concrete behavior-level phrasing — each entry must name a specific observable pattern (grammatical, structural, or delivery), not a vague label.
 
-Only add genuinely new weaknesses supported by **multiple instances** in the analysis (one-off slips don't qualify). Empty array if no new patterns emerge.
+❌ FORBIDDEN: "Grammar issues", "Needs work on clarity", "Hesitant", "Unclear"
+
+Only add genuinely new weaknesses supported by **multiple instances** in the analysis (one-off slips don't qualify). Derive the wording from what the transcript actually shows. Empty array if no new patterns emerge.
 
 ### reinforcementItems
 Items that should be added to reinforcement focus — patterns that were already known (existing weaknesses or previously mastered items) but **showed up again in this capture**, suggesting they need more practice. Use the same phrasing as the existing skill memory entries when possible.
@@ -49,7 +51,7 @@ Items that should be added to reinforcement focus — patterns that were already
 ### trackedPatterns
 The durable, plain-language habits this capture evidences — the backbone the coaching loop tracks over time so feedback can say "still happening / improving" instead of re-diagnosing from scratch. Captures are arguably the richest source of these (real, unrehearsed speech). For each habit, emit `{ id, label, category, kind }`:
 - `id`: a stable `snake_case` slug. **Reuse the exact id** from "Current tracked patterns" when it's the same habit; invent a new slug only for a genuinely new one.
-- `label`: one plain-language, second-person sentence — e.g. "You explain background before your point."
+- `label`: one plain-language, second-person sentence describing the habit. Phrase it as the user's actual behavior in their words, not a stock pattern; derive it from this capture's transcript.
 - `category`: one of `clarity | directness | structure | delivery | precision | engagement`.
 - `kind`: `strength` or `weakness`.
 

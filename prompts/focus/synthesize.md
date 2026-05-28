@@ -18,19 +18,13 @@ The only time you return an empty `themes` array is when `insufficientData` is t
 
 ### 2. Plain-language titles, not linguistic categories
 
-Theme `title` must name the behavior in plain second-person language, as a sharp coach would phrase it — **not** the linguistic or communication-theory label.
+Theme `title` must name the behavior in plain second-person language, as a sharp coach would phrase it — **not** the linguistic or communication-theory label. The title is one sentence the user reads, observing a behavior they actually exhibit — derive the specific behavior + phrasing from THIS user's evidence, not a stock pattern.
 
-**Bad (abstract / jargon):**
+**❌ FORBIDDEN (abstract / jargon labels):**
 - "Hedging"
 - "Filler words"
 - "Clarity and conciseness"
 - "Directness issues"
-
-**Good (concrete behavior):**
-- "You soften your point before making it."
-- "You start most answers with 'so, basically…'"
-- "You explain the background before the conclusion — the listener has to wait."
-- "You trail off at the end of answers when you're not sure."
 
 The `category` field is for internal tracking — it stays abstract. The `title` is what the user reads, and it must sound like an observation, not a label.
 
@@ -66,8 +60,8 @@ Each backbone category should appear **at most once** in the output — don't gi
 ### 6. Build the `id` for stability
 
 The `id` field is how the system tracks a theme across regenerations so `trend` can be computed meaningfully.
-- Backbone themes: use the category slug as id (e.g., `"clarity"`, `"directness"`).
-- Emergent themes: use a snake_case slug derived from the title (e.g., `"overuses_basically"`, `"trails_off_at_end"`). Keep it short, stable, and descriptive.
+- Backbone themes: use the category slug as id (one of: `"clarity"`, `"directness"`, `"structure"`, `"delivery"`, `"precision"`, `"engagement"`).
+- Emergent themes: a snake_case slug derived from the title — short, stable, descriptive (so the same habit gets the same id across regenerations).
 
 ### 7. Trends and wins
 
@@ -79,14 +73,11 @@ For each theme, set `trend` based on what the evidence across sessions/captures 
 
 `trendSummary` is a plain-language line explaining the trend — e.g., "Less often in your last 4 drills." or "Not in your earliest sessions but consistent in your last 3." Never output the raw trend label as the summary.
 
-`frequencySummary` is **not** a sentence — it's a short metadata phrase that renders in small footer text under the card. No trailing period. No clinical wording like "showed challenges" or "exhibited the pattern". Examples of the format you should produce:
-- "Seen in 8 of 12 sessions, 3 captures"
-- "Across your last 4 drills"
-- "2 of 2 recent sessions"
+`frequencySummary` is **not** a sentence — it's a short metadata phrase that renders in small footer text under the card. No trailing period. No clinical wording like "showed challenges" or "exhibited the pattern". Shape only: short noun-phrase (~5-10 words) noting where the pattern was seen, no full sentence, no period.
 
-Bad (full sentence, clinical): "Shows up in 8 of your last 12 sessions and 3 captures." or "2 out of 2 sessions showed challenges."
+❌ FORBIDDEN (full sentences, clinical): "Shows up in 8 of your last 12 sessions and 3 captures." / "2 out of 2 sessions showed challenges."
 
-`wins` is where you call out behaviors the user **used to have** and no longer does — or clearly does less. Each win is a plain-language statement like "You've stopped starting answers with 'so, basically.'" Only include wins you can actually evidence from the timeline of the data. Zero wins is fine if the data doesn't support any — never fabricate.
+`wins` is where you call out behaviors the user **used to have** and no longer does — or clearly does less. Each win is a plain-language second-person statement naming a specific behavior the user dropped, evidenced by the timeline. Only include wins you can actually evidence; zero wins is fine if the data doesn't support any — never fabricate.
 
 ### 8. Confidence
 
@@ -97,14 +88,12 @@ Set `confidence` per theme:
 
 ### 9. Overview
 
-`overview` is a 2-4 sentence plain-language summary of the whole view. Lead with the single most important thing to focus on, then contextualize. No greetings, no "hi", no sign-off.
+`overview` is a 2-4 sentence plain-language summary of the whole view. Lead with the single most important thing to focus on, then contextualize. No greetings, no "hi", no sign-off. The wording comes from THIS user's data, not a template — name their specific dominant pattern, not a generic theme.
 
-**Good overview example:**
-> "The clearest pattern across your sessions and captures is that you explain the background before making the point — the listener has to wait for the landing. Your delivery has gotten tighter in the last few drills, but the structure issue shows up in almost every piece of recent work. Focus there first."
-
-**Bad overview examples:**
+**❌ FORBIDDEN overview shapes:**
 > "You have several areas of opportunity across communication dimensions..." (abstract, clinical)
 > "Great work! Here are some things to consider..." (soft, unspecific)
+> "Across your recent work, [generic communication advice]..." (no specific pattern)
 
 ---
 

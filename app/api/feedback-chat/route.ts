@@ -159,7 +159,14 @@ export async function POST(request: NextRequest) {
         sectionTitle,
     );
 
-    const model = process.env.ANALYZER_MODEL?.trim() || "gpt-4o-mini";
+    // Feedback chat is interactive Q&A about the learner's existing feedback —
+    // no synthesis is required (the feedback is already produced). Defaults to
+    // `gpt-4o-mini` directly so bumping `ANALYZER_MODEL` for drill/focus
+    // synthesis doesn't drag this chat along with it. Override only via the
+    // dedicated `FEEDBACK_CHAT_MODEL` env (must be a non-reasoning model —
+    // streaming + reasoning models don't pair well for an interactive chat).
+    const model =
+        process.env.FEEDBACK_CHAT_MODEL?.trim() || "gpt-4o-mini";
 
     const modelMessages = await convertToModelMessages(messages);
 

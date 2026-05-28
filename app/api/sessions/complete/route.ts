@@ -20,6 +20,7 @@ import { reconcileMoments } from "@/lib/transcripts/anchor-resolver";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
 import { firePregenInBackground } from "@/services/drill-pre-generator";
 import { mergeDrillNotesFromSession } from "@/services/learner-context-updater";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 import { Output, generateText, zodSchema } from "ai";
 import { randomUUID } from "node:crypto";
 import {
@@ -367,8 +368,10 @@ export async function POST(request: NextRequest) {
         let shouldSkipDeepAnalysis = false;
         let shouldRequireRetry = false;
         let skipReason = "";
+        const relevanceCheckModel =
+            process.env.ANALYZER_MODEL?.trim() || "gpt-4o-mini";
         const relevanceCheck = await generateText({
-            model: openai(process.env.ANALYZER_MODEL?.trim() || "gpt-4o-mini"),
+            model: openai(relevanceCheckModel),
             output: Output.object({
                 schema: zodSchema(attemptCheckSchema),
                 name: "AttemptRelevanceCheck",
@@ -399,7 +402,7 @@ Time cap: ${session.plan.maxDurationSeconds ?? 60} seconds (hard stop — mid-th
 
 ## Transcript
 ${transcript}`,
-            temperature: 0,
+            ...temperatureOptions(relevanceCheckModel, 0),
         });
 
         const relevanceReason =
