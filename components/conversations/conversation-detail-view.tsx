@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
 import { AnalysisView } from "@/components/conversations/analysis-view";
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
+import { CoachingInsightCard } from "@/components/conversations/coaching-insight-card";
 import { TranscriptView } from "@/components/conversations/transcript-view";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { CreditsBanner } from "@/components/credits/credits-banner";
@@ -222,6 +223,9 @@ export function ConversationDetailView(props: Readonly<Props>) {
     const speakerCount = countSpeakers(transcript);
     const analysis = capture.analysis;
     const isAnalyzed = capture.status === "analyzed" && analysis;
+    const coachingInsight = isAnalyzed
+        ? (analysis?.coachingInsight ?? null)
+        : null;
 
     const seekToSecond = (seconds: number) => {
         const el = audioRef.current;
@@ -396,6 +400,14 @@ export function ConversationDetailView(props: Readonly<Props>) {
                         </div>
                     </div>
                 </div>
+
+                {/* Top coaching takeaway — the one thing most worth the
+                    user's attention, mirrored from the desktop agent's card.
+                    Sits above the audio + tabs so the "See full feedback"
+                    deep-link lands directly on it. */}
+                {coachingInsight ? (
+                    <CoachingInsightCard insight={coachingInsight} />
+                ) : null}
 
                 {/* Audio player */}
                 {audioLoading ? (

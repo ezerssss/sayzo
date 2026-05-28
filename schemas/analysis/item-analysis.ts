@@ -8,6 +8,7 @@ import { dimensionalAnalysisSchema } from "@/schemas/shared/dimensional-analysis
 
 import type { TrackedPattern } from "@/schemas/learner-model/tracked-pattern";
 
+import { coachingInsightSchema } from "./coaching-insight";
 import { structuralObservationSchema } from "./structural-observation";
 import { llmTurnRewriteSchema, turnRewriteSchema } from "./turn-rewrite";
 
@@ -127,6 +128,12 @@ export const itemAnalysisSchema = z.object({
     moreMoments: z.array(teachableMomentSchema).optional(),
 
     // Conversation-only (captures)
+    /**
+     * Single highest-impact takeaway, sized for the desktop agent's post-capture
+     * card and surfaced (expanded) as the hero on the web feedback page. Null
+     * when nothing is actionable. Projected to `coaching_insight` on the API.
+     */
+    coachingInsight: coachingInsightSchema.nullable().optional(),
     turnRewrites: z.array(turnRewriteSchema).optional(),
     structuralObservations: z.array(structuralObservationSchema).optional(),
     grammarPatterns: z.array(grammarPatternSchema).optional(),

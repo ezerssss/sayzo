@@ -346,6 +346,7 @@ async function runAnalysisAndProfiling(
     await captureRef.set(
         {
             status: "analyzed",
+            analyzedAt: new Date().toISOString(),
             error: null,
         },
         { merge: true },
@@ -404,6 +405,7 @@ async function runProfilingOnly(
     await captureRef.set(
         {
             status: "analyzed",
+            analyzedAt: new Date().toISOString(),
             error: null,
         },
         { merge: true },

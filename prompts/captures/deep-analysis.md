@@ -376,6 +376,32 @@ For each entry:
 
 If you recommended a framework in `structureAndFlow.assessment`, the structural observations are a good place to explicitly say "the conversation would have followed SCQA if turns were reordered as X → Y → Z" — naming the framework makes the observation actionable.
 
+### coachingInsight
+
+A SINGLE highest-impact takeaway, distilled for a tiny desktop notification card that pops up right after this conversation is analyzed (it also headlines the web feedback page). This is NOT a duplicate of `fixTheseFirst` — it's the one thing most worth a glance, phrased plainly for a small card.
+
+Return `null` when there is nothing genuinely actionable or noteworthy in this capture. `null` is a correct, first-class outcome — never pad it with generic filler.
+
+Shape:
+
+- **type** — one of:
+  - `rephrase`: a clearer way to say a specific line the user said
+  - `structure`: how a turn or answer was ordered (e.g. answer-before-context)
+  - `clarity`: one specific unclear moment
+  - `pacing`: a concrete pacing or filler moment
+  - `strength`: something real the user did well — positive reinforcement is a valid, valuable choice when the standout moment is a good one
+  - `other`: anything genuinely useful that doesn't fit the above
+- **headline** — ≤60 chars. PLAIN and self-explanatory at a glance, NOT clever or cryptic. Good: "A clearer way to give your update". Bad: "You hedged your ask".
+- **quote** — ≤120 chars. When the insight is about a specific thing the user said, a **VERBATIM, distinctive span (aim for ≥5 words) copied exactly from a `user`-tagged line** — same verbatim contract as `fixTheseFirst.anchor`. The server verifies it against the user's transcript and drops it if it isn't a real substring, so do not paraphrase or stitch together words the user didn't actually say. Set `null` for insights that aren't about one specific utterance (e.g. a structural or pacing observation).
+- **body** — ≤140 chars. The concrete suggestion, rewrite, or observation, specific to THIS capture. NEVER generic advice like "use fewer filler words" or "be more concise" untethered from a real moment.
+- **why** — ≤80 chars, optional (`null` if not needed). One line on why it helps.
+
+Tone: constructive and encouraging, never scolding. Pick whichever single insight is highest-impact for this capture.
+
+### userLanguageIsEnglish
+
+`true` when the `user`-tagged speech is predominantly English. `false` when it is predominantly another language (the transcript may look garbled, because transcription assumes English). Sayzo coaches English, so when this is `false` the server suppresses the coaching card.
+
 ## Output format
 
 Return a single JSON object matching the schema exactly. No markdown fences, no commentary before or after.

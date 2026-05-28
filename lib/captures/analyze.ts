@@ -8,6 +8,8 @@ import { z } from "zod";
 
 import type {
     CaptureTranscriptLine,
+    CoachingInsight,
+    CoachingInsightType,
     GrammarPattern,
     ItemAnalysis,
     StructuralObservation,
@@ -17,6 +19,7 @@ import type { DifferentialContext } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 import {
+    coachingInsightTypeSchema,
     communicationStyleSchema,
     dimensionalAnalysisSchema,
     fillerWordAnalysisSchema,
@@ -71,6 +74,23 @@ const captureAnalysisSchema = z.object({
 
     turnRewrites: z.array(llmTurnRewriteSchema),
     structuralObservations: z.array(structuralObservationSchema),
+
+    // Single card-sized coaching takeaway (or null). Kept deliberately LENIENT
+    // (plain string `type`, no length caps) so a malformed insight can never
+    // fail the whole structured-output parse — the server coerces the enum,
+    // enforces the char limits, and verifies the quote in post-processing.
+    coachingInsight: z
+        .object({
+            type: z.string(),
+            headline: z.string(),
+            quote: z.string().nullable(),
+            body: z.string(),
+            why: z.string().nullable(),
+        })
+        .nullable(),
+    // English-only coaching: false when the user's own speech is predominantly
+    // non-English, so the server suppresses the (English) coaching card.
+    userLanguageIsEnglish: z.boolean(),
 });
 
 type AnalysisResult = {
@@ -130,6 +150,93 @@ function formatTranscript(
         );
     }
     return lines.join("\n");
+}
+
+/** Trim a string to `max` chars on a word boundary (keeps card copy readable). */
+function trimToLimit(value: string, max: number): string {
+    const t = value.trim();
+    if (t.length <= max) return t;
+    const slice = t.slice(0, max);
+    const lastSpace = slice.lastIndexOf(" ");
+    return (lastSpace > max * 0.6 ? slice.slice(0, lastSpace) : slice).trim();
+}
+
+/**
+ * Verify a coaching-insight quote against the user's own transcript lines and
+ * return the user's VERBATIM words (or null). Stricter than the moment
+ * reconcilers: accept only `exact`/`span` resolutions and REJECT the resolver's
+ * `fuzzy` (paraphrase) path — the feature's rule 1 is "real quotes only" and the
+ * agent cannot re-check this. User lines are already echo-leak filtered at
+ * transcription time, so a user-line match is inherently the post-echo set.
+ */
+function verifyInsightQuote(
+    quote: string | null | undefined,
+    transcript: CaptureTranscriptLine[],
+): string | null {
+    const q = quote?.trim();
+    if (!q) return null;
+
+    const resolved = resolveAnchorIdx({
+        anchor: q,
+        lines: transcript,
+        speakerFilter: (l) => l.speaker === "user",
+    });
+    if (resolved.confidence !== "exact" && resolved.confidence !== "span") {
+        return null;
+    }
+
+    // Always return REAL user-transcript text, never the LLM's string: if the
+    // quote is a raw (case-insensitive) substring of the resolved line, slice
+    // that exact span; otherwise (a `span` across lines, or punctuation-only
+    // differences from the normalized match) fall back to the resolved user
+    // line itself — still the verbatim words the user actually said, so the
+    // stored quote is always a genuine substring of the user's own channel.
+    const line = transcript[resolved.idx];
+    if (!line) return null;
+    const at = line.text.toLowerCase().indexOf(q.toLowerCase());
+    const verbatim = at >= 0 ? line.text.slice(at, at + q.length) : line.text;
+    return trimToLimit(verbatim, 120);
+}
+
+/**
+ * Build the stored `coachingInsight` from the lenient LLM output: gate on the
+ * language flag, coerce the type to the enum, enforce the char limits, and
+ * verify the quote. Wrapped so it NEVER throws — on any problem we return null
+ * and the capture still reaches `analyzed` (failure isolation). `null` is also
+ * the correct output when nothing is actionable.
+ */
+function buildCoachingInsight(
+    raw: {
+        type: string;
+        headline: string;
+        quote: string | null;
+        body: string;
+        why: string | null;
+    } | null,
+    languageIsEnglish: boolean,
+    transcript: CaptureTranscriptLine[],
+): CoachingInsight | null {
+    try {
+        if (!raw || !languageIsEnglish) return null;
+
+        const headline = trimToLimit(raw.headline ?? "", 60);
+        const body = trimToLimit(raw.body ?? "", 140);
+        // A card with no headline or no concrete suggestion teaches nothing.
+        if (!headline || !body) return null;
+
+        const parsedType = coachingInsightTypeSchema.safeParse(raw.type);
+        const type: CoachingInsightType = parsedType.success
+            ? parsedType.data
+            : "other";
+
+        const quote = verifyInsightQuote(raw.quote, transcript);
+        const whyTrimmed = trimToLimit(raw.why ?? "", 80);
+        const why = whyTrimmed.length > 0 ? whyTrimmed : null;
+
+        return { type, headline, quote, body, why };
+    } catch {
+        return null;
+    }
 }
 
 export async function analyzeCaptureDeep(
@@ -319,6 +426,11 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
         communicationStyle: result.output.communicationStyle,
         turnRewrites,
         structuralObservations,
+        coachingInsight: buildCoachingInsight(
+            result.output.coachingInsight,
+            result.output.userLanguageIsEnglish,
+            transcript,
+        ),
     };
 
     return {
