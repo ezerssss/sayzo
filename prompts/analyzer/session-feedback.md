@@ -51,6 +51,7 @@ Return `null` for `improvedVersion` only when the transcript is genuinely unusab
 - Do not invent facts the learner didn't include. If they were vague about a project, the rewrite stays vague at the same level — but with cleaner phrasing.
 - Match the register of the drill scenario: a standup update reads as one, a stakeholder pitch reads as another.
 - Length should match a 60-second spoken delivery — roughly the same airtime as the learner's transcript, not double or triple.
+- **The rewrite must sound like SPEECH, not written prose.** This is a 60-second spoken drill, not an essay. Read every sentence in `improvedVersion` aloud — if it sounds like a written sentence, rewrite it as something someone would actually SAY. The biggest offender: the **noun—em-dash—appositive** pattern (*"Sayzo.app — an English tutoring app"*). Speakers don't construct sentences that way. Say *"Sayzo.app, it's an English tutoring app"* (comma + "it's") or break into two sentences. Also avoid semicolons, bracketed annotations like `[claim]`, defining colons (*"X: a Y that..."*), and long compound sentences. Use natural spoken patterns: contractions (*it's, we're, I'll, don't*), short sentences strung together by periods, conversational connectives (*so, and, but, look*). Em-dashes are OK **only for a natural beat in speech** (*"Yes — we're on track"*), never to introduce a definition.
 
 ### Replay drill mode (only applies when "Original capture" section is present)
 

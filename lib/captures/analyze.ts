@@ -36,6 +36,7 @@ import {
     resolveAnchorIdx,
 } from "@/lib/transcripts/anchor-resolver";
 import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 import { isShortUserDrillLine } from "./drill-input-filter";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
@@ -137,6 +138,21 @@ function defaultModel(): string {
     );
 }
 
+/**
+ * Sampling temperature for the analyzer. Low default (0.15) keeps dimensional
+ * scoring deterministic; can be raised via env (e.g. 0.5-0.7) when paired with
+ * a more capable model to encourage creative moment-finding in
+ * `coachingInsight`. Invalid values fall back to the default.
+ */
+function defaultTemperature(): number {
+    const raw = process.env.CAPTURE_ANALYZER_TEMPERATURE?.trim();
+    if (!raw) return 0.15;
+    const parsed = Number.parseFloat(raw);
+    return Number.isFinite(parsed) && parsed >= 0 && parsed <= 2
+        ? parsed
+        : 0.15;
+}
+
 function formatTranscript(
     transcript: CaptureTranscriptLine[],
     skip: (line: CaptureTranscriptLine, idx: number) => boolean = () => false,
@@ -159,6 +175,44 @@ function trimToLimit(value: string, max: number): string {
     const slice = t.slice(0, max);
     const lastSpace = slice.lastIndexOf(" ");
     return (lastSpace > max * 0.6 ? slice.slice(0, lastSpace) : slice).trim();
+}
+
+/**
+ * Trim a quote to `max` chars preferring clause-boundary breaks so the result
+ * doesn't end mid-thought. Tries sentence-end (.!?) first (kept), then mid-
+ * clause (,;:—) (dropped), then word boundary, then hard cut.
+ *
+ * Why a separate function: the body of a coachingInsight often rewrites the
+ * same span as the quote (e.g. body: `Try: "..."`). A mid-word cut on the
+ * quote breaks the visual alignment between "You said: ..." and the rewrite —
+ * the reader can't mentally diff a half-sentence against a full one.
+ */
+function trimQuoteToLimit(value: string, max: number): string {
+    const t = value.trim();
+    if (t.length <= max) return t;
+
+    const slice = t.slice(0, max);
+    const minBoundary = max * 0.6;
+
+    // Sentence-end punctuation — keep it (a quote ending in "." or "?" reads cleanly).
+    for (let i = slice.length - 1; i >= minBoundary; i--) {
+        if (/[.!?]/.test(slice[i])) {
+            return slice.slice(0, i + 1).trim();
+        }
+    }
+    // Mid-clause punctuation — cut BEFORE it (don't end a quote with a comma/dash).
+    for (let i = slice.length - 1; i >= minBoundary; i--) {
+        if (/[,;:—]/.test(slice[i])) {
+            return slice.slice(0, i).trim();
+        }
+    }
+    // Word boundary fallback (same threshold as trimToLimit).
+    const lastSpace = slice.lastIndexOf(" ");
+    if (lastSpace > minBoundary) {
+        return slice.slice(0, lastSpace).trim();
+    }
+    // No good boundary — hard cut.
+    return slice.trim();
 }
 
 /**
@@ -195,7 +249,31 @@ function verifyInsightQuote(
     if (!line) return null;
     const at = line.text.toLowerCase().indexOf(q.toLowerCase());
     const verbatim = at >= 0 ? line.text.slice(at, at + q.length) : line.text;
-    return trimToLimit(verbatim, 120);
+    return trimQuoteToLimit(verbatim, 120);
+}
+
+/**
+ * Canonical generic-advice stems the prompt's Rule #1 lists as INVALID
+ * insights. Kept here as a code-level floor — the same model that's being
+ * asked to avoid these is the one emitting them, so prose-only suppression
+ * is hope, not enforcement. Substring match on case-folded text with
+ * punctuation stripped, so variants like "Reducing redundancy and filler
+ * words will help…" still hit "reducing redundancy and filler". Prompt and
+ * verifier enforce the same list — one as instruction, one as floor.
+ */
+const GENERIC_INSIGHT_STEMS = [
+    "streamline your thoughts",
+    "reducing redundancy and filler",
+    "be more concise",
+    "work on your structure",
+    "speak with more confidence",
+    "use precise language",
+    "organize your thoughts",
+];
+
+function isGenericInsightText(text: string): boolean {
+    const norm = text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ");
+    return GENERIC_INSIGHT_STEMS.some((stem) => norm.includes(stem));
 }
 
 /**
@@ -223,6 +301,15 @@ function buildCoachingInsight(
         const body = trimToLimit(raw.body ?? "", 140);
         // A card with no headline or no concrete suggestion teaches nothing.
         if (!headline || !body) return null;
+
+        // Hard reject the bromides the prompt's Rule #1 lists as INVALID.
+        // See GENERIC_INSIGHT_STEMS above for why the same list lives in code.
+        if (isGenericInsightText(headline) || isGenericInsightText(body)) {
+            console.warn(
+                "[coaching-insight] rejected as generic — headline/body matched a deny-list stem",
+            );
+            return null;
+        }
 
         const parsedType = coachingInsightTypeSchema.safeParse(raw.type);
         const type: CoachingInsightType = parsedType.success
@@ -306,8 +393,9 @@ The "user" speaker is the learner. ALL other speakers (other_1, other_2, etc.) a
 Indices are NOT contiguous — a few sub-coaching-threshold user fragments are hidden. Only the indices shown above are valid; do not reference any index that does not appear in the transcript block.
 ${formatTranscript(transcript, isShortUserDrillLine)}`;
 
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(captureAnalysisSchema),
             name: "CaptureDeepAnalysis",
@@ -316,7 +404,7 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
         }),
         system: readPrompt(),
         prompt,
-        temperature: 0.15,
+        ...temperatureOptions(modelName, defaultTemperature()),
     });
 
     const isUserLine = (line: CaptureTranscriptLine) =>

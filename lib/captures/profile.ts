@@ -13,6 +13,7 @@ import {
     learnerModelDoc,
 } from "@/lib/learner-model/store";
 import { mergeTrackedPatterns } from "@/lib/learner-model/tracked-patterns";
+import { temperatureOptions } from "@/lib/openai/reasoning";
 import { llmTrackedPatternSchema } from "@/schemas";
 import type {
     ItemAnalysis,
@@ -146,8 +147,9 @@ export async function updateUserProfileFromCapture(
               .join("\n")
         : "(none yet)";
 
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(profileUpdateSchema),
             name: "CaptureProfileUpdate",
@@ -207,7 +209,7 @@ Summary: ${summary}
 
 ## Transcript
 ${formatTranscript(transcript)}`,
-        temperature: 0.15,
+        ...temperatureOptions(modelName, 0.15),
     });
 
     const {

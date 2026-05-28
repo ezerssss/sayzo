@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
+import { temperatureOptions } from "@/lib/openai/reasoning";
 import type {
     CaptureCloseReason,
     CaptureTranscriptLine,
@@ -44,13 +45,15 @@ function readPrompt(): string {
     return readFileSync(join(PROMPTS_DIR, "quick-summary.md"), "utf-8");
 }
 
+/**
+ * Quick title/summary generation runs inside a 5s budget at upload time — too
+ * tight for reasoning models (chain-of-thought blows past it). Defaults to
+ * `gpt-4o-mini` directly so bumping `CAPTURE_ANALYZER_MODEL` for the deep
+ * synthesis call doesn't drag this fast path along with it. Override only via
+ * the dedicated `QUICK_SUMMARY_MODEL` env (must also be a non-reasoning model).
+ */
 function defaultModel(): string {
-    return (
-        process.env.QUICK_SUMMARY_MODEL?.trim() ||
-        process.env.CAPTURE_ANALYZER_MODEL?.trim() ||
-        process.env.ANALYZER_MODEL?.trim() ||
-        "gpt-4o-mini"
-    );
+    return process.env.QUICK_SUMMARY_MODEL?.trim() || "gpt-4o-mini";
 }
 
 function formatTranscript(transcript: CaptureTranscriptLine[]): string {
@@ -80,8 +83,9 @@ Close reason: ${closeReason}
 ## Transcript (speaker-tagged)
 ${formatTranscript(transcript)}`;
 
+    const modelName = defaultModel();
     const result = await generateText({
-        model: openai(defaultModel()),
+        model: openai(modelName),
         output: Output.object({
             schema: zodSchema(quickSummarySchema),
             name: "CaptureQuickSummary",
@@ -90,7 +94,7 @@ ${formatTranscript(transcript)}`;
         }),
         system: readPrompt(),
         prompt,
-        temperature: 0.2,
+        ...temperatureOptions(modelName, 0.2),
         abortSignal: AbortSignal.timeout(QUICK_SUMMARY_TIMEOUT_MS),
     });
 

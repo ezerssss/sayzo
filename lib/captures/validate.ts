@@ -33,12 +33,14 @@ function readPrompt(): string {
     );
 }
 
+/**
+ * Validation is a deterministic 4-boolean classification (relevant / organic /
+ * substantive / English) at temperature 0 — mini handles it fine. Defaults to
+ * `gpt-4o-mini` directly so bumping `CAPTURE_ANALYZER_MODEL` for the deep
+ * synthesis call doesn't drag this cheap classification along with it.
+ */
 function defaultModel(): string {
-    return (
-        process.env.CAPTURE_ANALYZER_MODEL?.trim() ||
-        process.env.ANALYZER_MODEL?.trim() ||
-        "gpt-4o-mini"
-    );
+    return process.env.CAPTURE_VALIDATOR_MODEL?.trim() || "gpt-4o-mini";
 }
 
 function formatTranscript(transcript: CaptureTranscriptLine[]): string {

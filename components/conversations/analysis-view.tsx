@@ -977,19 +977,12 @@ export function AnalysisView(props: Readonly<Props>) {
             .filter(Boolean)
             .join("\n\n");
 
+        // `mainIssue` is intentionally NOT rendered here — it overlapped
+        // visually with the CoachingInsightCard hero above the tabs. Field
+        // is kept in the analysis (server-internal: feeds differential
+        // coaching via recentMainIssues in lib/captures/process.ts).
         return (
             <div className="space-y-4">
-                {analysis.mainIssue ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300/80">
-                            Main issue
-                        </p>
-                        <p className="mt-1.5 text-sm font-medium text-foreground">
-                            {analysis.mainIssue}
-                        </p>
-                    </div>
-                ) : null}
-
                 {topFixes.length > 0 ? (
                     <TopFixesCard
                         moments={topFixes.slice(0, 2)}
