@@ -12,7 +12,10 @@ export const runtime = "nodejs";
  * pick up the `serverTitle`/`serverSummary` that the post-transcription
  * quick-summary stage (and later the deep analysis stage) produces minutes
  * after upload. Same shape as the upload response, minus `capture_id` (the
- * agent already knows the id — it's in the URL).
+ * agent already knows the id — it's in the URL), plus `coaching_insight`: a
+ * single card-sized coaching takeaway (or `null`) projected from the persisted
+ * analysis once `status === "analyzed"`, for the desktop agent's post-capture
+ * card. It is `null` until then and is stable across repeated GETs.
  */
 export async function GET(
     request: NextRequest,
@@ -51,6 +54,10 @@ export async function GET(
             status: capture.status,
             title: capture.serverTitle ?? capture.title,
             summary: capture.serverSummary ?? capture.summary ?? "",
+            coaching_insight:
+                capture.status === "analyzed"
+                    ? (capture.analysis?.coachingInsight ?? null)
+                    : null,
         });
     } catch (error) {
         console.error(`[api/captures/${captureId}] GET failed`, error);

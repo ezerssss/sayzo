@@ -18,6 +18,7 @@ export * from "./shared/transcript";
 export * from "./analysis/turn-rewrite";
 export * from "./analysis/structural-observation";
 export * from "./analysis/item-analysis";
+export * from "./analysis/coaching-insight";
 
 // Focus insights (own collection until Phase 3 folds it into the model)
 export * from "./focus/focus-insights";

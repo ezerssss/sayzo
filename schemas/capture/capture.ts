@@ -56,6 +56,10 @@ export type CaptureType = {
     echoLeakDroppedSpans?: { start: number; end: number }[];
     echoLeakRuleVersion?: string;
 
+    /** ISO 8601 — set when status first reaches `analyzed`. Enables measuring
+     *  upload→analyzed latency (p50/p95) for sizing the desktop agent's poll. */
+    analyzedAt?: string;
+
     /** Unified per-item analysis (shared with drills). Captures fill the common
      *  fields + dimensions + conversation-only fields (turnRewrites, metrics). */
     analysis?: ItemAnalysis;
