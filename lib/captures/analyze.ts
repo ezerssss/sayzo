@@ -36,7 +36,9 @@ import {
     resolveAnchorIdx,
 } from "@/lib/transcripts/anchor-resolver";
 import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
+import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
+import { sanitizeSpokenFields } from "@/lib/text/despeechify";
 import { isShortUserDrillLine } from "./drill-input-filter";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
@@ -402,7 +404,9 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
             description:
                 "Deep analysis of a captured English conversation for coaching purposes.",
         }),
-        system: readPrompt(),
+        // Reasoning models (gpt-5-mini default here) get the lean, example-free
+        // prompt; fast models keep the few-shot blocks. See loadModelPrompt.
+        system: loadModelPrompt(readPrompt(), modelName),
         prompt,
         ...temperatureOptions(modelName, defaultTemperature()),
     });
@@ -524,6 +528,9 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
     return {
         serverTitle: result.output.serverTitle,
         serverSummary: result.output.serverSummary,
-        analysis,
+        // Floor: strip un-speakable em/en dashes from spoken sub-fields
+        // (turnRewrites.rewrite, coachingInsight.body, every betterOption).
+        // The prompt asks the model to avoid them; this guarantees it.
+        analysis: sanitizeSpokenFields(analysis),
     };
 }

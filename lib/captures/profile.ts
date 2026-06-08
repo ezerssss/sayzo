@@ -13,6 +13,7 @@ import {
     learnerModelDoc,
 } from "@/lib/learner-model/store";
 import { mergeTrackedPatterns } from "@/lib/learner-model/tracked-patterns";
+import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 import { llmTrackedPatternSchema } from "@/schemas";
 import type {
@@ -156,7 +157,7 @@ export async function updateUserProfileFromCapture(
             description:
                 "Profile updates derived from a real conversation capture (context + delivery, separately).",
         }),
-        system: readPrompt(),
+        system: loadModelPrompt(readPrompt(), modelName),
         prompt: `## Current user profile
 - Role: ${userProfile.role || "(not set)"}
 - Industry: ${userProfile.industry || "(not set)"}

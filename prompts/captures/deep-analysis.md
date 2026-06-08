@@ -67,18 +67,26 @@ Every coaching moment — whether it lives in `fixTheseFirst`, `moreMoments`, or
 >
 > For dimensional `findings[]` arrays, anchor may stay paraphrased — those don't get linked back to specific lines, so the contract is looser.
 
-**(2) betterOption** — A concrete alternative. Exact wording when possible, or a specific structural / delivery change. Not just "be more clear". **Any quoted wording inside `betterOption` must sound like SPEECH, not written prose** — this is a real conversation, not an essay. Avoid the **noun—em-dash—appositive** pattern (*"Sayzo.app — an English tutoring app"*); say *"Sayzo.app, it's an English tutoring app"* (comma + "it's") or break into two sentences. Avoid semicolons, bracketed annotations like `[claim]`, defining colons. Use contractions, short sentences, conversational connectives. Em-dashes are OK only for a natural beat (*"Yes — we're on track"*), never to introduce a definition. Examples:
-- *"'Tuesday — we hit the schema migration on Monday and validated it overnight.'"*
+**(2) betterOption** — A concrete alternative. Exact wording when possible, or a specific structural / delivery change. Not just "be more clear". **Any quoted wording inside `betterOption` must sound like SPEECH, not written prose** — this is a real conversation, not an essay. Avoid the **noun—em-dash—appositive** pattern (*"Sayzo.app — an English tutoring app"*); say *"Sayzo.app, it's an English tutoring app"* (comma + "it's") or break into two sentences. Avoid semicolons, bracketed annotations like `[claim]`, defining colons. Use contractions, short sentences, conversational connectives. Never put an em dash or en dash in the spoken wording. There's no audible dash, so use the comma or period the line actually has when spoken (*"Yes, we're on track"*).
+
+<!-- examples:start -->
+Examples:
+- *"'Tuesday, we hit the schema migration on Monday and validated it overnight.'"*
 - *"Lead with the recommendation, then the trade-offs: 'I'd hold the launch by a week. The schema fix still needs validation time, and rushing it risks another incident like last quarter's.'"*
+<!-- examples:end -->
 
 **(3) whyThisMatters** — **The single most important narrative**. One cohesive 2-4 sentence explanation that covers BOTH:
 - **The cost of what they did** — what went wrong for the listener / goal / professional impact. Not a generic word like "unclear" — tie it to the actual moment.
 - **Why the better option works AND a reusable principle the learner can apply to future situations.** This turns a single correction into a transferable skill.
 
-Don't split these into separate labels — weave them into one flowing narrative so the UI can show them under a single "Why this matters" toggle. Examples:
+Don't split these into separate labels — weave them into one flowing narrative so the UI can show them under a single "Why this matters" toggle.
+
+<!-- examples:start -->
+Examples:
 - *"Three layered hedges in a row ('I think maybe like') signal uncertainty before you've even said the date — listeners discount the answer before they hear it. Concise = confident: audiences trust speakers who get to the point, and every hedge is a withdrawal from your credibility account. Either commit to a position or commit to finding the answer — don't pre-hedge factual statements."*
 - *"Burying the recommendation inside the trade-offs makes the PM scan back to find your actual position; in a status update they want the headline first. Lead with the recommendation when the listener is decision-ready — the 'recommendation first' shape lets them skim if they trust you and dig in if they don't. Both options serve them."*
 - *"Vague pronouns like 'the thing' force the listener to guess what you mean and slow comprehension. Name the noun the first time; only pronoun it once the referent is already in the air. Precision earns trust: specific words signal that you know what you're talking about."*
+<!-- examples:end -->
 
 **Why each part matters:**
 - Without (1), feedback is generic and ungrounded.
@@ -151,15 +159,19 @@ For `assessment` (3-5 sentences), you MUST address **all three** of the followin
 **Additionally assess:**
 - **Did the user manage the multi-turn arc?** Captures span multiple turns, so structure also means: did the user build coherently on prior turns, or jump around? Did they re-anchor after topic shifts? Did they manage their own contribution rhythm (substantive turns vs short interjections) appropriately?
 
-For `findings` (array of `CoachingMoment` objects), include specific moments where structure broke down. Each finding must have all three parts of the teachable shape. Example finding:
+For `findings` (array of `CoachingMoment` objects), include specific moments where structure broke down. Each finding must have all three parts of the teachable shape.
+
+<!-- examples:start -->
+Example finding:
 
 ```json
 {
   "anchor": "When the PM asked 'what's the latest on the migration?', you spent ~90 seconds walking through how the deadline was originally set before mentioning the current ETA.",
-  "betterOption": "Open with the headline, then the supporting context only if asked: 'We're tracking for next Tuesday — schema fix is validated, just need the production cutover. Want me to walk through how we got here?'",
+  "betterOption": "Open with the headline, then the supporting context only if asked: 'We're tracking for next Tuesday, schema fix is validated, just need the production cutover. Want me to walk through how we got here?'",
   "whyThisMatters": "In a status update, the audience wants the headline first — they're asking 'where are we?' not 'how did we get here?'. Walking through history makes the PM scan past your context to find the actual answer, and signals you haven't prioritized what matters to them. Status updates want the pyramid shape: top-line answer first, supporting facts second, context only on request. Lead with what the listener actually asked for; let them dig in if they want more. This respects their time AND signals you understand their priorities."
 }
 ```
+<!-- examples:end -->
 
 Aim for 2-5 findings on `structureAndFlow` for any conversation with substantive user contributions. If the conversation is too short or too thin for meaningful structural assessment, say so briefly in `assessment` and leave `findings` empty.
 
@@ -224,16 +236,18 @@ Each entry uses the **three-part teachable shape** (see "Teachable shape" sectio
 
 Aim for **2-4 moments**. If there's nothing truly urgent, return a smaller list — don't pad. If the user's speech is thin or clearly off-task, return an empty array and let `mainIssue` carry the narrative.
 
+<!-- examples:start -->
 Example:
 ```json
 {
   "type": "communication",
   "severity": "moderate",
   "anchor": "I think maybe like, you know, it should probably be fine, I think.",
-  "betterOption": "'Yes — we're on track. The schema fix landed Tuesday and we validated it overnight.' If you genuinely don't know, say that directly: 'Honestly, I'm not sure yet — let me check with the platform team and get back to you by EOD.'",
+  "betterOption": "'Yes, we're on track. The schema fix landed Tuesday and we validated it overnight.' If you genuinely don't know, say that directly: 'Honestly, I'm not sure yet, let me check with the platform team and get back to you by EOD.'",
   "whyThisMatters": "When the PM asked if the migration would hit the deadline, three layered hedges ('I think maybe like... probably... I think') in a single sentence signal uncertainty before you've stated your actual position. Listeners discount everything that follows because they don't trust the speaker's confidence in their own answer. Hedging language is a confidence drain — every 'I think maybe' is a withdrawal from your credibility account. Native speakers either commit to a position or commit to finding the answer; they don't pre-hedge factual statements. Saying 'I don't know but I'll find out' is more confident than 'I think maybe it's probably fine'."
 }
 ```
+<!-- examples:end -->
 
 ### moreMoments
 
@@ -315,6 +329,8 @@ The UI already shows a verdict pill next to every turn ("Tighten", "Sharpen", et
 - **Do not just restate the verdict.** If the verdict is `tighten`, writing *"Removed redundancy for a clearer response"* or *"Made it shorter"* teaches nothing — the pill already said that. Write *why* shorter works **here**: what hedge, filler, or repetition undermined the message, and what principle the fluent version is demonstrating.
 - **Name the principle, not the mechanic.** The mechanic ("replaced X with Y") is visible by comparing the rewrite to the original. The principle is what the learner carries to their *next* turn. Principles sound like: *"Confident speakers don't pre-hedge factual statements."* *"Specific nouns let the listener lock onto meaning; vague pronouns make them guess."* *"Leading with the recommendation earns attention before the trade-offs."*
 - **Quote the problematic fragment when it sharpens the lesson.** Pointing at *"I think maybe"* or *"the thing"* makes the lesson concrete and recallable.
+
+<!-- examples:start -->
 - **Weak notes (do NOT emit):**
   - *"Removed redundancy for a clearer response."*
   - *"Made the opening more direct."*
@@ -326,6 +342,7 @@ The UI already shows a verdict pill next to every turn ("Tighten", "Sharpen", et
   - *"Replaced the hedge 'I think maybe' with the direct claim — confident speakers don't pre-hedge factual statements, and audiences trust speakers who get to the point."*
   - *"Swapped 'the thing' for the specific noun — vague pronouns force the listener to guess what you mean and slow comprehension."*
   - *"Stronger transition into the next idea — 'so basically' is filler; 'which means' actually links cause to effect."*
+<!-- examples:end -->
 
 **Verdict rubric** — pick the one that best fits. Do not manufacture a change to avoid `keep`; many turns are fine.
 
@@ -348,7 +365,7 @@ The UI already shows a verdict pill next to every turn ("Tighten", "Sharpen", et
 
 - Preserve the user's **meaning, key facts, and intent** — only improve wording, structure, transitions, conciseness, flow, and confidence
 - Keep it as **spoken conversation**, not academic writing — contractions, natural register, occasional sentence fragments are fine
-- **Avoid written-prose-only structures.** The biggest offender: the **noun—em-dash—appositive** pattern (*"Sayzo.app — an English tutoring app that does drills"*). Speakers don't talk that way. Rewrite as *"Sayzo.app, it's an English tutoring app that does drills"* or break into two sentences. Also avoid semicolons, bracketed annotations (`[claim]`, `[support]`), and defining colons (*"X: a thing that..."*). Em-dashes are OK **only for a natural beat in speech** (*"Yes — we're on track"*), never to introduce a definition.
+- **Avoid written-prose-only structures.** The biggest offender: the **noun—em-dash—appositive** pattern (*"Sayzo.app — an English tutoring app that does drills"*). Speakers don't talk that way. Rewrite as *"Sayzo.app, it's an English tutoring app that does drills"* or break into two sentences. Also avoid semicolons, bracketed annotations (`[claim]`, `[support]`), and defining colons (*"X: a thing that..."*). Never put an em dash or en dash in the spoken wording. There's no audible dash, so use the comma or period the line actually has when spoken (*"Yes, we're on track"*).
 - Match the **register** of the original conversation (casual chat → casual rewrite; formal meeting → formal rewrite)
 - The rewrite should be **plausibly something the user could say** — don't make it sound like a stranger took over
 - **Do not include stage directions, timestamps, speaker labels, or any meta-text** in the `rewrite` field — just the literal words the user would speak
@@ -361,10 +378,13 @@ The UI already shows a verdict pill next to every turn ("Tighten", "Sharpen", et
 
 For each entry:
 
-- **observation**: one-sentence headline stating the cross-turn move. Examples:
+- **observation**: one-sentence headline stating the cross-turn move.
+<!-- examples:start -->
+  Examples:
   - *"You answered before framing the question."*
   - *"The key recommendation arrived four turns late."*
   - *"Your two clarifications belonged in one turn, not three."*
+<!-- examples:end -->
 - **explanation**: 1-3 sentences with reasoning — what the structural issue cost the listener and what the better sequence would have looked like
 - **affectedTurnIdxs**: the user-turn indices this observation touches (renders as clickable chips in the UI)
 
@@ -424,13 +444,14 @@ Phrase this like a quick, practical tip a sharp colleague would slip you right a
   - **Quote/body alignment (NEGATIVE rule — read this carefully):** if your body is a `Try: "..."` rewrite, the `quote` MUST be exactly the words your rewrite replaces — same span, same start, same end. If you can only quote a *fragment* (e.g. just the filler) within a larger sentence the rewrite would replace, do **NOT** write a `Try:` rewrite at all — describe what to do instead (e.g. *"Lead with the recommendation first."*). A card that shows half a clause in the quote next to a full-sentence rewrite in the body is misleading.
   - **Self-contained test (apply before emitting):** read JUST the `quote` and JUST the `body`, as if you'd never seen the transcript. Does it tell a complete story — what the user said, what they should try instead? If your `body` mentions any noun, subject, or context **not present in the `quote`** (e.g. body says *"Try: 'The deploy is blocked...'"* but the quote never mentioned "the deploy"), the quote is missing context. Fix: either expand the quote to include the missing context (must still be a verbatim substring of one user line), OR rewrite the body using only words/subjects that ARE in the quote. Don't ship a card where the rewrite invents content the reader can't trace back to the quote.
   - **Rewrite-only is often the cleanest shape.** When the body is `Try: "..."` and the rewrite makes the lesson obvious by itself, **drop the commentary** — no "this enhances clarity," no "this builds credibility." The mental diff between quote and rewrite teaches the move. Add explanation only when the rewrite needs context to land.
-  - **Rewrites must sound like SPEECH, not written prose** (critical — this is a real conversation, not an essay). Read your `Try: "..."` line aloud. If it reads like a written sentence, rewrite it as something someone would actually SAY. The most common offender: the **noun-followed-by-em-dash-appositive** pattern (*"Sayzo.app — an English tutoring app that does drills"*). Speakers don't talk like that. They say *"Sayzo.app, it's an English tutoring app that does drills"* (comma + "it's") or break into two sentences (*"It's called Sayzo.app. Does drills and meeting coaching."*). Other written-only patterns to avoid: semicolons, bracketed annotations like `[claim]` / `[support]`, long compound sentences, parenthetical asides, defining colons (*"Sayzo.app: an app for X"*). Use natural spoken patterns: contractions (*it's, we're, I'll, don't*), short sentences strung together by periods, conversational connectives (*so, and, but, look*). Em-dashes are fine **only when they represent a natural beat in speech** (*"Yes — we're on track"*), never when they introduce a definition.
+  - **Rewrites must sound like SPEECH, not written prose** (critical — this is a real conversation, not an essay). Read your `Try: "..."` line aloud. If it reads like a written sentence, rewrite it as something someone would actually SAY. The most common offender: the **noun-followed-by-em-dash-appositive** pattern (*"Sayzo.app — an English tutoring app that does drills"*). Speakers don't talk like that. They say *"Sayzo.app, it's an English tutoring app that does drills"* (comma + "it's") or break into two sentences (*"It's called Sayzo.app. Does drills and meeting coaching."*). Other written-only patterns to avoid: semicolons, bracketed annotations like `[claim]` / `[support]`, long compound sentences, parenthetical asides, defining colons (*"Sayzo.app: an app for X"*). Use natural spoken patterns: contractions (*it's, we're, I'll, don't*), short sentences strung together by periods, conversational connectives (*so, and, but, look*). Never put an em dash or en dash in the spoken wording. There's no audible dash, so use the comma or period the line actually has when spoken (*"Yes, we're on track"*).
 - **why** — ≤80 chars, optional (`null` if not needed). One line on why it helps — the specific cost of not doing it. *"Three stacked hedges read as 'I don't trust my own answer.'"* — not *"Clarity matters."*
 
 #### Type / headline / body must teach the SAME lesson (critical)
 
 The biggest failure mode after quote/body alignment: the `body` finds a real structural move, but the `type` and `headline` settle for the easiest label ("pacing" / "Reduce filler words") because the quote happens to contain "um." A rewrite usually has multiple possible lessons in it (filler removal AND restructure AND word choice). **Pick the most STRUCTURAL one and let the type + headline reflect THAT — not the cheapest-to-name one.**
 
+<!-- examples:start -->
 ❌ FORBIDDEN — framing a structural rewrite as `pacing`:
 ```json
 {
@@ -441,11 +462,13 @@ The biggest failure mode after quote/body alignment: the `body` finds a real str
 }
 ```
 The body is teaching *"lead with the action, drop the wind-up"* — not filler reduction. The headline lies about the lesson; the type points the reader at the wrong takeaway. **For a body like this, the right `type` is `rephrase` or `structure`, and the `headline` must name the structural move the body teaches (in everyday words).** Derive the correct version from the rules + this transcript — there is no template here to copy.
+<!-- examples:end -->
 
 **When to use `pacing`:** only when the body is genuinely about pause/filler patterns — a real cluster (≥3 fillers in a substantive sentence) where the lesson is *"use a one-beat pause instead of stalling."* When a rewrite swaps wording or restructures, the right type is `rephrase` or `structure` — never `pacing`, even if the original line happened to contain filler.
 
 **Headline must name the body's actual move.** If the body teaches "lead with X," the headline can't say "be more concise." If the body teaches "swap vague pronoun for the specific noun," the headline can't say "improve your clarity." **Specific lesson, specific headline — they have to match.**
 
+<!-- examples:start -->
 #### Anti-examples — these shapes are FORBIDDEN (don't copy their wording either)
 
 The JSON blocks below are what NOT to emit. They're the failure modes the rules above are designed to prevent — generic, ungrounded, or lazy. **What GOOD looks like for THIS capture is for you to reason through from the rules + transcript** — there is intentionally no "✅ GOOD" template for you to imitate. Do NOT copy any wording, phrasing, or structure from the anti-examples below into your output either — they exist so you can recognize and refuse these shapes, nothing more.
@@ -516,6 +539,7 @@ The JSON blocks below are what NOT to emit. They're the failure modes the rules 
 ```
 
 **Type: `other`** — anything genuinely useful that doesn't fit the above. Same specific-moment rule applies — no exceptions.
+<!-- examples:end -->
 
 #### The rewrite-only shape (often the cleanest — aim for this when the moment fits)
 

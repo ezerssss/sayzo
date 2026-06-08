@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { UserProfileType } from "@/schemas";
+import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "profile-builder");
@@ -232,7 +233,7 @@ export async function buildUserProfileFieldsFromOnboarding(
             description:
                 "JSON object with keys: role, industry, goals, additionalContext — normalized user profile slice.",
         }),
-        system: readPrompt(),
+        system: loadModelPrompt(readPrompt(), modelName),
         prompt: buildUserMessage(input),
         ...temperatureOptions(modelName, 0.2),
     });
@@ -263,7 +264,7 @@ export async function buildUserProfileFieldsFromDrills(
             description:
                 "JSON object with user profile fields extracted from onboarding drill transcripts.",
         }),
-        system: DRILL_BASED_SYSTEM_PROMPT,
+        system: loadModelPrompt(DRILL_BASED_SYSTEM_PROMPT, modelName),
         prompt: buildDrillBasedUserMessage(input),
         ...temperatureOptions(modelName, 0.2),
     });

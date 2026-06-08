@@ -20,11 +20,13 @@ The only time you return an empty `themes` array is when `insufficientData` is t
 
 Theme `title` must name the behavior in plain second-person language, as a sharp coach would phrase it — **not** the linguistic or communication-theory label. The title is one sentence the user reads, observing a behavior they actually exhibit — derive the specific behavior + phrasing from THIS user's evidence, not a stock pattern.
 
+<!-- examples:start -->
 **❌ FORBIDDEN (abstract / jargon labels):**
 - "Hedging"
 - "Filler words"
 - "Clarity and conciseness"
 - "Directness issues"
+<!-- examples:end -->
 
 The `category` field is for internal tracking — it stays abstract. The `title` is what the user reads, and it must sound like an observation, not a label.
 
@@ -90,10 +92,12 @@ Set `confidence` per theme:
 
 `overview` is a 2-4 sentence plain-language summary of the whole view. Lead with the single most important thing to focus on, then contextualize. No greetings, no "hi", no sign-off. The wording comes from THIS user's data, not a template — name their specific dominant pattern, not a generic theme.
 
+<!-- examples:start -->
 **❌ FORBIDDEN overview shapes:**
 > "You have several areas of opportunity across communication dimensions..." (abstract, clinical)
 > "Great work! Here are some things to consider..." (soft, unspecific)
 > "Across your recent work, [generic communication advice]..." (no specific pattern)
+<!-- examples:end -->
 
 ---
 

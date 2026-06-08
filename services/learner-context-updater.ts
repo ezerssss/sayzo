@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { SessionPlanType, SessionType } from "@/schemas";
+import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "learner-context-updater");
@@ -84,7 +85,7 @@ export async function mergeDrillNotesFromSession(
             description:
                 "Updated backend-only learner notes for drill personalization.",
         }),
-        system: readPrompt(),
+        system: loadModelPrompt(readPrompt(), modelName),
         prompt: buildUserMessage(input),
         ...temperatureOptions(modelName, 0.15),
     });

@@ -17,6 +17,7 @@ import type {
 import type { SessionType } from "@/schemas";
 import type { LearnerModel, TrackedPattern } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
+import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "focus");
@@ -533,7 +534,7 @@ export async function synthesizeFocusInsights(
             description:
                 "Unified coaching view across recent drills and captures — themes, wins, and overview.",
         }),
-        system: readPrompt("synthesize.md"),
+        system: loadModelPrompt(readPrompt("synthesize.md"), modelName),
         prompt: content,
         ...temperatureOptions(modelName, 0.3),
     });
@@ -604,7 +605,7 @@ export async function updateFocusInsightsIncremental(
             description:
                 "Updated coaching view evolving the prior focus view with new drills and captures.",
         }),
-        system: readPrompt("update.md"),
+        system: loadModelPrompt(readPrompt("update.md"), modelName),
         prompt: content,
         ...temperatureOptions(modelName, 0.3),
     });

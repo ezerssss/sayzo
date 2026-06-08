@@ -21,7 +21,9 @@ import type { DifferentialContext } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
+import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
+import { sanitizeSpokenFields } from "@/lib/text/despeechify";
 
 /**
  * When the session is a scenario replay of a captured conversation, the
@@ -247,12 +249,14 @@ export async function analyzeSession(
             description:
                 "Structured analysis of one 60-second spoken practice session — main issue, ranked coaching moments (0-3), dimensional findings, and an optional what-went-well call-out.",
         }),
-        system,
+        system: loadModelPrompt(system, modelName),
         prompt: userContent,
         ...temperatureOptions(modelName, 0.2),
     });
 
-    return result.output;
+    // Floor: strip un-speakable em/en dashes from every `betterOption` (the
+    // spoken "say it like this" target). See lib/text/despeechify.
+    return sanitizeSpokenFields(result.output);
 }
 
 /**
@@ -287,10 +291,12 @@ export async function generateSessionFeedback(
             description:
                 "Polished native-speaker rewrite of the learner's drill response with per-paragraph change notes.",
         }),
-        system,
+        system: loadModelPrompt(system, modelName),
         prompt: `${context}${analysisBlock}`,
         ...temperatureOptions(modelName, 0.35),
     });
 
-    return result.output;
+    // Floor: strip un-speakable em/en dashes from the spoken rewrite paragraphs
+    // of `improvedVersion` (the `> **Note:**` coaching prose is left intact).
+    return sanitizeSpokenFields(result.output);
 }

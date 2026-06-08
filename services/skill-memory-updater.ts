@@ -10,6 +10,7 @@ import type { ItemAnalysis, SessionFeedbackType } from "@/schemas";
 import { llmTrackedPatternSchema } from "@/schemas";
 import type { LearnerModel, TrackedPattern } from "@/schemas";
 import { mergeTrackedPatterns } from "@/lib/learner-model/tracked-patterns";
+import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "skill-memory-updater");
@@ -130,7 +131,7 @@ export async function updateSkillMemoryFromLatestSession(
             description:
                 "Updated strengths, weaknesses, progression priorities, and tracked habits after the latest completed session.",
         }),
-        system: readPrompt(),
+        system: loadModelPrompt(readPrompt(), modelName),
         prompt: buildUserMessage(input),
         ...temperatureOptions(modelName, 0.2),
     });
