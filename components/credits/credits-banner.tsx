@@ -36,7 +36,7 @@ export function CreditsBanner() {
                     <p className="text-muted-foreground">
                         {alreadyRequested
                             ? "We'll email you once your account is unlocked."
-                            : "New drills and practice sessions are paused until you have access."}
+                            : "Replays and new conversations are paused until you have access."}
                     </p>
                 </div>
             </div>

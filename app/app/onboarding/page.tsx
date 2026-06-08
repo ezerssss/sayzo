@@ -6,9 +6,9 @@ import { useUserProfileExists } from "@/hooks/use-user-profile-exists";
 
 export default function OnboardingPage() {
     const { user } = useAuthUser();
-    const { onboardingDrills } = useUserProfileExists(user?.uid);
+    const { onboardingSamples } = useUserProfileExists(user?.uid);
 
     if (!user) return null;
 
-    return <SetupWizard uid={user.uid} savedDrills={onboardingDrills} />;
+    return <SetupWizard uid={user.uid} savedSamples={onboardingSamples} />;
 }

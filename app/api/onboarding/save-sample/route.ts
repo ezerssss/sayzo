@@ -1,11 +1,11 @@
 import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import type { OnboardingDrillProgress } from "@/schemas";
+import type { OnboardingSampleProgress } from "@/schemas";
 import { NextResponse, type NextRequest } from "next/server";
 
-type SaveDrillPayload = {
-    drillType: OnboardingDrillProgress["drillType"];
+type SaveSamplePayload = {
+    sampleType: OnboardingSampleProgress["sampleType"];
     transcript: string;
 };
 
@@ -16,17 +16,17 @@ export async function POST(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     const { uid } = auth;
 
-    const body = (await request.json()) as SaveDrillPayload;
+    const body = (await request.json()) as SaveSamplePayload;
 
-    const drillType = body.drillType;
+    const sampleType = body.sampleType;
     const validTypes = [
         "self_introduction",
         "workplace_scenario",
         "challenge_moment",
     ];
-    if (!validTypes.includes(drillType)) {
+    if (!validTypes.includes(sampleType)) {
         return NextResponse.json(
-            { error: "Invalid drill type." },
+            { error: "Invalid sample type." },
             { status: 400 },
         );
     }
@@ -47,13 +47,13 @@ export async function POST(request: NextRequest) {
         const nowIso = new Date().toISOString();
 
         const doc = await userRef.get();
-        const existing: OnboardingDrillProgress[] =
-            (doc.data()?.onboardingDrills as OnboardingDrillProgress[]) ?? [];
+        const existing: OnboardingSampleProgress[] =
+            (doc.data()?.onboardingSamples as OnboardingSampleProgress[]) ?? [];
 
-        // Replace if this drill type already exists, otherwise append
-        const updated = existing.filter((d) => d.drillType !== drillType);
+        // Replace if this sample type already exists, otherwise append.
+        const updated = existing.filter((s) => s.sampleType !== sampleType);
         updated.push({
-            drillType,
+            sampleType,
             transcript,
             completedAt: nowIso,
         });
@@ -62,20 +62,20 @@ export async function POST(request: NextRequest) {
             {
                 uid,
                 onboardingComplete: false,
-                onboardingDrills: updated,
+                onboardingSamples: updated,
                 updatedAt: nowIso,
             },
             { merge: true },
         );
 
-        return NextResponse.json({ ok: true, drillsSaved: updated.length });
+        return NextResponse.json({ ok: true, samplesSaved: updated.length });
     } catch (error) {
         return NextResponse.json(
             {
                 error:
                     error instanceof Error
                         ? error.message
-                        : "Failed to save drill.",
+                        : "Failed to save sample.",
             },
             { status: 500 },
         );

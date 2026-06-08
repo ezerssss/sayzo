@@ -249,7 +249,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                 .json<{ sessionId: string }>();
             track("scenario_replay_started", {});
             track("credit_consumed", { feature: "replay" });
-            router.push(`/app/drills/${res.sessionId}`);
+            router.push(`/app/replays/${res.sessionId}`);
         } catch (err) {
             if (isKyHttpStatus(err, 402)) {
                 track("credit_limit_reached", { feature: "replay" });
@@ -348,7 +348,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             {capture.status === "analyzed" &&
                                 (practiceSession ? (
                                     <Link
-                                        href={`/app/drills/${practiceSession.id}`}
+                                        href={`/app/replays/${practiceSession.id}`}
                                         className={cn(
                                             buttonVariants({ size: "sm" }),
                                         )}
@@ -356,8 +356,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                         <ArrowRight className="h-4 w-4" />
                                         {practiceSession.completionStatus ===
                                         "pending"
-                                            ? "Continue practicing"
-                                            : "View practice results"}
+                                            ? "Continue your replay"
+                                            : "View replay results"}
                                     </Link>
                                 ) : (
                                     <Button
@@ -371,7 +371,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                         title={
                                             creditGate.isExhausted
                                                 ? "You're out of Sayzo credits"
-                                                : undefined
+                                                : "Redo this conversation yourself and get coached on your new take"
                                         }
                                     >
                                         {practicing ? (
@@ -381,7 +381,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                         ) : (
                                             <Play className="h-4 w-4" />
                                         )}
-                                        Practice this conversation
+                                        Replay this conversation
                                     </Button>
                                 ))}
                             <Button

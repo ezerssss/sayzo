@@ -2,6 +2,7 @@ import "server-only";
 
 import { openai } from "@ai-sdk/openai";
 import { Output, generateText, zodSchema } from "ai";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import type {
 import {
     toDrillCategorySlug,
     type SessionPlanType,
+    type SessionType,
 } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
@@ -23,11 +25,9 @@ import { filterDrillCandidateTranscript } from "@/lib/captures/drill-input-filte
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "planner");
 
-// Same Zod shape as the regular planner — kept local so this module is
-// independent and the regular planner stays unaware of captures.
-// Category is lenient here (just a string) — normalizePlan() handles
-// slug conversion after. The strict Zod chain from the regular planner
-// rejects garbled output from smaller models before we can fix it.
+// Lenient Zod shape: category is just a string here. normalizePlan() does the
+// slug conversion afterward, so garbled output from smaller models gets fixed
+// instead of rejected outright.
 const sessionPlanSchema = z.object({
     scenario: z.object({
         title: z.string(),
@@ -203,10 +203,9 @@ function normalizePlan(plan: SessionPlanType): SessionPlanType {
 /**
  * Plan a scenario-replay drill from a captured real conversation.
  *
- * Uses a dedicated prompt (`prompts/planner/replay-from-capture.md`) so the
- * regular planner stays unaware of captures. The output is the same
- * `SessionPlanType` shape as `planNextSession` so the rest of the drill
- * pipeline (build → record → analyze → feedback) works unchanged.
+ * Reads a dedicated prompt (`prompts/planner/replay-from-capture.md`) and
+ * returns a `SessionPlanType`, so the recording pipeline (build, record,
+ * analyze, feedback) consumes it unchanged.
  */
 export async function planScenarioReplayFromCapture(
     input: CaptureReplayPlannerInput,
@@ -226,4 +225,43 @@ export async function planScenarioReplayFromCapture(
     });
 
     return normalizePlan(result.output);
+}
+
+/**
+ * Build a pending replay `SessionType` from a planned scenario. Standalone
+ * drill generation was removed, so every session is now a replay of a real
+ * conversation: `type` is always `"scenario_replay"` and `sourceCaptureId`
+ * (required) links back to `captures/{id}` (the original capture is never
+ * modified). The recording + analysis pipeline (`/api/sessions/complete`)
+ * consumes the returned session unchanged.
+ *
+ * Extracted here from the now-deleted `services/planner.ts` — the replay
+ * practice route is its only caller.
+ */
+export function buildSessionFromPlan(
+    uid: string,
+    plan: SessionPlanType,
+    sourceCaptureId: string,
+): SessionType {
+    const now = new Date().toISOString();
+    return {
+        id: randomUUID(),
+        uid,
+        plan,
+        audioUrl: null,
+        audioObjectPath: null,
+        transcript: null,
+        analysis: null,
+        feedback: null,
+        completionStatus: "pending",
+        completionReason: null,
+        processingStatus: "idle",
+        processingStage: null,
+        processingJobId: null,
+        processingError: null,
+        processingUpdatedAt: now,
+        createdAt: now,
+        sourceCaptureId,
+        type: "scenario_replay",
+    };
 }

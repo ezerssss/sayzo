@@ -5,13 +5,11 @@ import {
     getAdminFirestore,
     getAdminStorageBucket,
 } from "@/lib/firebase/admin";
-import { firePregenInBackground } from "@/services/drill-pre-generator";
 import { getOrHydrateLearnerModel } from "@/lib/learner-model/store";
 import type { CaptureStatus, CaptureType } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 
 import { analyzeCaptureDeep } from "./analyze";
-import { generateDrillsFromCapture } from "./drills";
 import { updateUserProfileFromCapture } from "./profile";
 import { generateQuickSummary } from "./quick-summary";
 import { transcribeCapture } from "./transcribe";
@@ -246,7 +244,7 @@ async function runValidation(
 }
 
 // ---------------------------------------------------------------------------
-// Stages 3 + 4 + 5: Analysis → Profiling → Drills
+// Stages 3 + 4: Analysis → Profiling
 // ---------------------------------------------------------------------------
 
 async function runAnalysisAndProfiling(
@@ -339,9 +337,6 @@ async function runAnalysisAndProfiling(
         serverSummary,
     );
 
-    // Stage 5: Drill Generation (no-op for now)
-    await generateDrillsFromCapture();
-
     // Mark complete
     await captureRef.set(
         {
@@ -350,16 +345,6 @@ async function runAnalysisAndProfiling(
             error: null,
         },
         { merge: true },
-    );
-
-    // Refresh the user's pending drill so today's drill reflects this
-    // freshly-analyzed capture. dailyRefresh skips when the pending is
-    // claimed/capture-derived; the capture then queues for the next
-    // post-completion pre-gen.
-    firePregenInBackground(
-        capture.uid,
-        { dailyRefresh: true },
-        `captures/process post-analyzed ${capture.uid}`,
     );
 
     return {
@@ -400,8 +385,6 @@ async function runProfilingOnly(
         capture.serverSummary ?? capture.summary,
     );
 
-    await generateDrillsFromCapture();
-
     await captureRef.set(
         {
             status: "analyzed",
@@ -409,12 +392,6 @@ async function runProfilingOnly(
             error: null,
         },
         { merge: true },
-    );
-
-    firePregenInBackground(
-        capture.uid,
-        { dailyRefresh: true },
-        `captures/process post-analyzed ${capture.uid}`,
     );
 
     return {

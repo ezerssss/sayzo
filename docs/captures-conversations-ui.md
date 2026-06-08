@@ -1,6 +1,11 @@
 # Conversations UI Spec
 
-**Status:** Shipped (v1). Implemented as SPA state modes (`conversations` / `conversation-detail`) in `app/page.tsx`, not file-based routes. See `components/conversations/` for the UI components. Dashboard has a "Conversations" button linking to the list view. Detail view shows transcript with inline teachable-moment and native-speaker-rewrite highlights, full analysis with collapsible dimensional cards (three-part CoachingMoment shape), audio playback, and a "Practice this conversation" button that creates a scenario-replay drill with comparison-aware analysis.
+> **Update:** Standalone drills were removed. Conversations are now the home
+> tab and live at `/app/conversations`; the practice action is **Replay**
+> (`/app/replays/[id]`). See `docs/capture-replay.md`. Some implementation
+> notes below predate that routing and may be stale.
+
+**Status:** Shipped (v1). See `components/conversations/` for the UI components. The signed-in home opens on the "Conversations" tab. Detail view shows transcript with inline teachable-moment and native-speaker-rewrite highlights, full analysis with collapsible dimensional cards (three-part CoachingMoment shape), audio playback, and a "Replay this conversation" button that creates a replay with comparison-aware analysis.
 
 ---
 

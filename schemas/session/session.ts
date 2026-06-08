@@ -4,21 +4,6 @@ import type {
     SessionFeedbackType,
 } from "@/schemas/analysis/item-analysis";
 
-/**
- * Default catalog for the planner (documented in `prompts/planner`); the model
- * may also emit a new `snake_case` slug when none of these fit.
- */
-export const RECOMMENDED_SPEAKING_DRILL_CATEGORIES = [
-    "status_update",
-    "project_walkthrough",
-    "stakeholder_alignment",
-    "difficult_conversation",
-    "self_introduction",
-    "personal_reflection",
-    "interview_behavioral",
-    "interview_situational",
-] as const;
-
 /** Normalize user/model text into a single stored slug (snake_case). */
 export function toDrillCategorySlug(raw: string): string {
     return raw
@@ -33,7 +18,7 @@ export type ScenarioType = {
     title: string;
     /** The question/prompt the learner responds to, in second person. */
     question: string;
-    /** Speaking-situation slug: a built-in from `RECOMMENDED_SPEAKING_DRILL_CATEGORIES` or a new concise snake_case slug. */
+    /** Speaking-situation slug (snake_case), derived from the source conversation by the replay planner. */
     category: string;
 };
 
@@ -47,16 +32,6 @@ export type SessionPlanType = {
     skillTarget: string;
     /** Max recording duration (seconds). 60s for the bite-sized drill shape. */
     maxDurationSeconds: number;
-};
-
-/**
- * One row per past drill passed into the planner (newest first) so it can
- * rotate categories and scenarios instead of repeating the same shape.
- */
-export type PlannerRecentDrillSummary = {
-    category: string;
-    scenarioTitle: string;
-    skillTarget: string;
 };
 
 export type SessionCompletionStatus =
@@ -107,15 +82,13 @@ export type SessionType = {
      */
     sourceCaptureId?: string;
 
-    /** Origin discriminator. Defaults to `"drill"` when absent. */
-    type?: "drill" | "scenario_replay";
-
     /**
-     * ISO timestamp of the most recent drill page view (mount + 5-min
-     * heartbeat). The pre-generator's `dailyRefresh` path skips mutate-in-place
-     * when this is fresh so a reader never sees the brief change underneath them.
+     * Origin discriminator. Every session is now a replay of a captured real
+     * conversation (standalone drill generation was removed), so this is always
+     * `"scenario_replay"` on new docs. Legacy docs may carry the old `"drill"`
+     * value or none; nothing reads it anymore, so the stale value stays inert.
      */
-    viewedAt?: string;
+    type?: "scenario_replay";
 
     createdAt: string;
 };

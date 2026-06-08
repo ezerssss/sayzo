@@ -26,7 +26,7 @@ export function ImprovedVersionView({ content }: ImprovedVersionViewProps) {
             <div className="rounded-xl border border-border/70 p-4">
                 <p className="text-sm font-medium">Improved Version</p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                    No improved version is available for this drill yet.
+                    No improved version is available for this replay yet.
                 </p>
             </div>
         );

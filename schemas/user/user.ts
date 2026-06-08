@@ -18,8 +18,8 @@ export type CompanyResearchType = {
     updatedAt: string;
 };
 
-export type OnboardingDrillProgress = {
-    drillType: "self_introduction" | "workplace_scenario" | "challenge_moment";
+export type OnboardingSampleProgress = {
+    sampleType: "self_introduction" | "workplace_scenario" | "challenge_moment";
     transcript: string;
     completedAt: string;
 };
@@ -40,8 +40,8 @@ export type UserProfileType = {
     onboardingStatus?: "idle" | "processing" | "failed" | "completed";
     onboardingError?: string | null;
     onboardingJobUpdatedAt?: string;
-    /** Drill transcripts saved progressively during onboarding. */
-    onboardingDrills?: OnboardingDrillProgress[];
+    /** Voice-sample transcripts saved progressively during onboarding. */
+    onboardingSamples?: OnboardingSampleProgress[];
     employmentStatus: "employed" | "unemployed";
     wantsInterviewPractice: boolean;
 
@@ -58,8 +58,9 @@ export type UserProfileType = {
     companyResearch?: CompanyResearchType | null;
 
     /**
-     * ISO timestamp of the user's first completed drill (any terminal status).
-     * Drives the install-nudge cadence on the feedback page.
+     * Vestigial: ISO timestamp of the user's first completed session. The
+     * install-nudge cadence that read this was removed with standalone drills;
+     * kept for back-compat with existing docs.
      */
     firstDrillCompletedAt?: string | null;
 
@@ -97,16 +98,13 @@ export type UserProfileType = {
  * `onboarding/complete` seeds, with the questionnaire-derived fields set to
  * their "unknown" baselines (the questionnaire overwrites them later).
  *
- * NOTE: these fields ARE read by the analysis/planning pipeline (analyzer.ts,
- * planner.ts, focus-synthesizer.ts). The string fields degrade gracefully there
- * (`|| "(not set)"`). For `employmentStatus`/`wantsInterviewPractice` we use
- * `"employed"`/`false` deliberately because those are the exact defaults the
- * profile inferrer falls back to when the signal is unclear (see
- * profile-context-builder.ts:201-202), so an un-onboarded user reads identically
- * to an onboarded user whose drills gave no interview/employment signal. Drill
- * pre-generation is additionally gated on `onboardingComplete` (see
- * drill-pre-generator.ts), so the planner doesn't run on this empty profile at
- * all until the user onboards.
+ * NOTE: these fields ARE read by the analysis pipeline (analyzer.ts,
+ * capture-replay-planner.ts, focus-synthesizer.ts). The string fields degrade
+ * gracefully there (`|| "(not set)"`). For `employmentStatus`/
+ * `wantsInterviewPractice` we use `"employed"`/`false` deliberately because
+ * those are the exact defaults the profile inferrer falls back to when the
+ * signal is unclear, so an un-onboarded user reads identically to an onboarded
+ * user whose samples gave no interview/employment signal.
  *
  * Credit counters are deliberately UNSET so the defaults in
  * `lib/credits/server.ts` apply (used→0, limit→DEFAULT_FREE_CREDIT_LIMIT,

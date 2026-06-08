@@ -26,7 +26,7 @@ function formatRelativeDate(iso: string): string {
 
 function evidenceHref(evidence: FocusEvidence): string {
     if (evidence.source === "session") {
-        return `/app/drills/${evidence.sourceId}`;
+        return `/app/replays/${evidence.sourceId}`;
     }
     return `/app/conversations/${evidence.sourceId}`;
 }
@@ -124,7 +124,7 @@ export function FocusThemeCard({ theme }: { theme: FocusTheme }) {
                             >
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase">
-                                        {evidence.source === "session" ? "Drill" : "Capture"}
+                                        {evidence.source === "session" ? "Replay" : "Conversation"}
                                     </span>
                                     <span className="truncate font-medium text-foreground/70 group-hover/item:text-foreground">
                                         {evidence.sourceTitle}

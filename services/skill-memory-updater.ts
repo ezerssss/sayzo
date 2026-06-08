@@ -7,8 +7,14 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { ItemAnalysis, SessionFeedbackType } from "@/schemas";
-import { llmTrackedPatternSchema } from "@/schemas";
-import type { LearnerModel, TrackedPattern } from "@/schemas";
+import {
+    FirestoreCollections,
+    hasSessionFeedbackContent,
+    llmTrackedPatternSchema,
+} from "@/schemas";
+import type { LearnerModel, SessionType, TrackedPattern } from "@/schemas";
+import { getAdminFirestore } from "@/lib/firebase/admin";
+import { learnerModelDoc } from "@/lib/learner-model/store";
 import { mergeTrackedPatterns } from "@/lib/learner-model/tracked-patterns";
 import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
@@ -150,4 +156,84 @@ export async function updateSkillMemoryFromLatestSession(
             new Date().toISOString(),
         ),
     };
+}
+
+/**
+ * Refresh the learner model's skill fields + tracked habits from the latest
+ * completed session, then merge-write only those fields back. Idempotent:
+ * guards on the `lastProcessedSessionId` cursor and on the session having
+ * usable feedback content, so re-running for the same session is a no-op.
+ *
+ * Re-homed from the deleted `services/drill-pre-generator.ts`. Standalone
+ * drills are gone, so `/api/sessions/complete` calls this directly after a
+ * replay's feedback persists — otherwise completed replays would stop updating
+ * skill memory. Pass the just-completed session as `preloadedLatestSession` to
+ * skip an extra Firestore read.
+ */
+export async function refreshSkillMemoryFromLatestSession(
+    db: ReturnType<typeof getAdminFirestore>,
+    uid: string,
+    current: LearnerModel,
+    preloadedLatestSession?: SessionType,
+): Promise<LearnerModel> {
+    let latestSession = preloadedLatestSession;
+    if (latestSession == null) {
+        const latestSessionSnap = await db
+            .collection(FirestoreCollections.sessions.path)
+            .where("uid", "==", uid)
+            .orderBy("createdAt", "desc")
+            .limit(1)
+            .get();
+        if (latestSessionSnap.empty) return current;
+        latestSession = latestSessionSnap.docs[0]?.data() as SessionType;
+    }
+    if (!latestSession?.id) return current;
+    if (current.lastProcessedSessionId === latestSession.id) return current;
+    const latestAnalysis = latestSession?.analysis;
+    const latestFeedback = latestSession?.feedback;
+    if (latestAnalysis == null || latestFeedback == null) return current;
+    if (!hasSessionFeedbackContent(latestFeedback)) return current;
+
+    const updatedFields = await updateSkillMemoryFromLatestSession({
+        skillMemory: {
+            strengths: current.strengths,
+            weaknesses: current.weaknesses,
+            masteredFocus: current.masteredFocus,
+            reinforcementFocus: current.reinforcementFocus,
+        },
+        currentTrackedPatterns: current.trackedPatterns,
+        sourceId: latestSession.id,
+        latestSession: {
+            completionStatus: latestSession?.completionStatus,
+            completionReason: latestSession?.completionReason ?? null,
+            analysis: latestAnalysis,
+            feedback: latestFeedback,
+            skillTarget: latestSession?.plan?.skillTarget ?? "",
+        },
+    });
+
+    const now = new Date().toISOString();
+    const updatedModel: LearnerModel = {
+        ...current,
+        ...updatedFields,
+        lastProcessedSessionId: latestSession.id,
+        updatedAt: now,
+    };
+
+    // Merge only the skill fields + tracked patterns back into the learner
+    // model doc so we don't clobber context / cursors written by other steps.
+    await learnerModelDoc(db, uid).set(
+        {
+            trackedPatterns: updatedModel.trackedPatterns,
+            strengths: updatedModel.strengths,
+            weaknesses: updatedModel.weaknesses,
+            masteredFocus: updatedModel.masteredFocus,
+            reinforcementFocus: updatedModel.reinforcementFocus,
+            lastProcessedSessionId: updatedModel.lastProcessedSessionId,
+            updatedAt: now,
+        },
+        { merge: true },
+    );
+
+    return updatedModel;
 }

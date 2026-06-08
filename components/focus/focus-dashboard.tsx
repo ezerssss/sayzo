@@ -33,10 +33,8 @@ function formatRelativeTime(iso: string): string {
 
 export function FocusDashboard({
     uid,
-    onStartDrill,
 }: {
     uid: string | undefined;
-    onStartDrill?: () => void;
 }) {
     const { insights, loading, refreshing, error, refresh } =
         useFocusInsights(uid);
@@ -54,8 +52,8 @@ export function FocusDashboard({
                         Focus
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Where to put your attention — built from every drill and
-                        capture so far.
+                        Where to put your attention, built from every
+                        conversation and replay so far.
                     </p>
                 </div>
                 <Button
@@ -63,7 +61,7 @@ export function FocusDashboard({
                     size="sm"
                     onClick={() => void refresh()}
                     disabled={refreshing || !uid}
-                    title="Rebuild from your latest drills and captures"
+                    title="Rebuild from your latest conversations and replays"
                 >
                     {refreshing ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -85,7 +83,7 @@ export function FocusDashboard({
             ) : !hasInsights ? (
                 <FirstRunState refreshing={refreshing} />
             ) : isEmpty ? (
-                <InsufficientDataState onStartDrill={onStartDrill} />
+                <InsufficientDataState />
             ) : (
                 <>
                     {insights?.overview?.trim() ? (
@@ -138,7 +136,7 @@ export function FocusDashboard({
                                                     href={
                                                         win.lastSeen.source ===
                                                         "session"
-                                                            ? `/app/drills/${win.lastSeen.sourceId}`
+                                                            ? `/app/replays/${win.lastSeen.sourceId}`
                                                             : `/app/conversations/${win.lastSeen.sourceId}`
                                                     }
                                                     className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -146,8 +144,8 @@ export function FocusDashboard({
                                                     <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase">
                                                         {win.lastSeen.source ===
                                                         "session"
-                                                            ? "Drill"
-                                                            : "Capture"}
+                                                            ? "Replay"
+                                                            : "Conversation"}
                                                     </span>
                                                     <span className="truncate">
                                                         Last seen in &ldquo;
@@ -168,10 +166,11 @@ export function FocusDashboard({
 
                     {insights ? (
                         <p className="pt-2 text-center text-xs text-muted-foreground/80">
-                            Built from {insights.sessionsConsidered} drill
+                            Built from {insights.sessionsConsidered} replay
                             {insights.sessionsConsidered === 1
                                 ? ""
-                                : "s"} and {insights.capturesConsidered} capture
+                                : "s"} and {insights.capturesConsidered}{" "}
+                            conversation
                             {insights.capturesConsidered === 1 ? "" : "s"} ·
                             Updated {formatRelativeTime(insights.updatedAt)}
                         </p>
@@ -210,17 +209,13 @@ function FirstRunState({ refreshing }: { refreshing: boolean }) {
             <p className="mt-1 text-xs text-muted-foreground">
                 {refreshing
                     ? "This can take up to a minute the first time."
-                    : "Give it a moment — this rebuilds from your drills and captures."}
+                    : "Give it a moment. This rebuilds from your conversations and replays."}
             </p>
         </div>
     );
 }
 
-function InsufficientDataState({
-    onStartDrill,
-}: {
-    onStartDrill?: () => void;
-}) {
+function InsufficientDataState() {
     return (
         <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 p-8 text-center">
             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border/60">
@@ -228,23 +223,17 @@ function InsufficientDataState({
             </div>
             <p className="mt-4 text-sm font-medium">Not enough to go on yet</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-                A few more drills or a real conversation capture and we&apos;ll
-                surface the patterns that are actually costing you — plus
-                what&apos;s improving.
+                A few more conversations and we&apos;ll surface the patterns
+                that are actually costing you, plus what&apos;s improving.
             </p>
             <div className="mt-4 flex items-center justify-center gap-2">
-                {onStartDrill ? (
-                    <Button size="sm" onClick={onStartDrill}>
-                        Start a drill
-                    </Button>
-                ) : null}
                 <Link
                     href="/install"
                     className={cn(
                         buttonVariants({ variant: "outline", size: "sm" }),
                     )}
                 >
-                    Install capture companion
+                    Install the companion
                 </Link>
             </div>
         </div>

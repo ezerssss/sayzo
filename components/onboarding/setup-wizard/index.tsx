@@ -7,11 +7,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InstallPanel } from "@/components/install/install-panel";
 import { MobileBanner } from "@/components/mobile/mobile-banner";
 import {
-    OnboardingDrillStep,
-    type OnboardingDrillResult,
-} from "@/components/onboarding/setup-wizard/onboarding-drill-step";
+    OnboardingSampleStep,
+    type OnboardingSampleResult,
+} from "@/components/onboarding/setup-wizard/onboarding-sample-step";
 import {
-    ONBOARDING_DRILLS,
+    ONBOARDING_SAMPLES,
     SETUP_WIZARD_STEP_ORDER,
     type SetupWizardStep,
 } from "@/components/onboarding/setup-wizard/steps";
@@ -23,47 +23,47 @@ import {
     getKyErrorMessage,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
-import type { OnboardingDrillProgress, UserProfileType } from "@/schemas";
+import type { OnboardingSampleProgress, UserProfileType } from "@/schemas";
 
 interface PropsInterface {
     uid: string;
     onBack?: () => void;
-    /** Previously saved drill transcripts from Firestore, used to resume. */
-    savedDrills?: OnboardingDrillProgress[];
+    /** Previously saved voice-sample transcripts from Firestore, used to resume. */
+    savedSamples?: OnboardingSampleProgress[];
 }
 
 /**
- * Compute the initial wizard step based on which drills are already saved.
+ * Compute the initial wizard step based on which samples are already saved.
  */
 function computeResumeStep(
-    saved: OnboardingDrillProgress[] | undefined,
+    saved: OnboardingSampleProgress[] | undefined,
 ): SetupWizardStep {
-    const completedTypes = new Set(saved?.map((d) => d.drillType) ?? []);
-    for (const drill of ONBOARDING_DRILLS) {
-        if (!completedTypes.has(drill.drillType)) {
-            return drill.step;
+    const completedTypes = new Set(saved?.map((s) => s.sampleType) ?? []);
+    for (const sample of ONBOARDING_SAMPLES) {
+        if (!completedTypes.has(sample.sampleType)) {
+            return sample.step;
         }
     }
-    // All drills complete — land on the last one; finish is one click away.
-    const last = ONBOARDING_DRILLS[ONBOARDING_DRILLS.length - 1];
+    // All samples complete — land on the last one; finish is one click away.
+    const last = ONBOARDING_SAMPLES[ONBOARDING_SAMPLES.length - 1];
     return last!.step;
 }
 
 export function SetupWizard(props: Readonly<PropsInterface>) {
-    const { uid, onBack, savedDrills } = props;
+    const { uid, onBack, savedSamples } = props;
     const [step, setStep] = useState<SetupWizardStep>(() =>
-        computeResumeStep(savedDrills),
+        computeResumeStep(savedSamples),
     );
-    const drillResults = useRef<Map<string, OnboardingDrillResult>>(new Map());
+    const sampleResults = useRef<Map<string, OnboardingSampleResult>>(new Map());
     const savedTranscripts = useRef<Map<string, string>>(new Map());
 
     useEffect(() => {
-        if (savedDrills) {
-            for (const d of savedDrills) {
-                savedTranscripts.current.set(d.drillType, d.transcript);
+        if (savedSamples) {
+            for (const s of savedSamples) {
+                savedTranscripts.current.set(s.sampleType, s.transcript);
             }
         }
-    }, [savedDrills]);
+    }, [savedSamples]);
 
     const onboardingStartFiredRef = useRef(false);
     const onboardingStartedAtRef = useRef<number | null>(null);
@@ -84,7 +84,6 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         "Processing your speaking samples",
         "Building your professional profile",
         "Analyzing communication baseline",
-        "Generating your first personalized drill",
     ] as const;
     const [loadingStageIndex, setLoadingStageIndex] = useState(0);
     const [onboardingStatus, setOnboardingStatus] = useState<
@@ -115,21 +114,21 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         }
     }, [step, onBack]);
 
-    const getTranscript = useCallback((drillType: string): string => {
-        const result = drillResults.current.get(drillType);
+    const getTranscript = useCallback((sampleType: string): string => {
+        const result = sampleResults.current.get(sampleType);
         if (result) return result.transcript.trim();
-        return savedTranscripts.current.get(drillType)?.trim() ?? "";
+        return savedTranscripts.current.get(sampleType)?.trim() ?? "";
     }, []);
 
-    const saveDrillToServer = useCallback(
-        async (drillType: string, transcript: string) => {
+    const saveSampleToServer = useCallback(
+        async (sampleType: string, transcript: string) => {
             try {
-                await api.post("/api/onboarding/save-drill", {
-                    json: { drillType, transcript },
+                await api.post("/api/onboarding/save-sample", {
+                    json: { sampleType, transcript },
                     timeout: 15_000,
                 });
             } catch {
-                console.warn(`Failed to persist drill ${drillType}`);
+                console.warn(`Failed to persist sample ${sampleType}`);
             }
         },
         [],
@@ -143,18 +142,20 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         try {
             const fd = new FormData();
 
-            const drills = ONBOARDING_DRILLS.map((drill) => ({
-                drillType: drill.drillType,
-                transcript: getTranscript(drill.drillType),
+            // The /complete route + profile builder still speak the internal
+            // "drills" wire shape; map our sampleType onto it at the boundary.
+            const drills = ONBOARDING_SAMPLES.map((sample) => ({
+                drillType: sample.sampleType,
+                transcript: getTranscript(sample.sampleType),
             }));
 
             fd.append("payload", JSON.stringify({ drills }));
 
-            for (const drill of ONBOARDING_DRILLS) {
-                const result = drillResults.current.get(drill.drillType);
+            for (const sample of ONBOARDING_SAMPLES) {
+                const result = sampleResults.current.get(sample.sampleType);
                 if (!result) continue;
                 fd.append(
-                    `audio_${drill.drillType}`,
+                    `audio_${sample.sampleType}`,
                     new File([result.audio.slice()], result.filename, {
                         type: result.mimeType,
                     }),
@@ -167,7 +168,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             });
             if (!onboardingCompletedFiredRef.current) {
                 onboardingCompletedFiredRef.current = true;
-                const drillCount = drills.filter((d) =>
+                const sampleCount = drills.filter((d) =>
                     d.transcript.trim(),
                 ).length;
                 const startedAt = onboardingStartedAtRef.current;
@@ -176,7 +177,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                         ? null
                         : Math.round((Date.now() - startedAt) / 1000);
                 track("onboarding_completed", {
-                    drill_count: drillCount,
+                    drill_count: sampleCount,
                     total_duration_sec: totalDurationSec,
                 });
             }
@@ -197,35 +198,35 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         }
     }, [getTranscript]);
 
-    const handleDrillComplete = useCallback(
+    const handleSampleComplete = useCallback(
         (
-            drillType: string,
-            result: OnboardingDrillResult,
-            isLastDrill: boolean,
+            sampleType: string,
+            result: OnboardingSampleResult,
+            isLastSample: boolean,
         ) => {
-            drillResults.current.set(drillType, result);
-            savedTranscripts.current.set(drillType, result.transcript);
-            void saveDrillToServer(drillType, result.transcript);
+            sampleResults.current.set(sampleType, result);
+            savedTranscripts.current.set(sampleType, result.transcript);
+            void saveSampleToServer(sampleType, result.transcript);
 
-            const drillIndex = ONBOARDING_DRILLS.findIndex(
-                (d) => d.drillType === drillType,
+            const sampleIndex = ONBOARDING_SAMPLES.findIndex(
+                (s) => s.sampleType === sampleType,
             );
             track("onboarding_drill_submitted", {
-                drill_index: drillIndex >= 0 ? drillIndex + 1 : 0,
+                drill_index: sampleIndex >= 0 ? sampleIndex + 1 : 0,
             });
 
-            if (isLastDrill) {
+            if (isLastSample) {
                 void finish();
             } else {
                 goNext();
             }
         },
-        [goNext, finish, saveDrillToServer],
+        [goNext, finish, saveSampleToServer],
     );
 
-    const handleDrillSkip = useCallback(
-        (isLastDrill: boolean) => {
-            if (isLastDrill) {
+    const handleSampleSkip = useCallback(
+        (isLastSample: boolean) => {
+            if (isLastSample) {
                 void finish();
             } else {
                 goNext();
@@ -337,8 +338,8 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                     ) : null}
 
                     <InstallPanel
-                        headline="While you wait — install the desktop companion"
-                        subhead="It runs locally and picks up the moments worth coaching on, so your drills stay tuned to real life, not imagined scenarios."
+                        headline="Last step: install Sayzo to start"
+                        subhead="Sayzo runs on your computer and joins your work calls. After each one, you get feedback and can replay the moments worth practicing."
                     />
                 </div>
             </section>
@@ -357,24 +358,24 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                 </div>
 
                 <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
-                    {ONBOARDING_DRILLS.map((drill, i) =>
-                        step === drill.step ? (
-                            <OnboardingDrillStep
-                                key={drill.step}
-                                drill={drill}
-                                drillIndex={i}
+                    {ONBOARDING_SAMPLES.map((sample, i) =>
+                        step === sample.step ? (
+                            <OnboardingSampleStep
+                                key={sample.step}
+                                sample={sample}
+                                sampleIndex={i}
                                 onBack={goPrev}
-                                isLast={i === ONBOARDING_DRILLS.length - 1}
+                                isLast={i === ONBOARDING_SAMPLES.length - 1}
                                 onNext={(result) =>
-                                    handleDrillComplete(
-                                        drill.drillType,
+                                    handleSampleComplete(
+                                        sample.sampleType,
                                         result,
-                                        i === ONBOARDING_DRILLS.length - 1,
+                                        i === ONBOARDING_SAMPLES.length - 1,
                                     )
                                 }
                                 onSkip={() =>
-                                    handleDrillSkip(
-                                        i === ONBOARDING_DRILLS.length - 1,
+                                    handleSampleSkip(
+                                        i === ONBOARDING_SAMPLES.length - 1,
                                     )
                                 }
                             />

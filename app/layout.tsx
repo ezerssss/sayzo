@@ -17,14 +17,31 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Sayzo — An English coach, tuned to you.",
+    metadataBase: new URL(
+        process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://sayzo.app",
+    ),
+    title: {
+        default: "Sayzo: coaching from your real work conversations",
+        template: "%s | Sayzo",
+    },
     description:
-        "Short, personalized speaking drills built from the English you actually use at work. Meetings, demos, interviews, client calls. Hear the difference in weeks.",
+        "Sayzo joins the work calls you choose and coaches your English: feedback after every conversation, and a replay to practice the moments that matter.",
+    applicationName: "Sayzo",
+    robots: { index: true, follow: true },
     openGraph: {
-        title: "Sayzo — An English coach, tuned to you.",
+        title: "Sayzo",
         description:
-            "Short, personalized speaking drills built from the English you actually use at work.",
+            "Coaching from your real work conversations. Feedback after every call, plus a replay to practice.",
+        siteName: "Sayzo",
         type: "website",
+        images: ["/sayzo-logo.png"],
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Sayzo",
+        description:
+            "Coaching from your real work conversations. Feedback after every call, plus a replay to practice.",
+        images: ["/sayzo-logo.png"],
     },
 };
 

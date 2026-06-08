@@ -12,13 +12,13 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
-import type { OnboardingDrillConfig } from "@/components/onboarding/setup-wizard/steps";
+import type { OnboardingSampleConfig } from "@/components/onboarding/setup-wizard/steps";
 import { Button } from "@/components/ui/button";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 
-export type OnboardingDrillResult = {
+export type OnboardingSampleResult = {
     transcript: string;
     audio: Uint8Array;
     mimeType: string;
@@ -34,23 +34,23 @@ function extensionForMime(mime: string): string {
 }
 
 interface PropsInterface {
-    drill: OnboardingDrillConfig;
-    drillIndex: number;
+    sample: OnboardingSampleConfig;
+    sampleIndex: number;
     onBack: () => void;
-    onNext: (result: OnboardingDrillResult) => void;
+    onNext: (result: OnboardingSampleResult) => void;
     onSkip: () => void;
-    /** For the last drill, show "finish" wording on the skip button */
+    /** For the last sample, show "finish" wording on the skip button */
     isLast?: boolean;
 }
 
-export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
-    const { drill, drillIndex, onBack, onNext, onSkip, isLast } = props;
+export function OnboardingSampleStep(props: Readonly<PropsInterface>) {
+    const { sample, sampleIndex, onBack, onNext, onSkip, isLast } = props;
     const { isRecording, stream, start, stop } = useVoiceRecorder();
-    const [secondsLeft, setSecondsLeft] = useState(drill.maxSeconds);
+    const [secondsLeft, setSecondsLeft] = useState(sample.maxSeconds);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [transcribeError, setTranscribeError] = useState<string | null>(null);
     const [pendingResult, setPendingResult] =
-        useState<OnboardingDrillResult | null>(null);
+        useState<OnboardingSampleResult | null>(null);
     const [confirmCountdown, setConfirmCountdown] = useState(CONFIRM_SECONDS);
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -80,7 +80,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                 "file",
                 new File(
                     [result.blob],
-                    `onboarding-${drill.drillType}.${ext}`,
+                    `onboarding-${sample.sampleType}.${ext}`,
                     { type: result.mimeType },
                 ),
             );
@@ -99,7 +99,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                 transcript: text,
                 audio,
                 mimeType: result.mimeType,
-                filename: `onboarding-${drill.drillType}.${ext}`,
+                filename: `onboarding-${sample.sampleType}.${ext}`,
             });
         } catch (e) {
             setTranscribeError(
@@ -108,7 +108,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
         } finally {
             setIsTranscribing(false);
         }
-    }, [clearTick, stop, drill.drillType]);
+    }, [clearTick, stop, sample.sampleType]);
 
     const stopRef = useRef(handleStop);
     useEffect(() => {
@@ -158,16 +158,16 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
     const handleCancel = useCallback(async () => {
         clearTick();
         await stop(); // discard the audio
-        setSecondsLeft(drill.maxSeconds);
-    }, [clearTick, stop, drill.maxSeconds]);
+        setSecondsLeft(sample.maxSeconds);
+    }, [clearTick, stop, sample.maxSeconds]);
 
     const handleRedo = useCallback(async () => {
         setPendingResult(null);
         setConfirmCountdown(CONFIRM_SECONDS);
         setTranscribeError(null);
-        setSecondsLeft(drill.maxSeconds);
+        setSecondsLeft(sample.maxSeconds);
         await start();
-    }, [drill.maxSeconds, start]);
+    }, [sample.maxSeconds, start]);
 
     const handleConfirmContinue = useCallback(() => {
         if (!pendingResult) return;
@@ -184,10 +184,10 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
         <div className="space-y-5">
             <div className="space-y-1">
                 <h2 className="text-lg font-semibold tracking-tight">
-                    {drill.title}
+                    {sample.title}
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                    {drill.prompt}
+                    {sample.prompt}
                 </p>
             </div>
 
@@ -232,8 +232,8 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                 <>
                     <p className="text-xs text-muted-foreground">
                         Sharing more here means a better-tailored plan. You can
-                        skip — missing details fill in from your drills and
-                        captures over time.
+                        skip. Missing details fill in from your conversations
+                        over time.
                     </p>
                     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 py-6">
                         <p
@@ -245,7 +245,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                         <p className="mt-1 text-center text-xs text-muted-foreground">
                             {isRecording
                                 ? "Recording… stops automatically at 0:00"
-                                : drill.helper}
+                                : sample.helper}
                         </p>
                     </div>
                     <LiveWaveform stream={stream} active={isRecording} />
@@ -289,7 +289,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                                 className="gap-2 rounded-full"
                                 disabled={isTranscribing}
                                 onClick={async () => {
-                                    setSecondsLeft(drill.maxSeconds);
+                                    setSecondsLeft(sample.maxSeconds);
                                     await start();
                                 }}
                             >
@@ -309,7 +309,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                     </div>
                     {!isRecording && !isTranscribing ? (
                         <div className="flex justify-center gap-3">
-                            {drillIndex > 0 ? (
+                            {sampleIndex > 0 ? (
                                 <Button
                                     type="button"
                                     variant="ghost"
@@ -328,7 +328,7 @@ export function OnboardingDrillStep(props: Readonly<PropsInterface>) {
                                 className="gap-1 text-muted-foreground hover:text-foreground"
                                 onClick={onSkip}
                             >
-                                {isLast ? "Skip and finish" : "Skip this drill"}
+                                {isLast ? "Skip and finish" : "Skip this sample"}
                             </Button>
                         </div>
                     ) : null}

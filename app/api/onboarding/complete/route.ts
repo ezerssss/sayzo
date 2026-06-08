@@ -3,7 +3,6 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { analyzeSession } from "@/services/analyzer";
 import { enrichCompanyContext } from "@/services/company-context-enricher";
-import { pregenerateNextDrillFor } from "@/services/drill-pre-generator";
 import {
     buildUserProfileFieldsFromDrills,
     type OnboardingDrillTranscript,
@@ -113,7 +112,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Stay in "processing" until pregen writes the pending drill — the
+        // Stay in "processing" through the profile + baseline LLM work — the
         // AppShell redirect from /app/onboarding → /app fires on these flags.
         const profile: UserProfileType = {
             uid,
@@ -282,24 +281,10 @@ export async function POST(request: NextRequest) {
             await learnerModelRef.set(learnerModel);
         }
 
-        // Pre-generate the user's first drill so the home page lands on
-        // "Today's drill is ready" instead of an empty state. Uses the same
-        // pre-generator as `/api/sessions/complete` so the priority order
-        // (capture-derived → regular planner) and 60s constraint are
-        // consistent. Force-fresh because the user has no pending drill yet.
-        const preGen = await pregenerateNextDrillFor(uid, {
-            forceFresh: true,
-            // Pre-gen runs while onboardingComplete is still false (we flip it
-            // only after the pending drill is written), so bypass the gate.
-            allowUnonboarded: true,
-        });
-        if (!preGen.ok && preGen.reason === "error") {
-            console.error(
-                "[onboarding/complete] initial drill pre-generation failed",
-                preGen.message,
-            );
-        }
-
+        // Onboarding no longer generates a drill — standalone drills were
+        // removed. We seed the baseline profile + learner model above, then
+        // flip onboardingComplete so the app can show the conversations home
+        // (which prompts installing the desktop companion to start capturing).
         const completionIso = new Date().toISOString();
         await userRef.set(
             {

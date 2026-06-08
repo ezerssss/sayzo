@@ -30,7 +30,7 @@ export function PrincipleCard({ shape }: Readonly<Props>) {
                     {shapeText ? (
                         <div className="mt-3 border-t border-sky-200/60 pt-3 dark:border-sky-900/40">
                             <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-800/70 dark:text-sky-300/70">
-                                Shape for this drill
+                                Shape for this replay
                             </p>
                             <p className="mt-1 text-sm leading-relaxed text-foreground">
                                 {shapeText}

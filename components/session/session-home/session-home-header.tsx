@@ -12,10 +12,10 @@ export function SessionHomeHeader() {
                     className="mb-1 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                     <ArrowLeft className="h-3.5 w-3.5" />
-                    My Drills
+                    My Conversations
                 </Link>
                 <h1 className="text-2xl font-semibold tracking-tight">
-                    Your drill
+                    Your replay
                 </h1>
             </div>
             <CreditsIndicator />

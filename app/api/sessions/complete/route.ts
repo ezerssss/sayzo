@@ -18,8 +18,8 @@ import type {
 } from "@/schemas";
 import { reconcileMoments } from "@/lib/transcripts/anchor-resolver";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
-import { firePregenInBackground } from "@/services/drill-pre-generator";
 import { mergeDrillNotesFromSession } from "@/services/learner-context-updater";
+import { refreshSkillMemoryFromLatestSession } from "@/services/skill-memory-updater";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 import { Output, generateText, zodSchema } from "ai";
 import { randomUUID } from "node:crypto";
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 {
                     error: "already_processing",
-                    message: "Analysis is already running for this drill.",
+                    message: "Analysis is already running for this replay.",
                 },
                 { status: 409 },
             );
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 {
                     error: "invalid_state",
-                    message: `Cannot analyze a drill with status "${session.completionStatus}".`,
+                    message: `Cannot analyze a replay with status "${session.completionStatus}".`,
                 },
                 { status: 409 },
             );
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json(
                     {
                         error: "already_processing",
-                        message: "Analysis is already running for this drill.",
+                        message: "Analysis is already running for this replay.",
                     },
                     { status: 409 },
                 );
@@ -662,46 +662,35 @@ ${transcript}`,
             );
         }
 
-        // Track first-drill milestone for the install nudge cadence (every
-        // drill in the first 7 days, then weekly until the desktop helper is
-        // installed). Only terminal statuses count.
-        try {
-            const userRef = db
-                .collection(FirestoreCollections.users.path)
-                .doc(uid);
-            const freshUserSnap = await userRef.get();
-            const freshProfile = freshUserSnap.data() as
-                | UserProfileType
-                | undefined;
-            if (freshProfile && !freshProfile.firstDrillCompletedAt) {
-                await userRef.set(
-                    {
-                        firstDrillCompletedAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    },
-                    { merge: true },
-                );
-            }
-        } catch (firstDrillError) {
+        // Update skill memory (strengths / weaknesses / focus + tracked
+        // habits) from this completed replay so the learner model keeps
+        // improving. This used to run as a side effect of next-drill
+        // pre-generation; standalone drills are gone, so we trigger it directly
+        // here. Fire-and-forget with a logged catch so it never blocks the
+        // response; internally idempotent (guards on the lastProcessedSessionId
+        // cursor + feedback content, so the off-task needs_retry path no-ops).
+        // Cast mirrors the original `.data() as SessionType` read this refresh
+        // used to do: the off-task skip path stores a deliberately degraded
+        // `analysis` (empty dimensions), but the refresh guards on feedback
+        // content and never reads it in that case.
+        const completedSession = {
+            ...session,
+            analysis,
+            feedback,
+            completionStatus,
+            completionReason,
+        } as SessionType;
+        void refreshSkillMemoryFromLatestSession(
+            db,
+            uid,
+            model,
+            completedSession,
+        ).catch((skillMemoryError) => {
             console.error(
-                "[app/api/sessions/complete] firstDrillCompletedAt write failed",
-                firstDrillError,
+                "[app/api/sessions/complete] skill-memory refresh failed",
+                skillMemoryError,
             );
-        }
-
-        // Pre-generate the user's next drill so the home page is never blank.
-        // needs_retry uses dailyRefresh so the planner's needs_retry block
-        // is bypassed and a fresh drill is created (the needs_retry doc
-        // stays tappable from past sessions for voluntary retry).
-        if (completionStatus === "passed") {
-            firePregenInBackground(uid, {}, "app/api/sessions/complete");
-        } else if (completionStatus === "needs_retry") {
-            firePregenInBackground(
-                uid,
-                { dailyRefresh: true },
-                "app/api/sessions/complete needs_retry",
-            );
-        }
+        });
 
         return NextResponse.json({
             ok: true,

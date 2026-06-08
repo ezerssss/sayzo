@@ -52,7 +52,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Drills + scenario-replay sessions. Owner identified by `uid` field.
+    // Capture-replay sessions (legacy drill docs may remain). Owner identified by `uid` field.
     // Client queries always include `where("uid", "==", auth.uid)`.
     match /sessions/{sessionId} {
       allow read: if ownsResource() || isAdmin();

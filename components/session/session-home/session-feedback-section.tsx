@@ -2,7 +2,6 @@ import { CalloutCard } from "@/components/coaching/callout-card";
 import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
 import { PrincipleCard } from "@/components/coaching/principle-card";
 import { TopFixesCard } from "@/components/coaching/top-fixes-card";
-import { PostDrillInstallCard } from "@/components/install/post-drill-install-card";
 import { DrillTranscriptView } from "@/components/session/drill-transcript-view";
 import { FeedbackChat } from "@/components/session/feedback-chat";
 import { ImprovedVersionView } from "@/components/session/improved-version-view";
@@ -27,10 +26,6 @@ type Props = {
     onSeekToSecond: (seconds: number) => void;
     sessionId?: string;
     uid?: string;
-    /** For the install nudge: 0 means desktop helper not installed yet. */
-    captureCount: number;
-    firstDrillCompletedAt?: string | null;
-    drillCreatedAt?: string | null;
 };
 
 function buildChatContext(analysis: ItemAnalysis | null): string {
@@ -48,7 +43,7 @@ function buildChatContext(analysis: ItemAnalysis | null): string {
         if (principle || shape) {
             const parts: string[] = ["# Principle"];
             if (principle) parts.push(principle);
-            if (shape) parts.push(`Shape for this drill: ${shape}`);
+            if (shape) parts.push(`Shape for this replay: ${shape}`);
             lines.push(parts.join("\n"));
         }
     }
@@ -80,9 +75,6 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
         onSeekToSecond,
         sessionId,
         uid,
-        captureCount,
-        firstDrillCompletedAt,
-        drillCreatedAt,
     } = props;
 
     if (!shouldShowResults) return null;
@@ -91,7 +83,7 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
         return (
             <div className="mt-6 space-y-4 rounded-xl border border-border/70 p-4">
                 <div>
-                    <p className="text-sm font-medium">Skipped drill</p>
+                    <p className="text-sm font-medium">Skipped replay</p>
                     <p className="mt-2 text-sm text-muted-foreground">
                         No coaching was generated for this one.
                     </p>
@@ -123,7 +115,7 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
             {requiresRetry && completionReason === VOLUNTARY_RETRY_REASON ? (
                 <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 dark:border-sky-900/40 dark:bg-sky-950/20">
                     <p className="text-sm font-medium">
-                        Re-recording this drill
+                        Re-recording this replay
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
                         Listen to your previous take below, then tap Try again
@@ -228,11 +220,6 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                         ) : null}
                     </>
                 }
-            />
-            <PostDrillInstallCard
-                captureCount={captureCount}
-                firstDrillCompletedAt={firstDrillCompletedAt}
-                drillCreatedAt={drillCreatedAt}
             />
         </div>
     );

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
-    title: "Privacy Policy — Sayzo",
+    title: "Privacy Policy",
     description:
         "How Sayzo collects, uses, stores, and protects your information. Local-first by design.",
 };
@@ -67,12 +67,12 @@ export default function PrivacyPage() {
                         <li>
                             Heavy processing happens on your own device
                             first. Only the moments worth coaching on are
-                            sent to Sayzo — not everything you say, and
+                            sent to Sayzo, not everything you say, and
                             never without your account signed in.
                         </li>
                         <li>
                             You can review, export, or delete any
-                            conversation or drill at any time. Deletion is
+                            conversation or replay at any time. Deletion is
                             permanent.
                         </li>
                         <li>
@@ -104,13 +104,13 @@ export default function PrivacyPage() {
                     <p>
                         Sayzo is an English speaking coach. It is designed
                         to improve how you speak English in real
-                        situations — meetings, demos, interviews, client
-                        calls — by building short, personalized speaking
-                        drills tailored to your patterns. To do that, Sayzo
-                        works with recordings and transcripts of your
-                        speaking: both the drills you complete inside the
-                        app and, optionally, conversations surfaced by the
-                        Sayzo desktop companion you choose to install.
+                        situations (meetings, demos, interviews, client
+                        calls) by coaching you on your actual conversations.
+                        To do that, Sayzo works with recordings and
+                        transcripts of your speaking: the conversations
+                        surfaced by the Sayzo desktop companion you choose to
+                        install, the replays you record to practice them, and
+                        a few short voice samples from onboarding.
                     </p>
                 </Section>
 
@@ -131,19 +131,18 @@ export default function PrivacyPage() {
                             about your role, employer or target employer,
                             industry, goals, motivations, and what feels
                             hardest about speaking English. You&apos;ll
-                            also record a short voice introduction and a
-                            few speaking drills. We use these to build the
-                            profile that personalizes your coaching.
+                            also record a few short speaking samples. We use
+                            these to build the profile that personalizes your
+                            coaching.
                         </p>
                     </SubSection>
 
-                    <SubSection title="Drill recordings and transcripts">
+                    <SubSection title="Recordings you make in the app">
                         <p>
-                            When you complete a drill in the webapp, we
-                            receive the audio of your response, a
-                            transcript of it, and the coaching analysis
-                            our systems generate from it. This is how
-                            coaching happens.
+                            When you record a replay or an onboarding sample
+                            in the webapp, we receive the audio, a transcript
+                            of it, and the coaching analysis our systems
+                            generate from it. This is how coaching happens.
                         </p>
                     </SubSection>
 
@@ -176,16 +175,15 @@ export default function PrivacyPage() {
                                 includes the audio, a transcript with
                                 speaker labels, and metadata like duration
                                 and timestamps. Uploaded conversations
-                                appear in the &quot;Captures&quot;
+                                appear in the &quot;Conversations&quot;
                                 section of the webapp, where you can review
-                                them, replay them, delete them, or turn
-                                them into a practice drill.
+                                them, delete them, or replay them to practice.
                             </li>
                             <li>
                                 Your voice is enrolled once during setup
                                 so the companion can distinguish your
                                 speech from other speakers. Coaching is
-                                always focused on you — not on the other
+                                always focused on you, not on the other
                                 people you speak with.
                             </li>
                         </ul>
@@ -204,9 +202,9 @@ export default function PrivacyPage() {
                             produces coaching artifacts: summaries,
                             feedback, native-speaker rewrites of what you
                             said, filler-word counts, speaking-pace
-                            metrics, vocabulary metrics, and voice-tone
-                            readings. This coaching data is stored on your
-                            account and used to plan your next drills.
+                            metrics, and vocabulary metrics. This coaching
+                            data is stored on your account and used to coach
+                            you and ground your replays.
                         </p>
                     </SubSection>
 
@@ -217,9 +215,9 @@ export default function PrivacyPage() {
                             your device type, browser, operating system,
                             IP address (used to secure your account and
                             provide the Service), and basic usage events
-                            such as when a drill was completed or a
-                            session was skipped. We do not use
-                            third-party advertising trackers.
+                            such as when a replay was completed or
+                            skipped. We do not use third-party advertising
+                            trackers.
                         </p>
                     </SubSection>
                 </Section>
@@ -228,17 +226,17 @@ export default function PrivacyPage() {
                     <p>We use your information to:</p>
                     <ul className="mt-3 space-y-2 pl-5 [list-style:disc]">
                         <li>
-                            Provide the Service — run your drills,
-                            generate coaching, keep you signed in, and
-                            connect the desktop companion to your account.
+                            Provide the Service: run your replays, generate
+                            coaching, keep you signed in, and connect the
+                            desktop companion to your account.
                         </li>
                         <li>
-                            Personalize your coaching — build your profile
+                            Personalize your coaching: build your profile
                             from what you share, identify the patterns
-                            worth working on, and plan drills around them.
+                            worth working on, and coach you on them.
                         </li>
                         <li>
-                            Keep the Service working — diagnose bugs,
+                            Keep the Service working: diagnose bugs,
                             prevent abuse, and monitor reliability.
                         </li>
                         <li>
@@ -302,9 +300,9 @@ export default function PrivacyPage() {
                                         Text-to-speech provider
                                     </td>
                                     <td className="px-4 py-3 align-top text-muted-foreground">
-                                        Generates spoken examples when a
-                                        drill includes a native-speaker
-                                        audio version.
+                                        Generates spoken examples of a
+                                        native-speaker version of what you
+                                        said.
                                     </td>
                                 </tr>
                                 <tr>
@@ -347,12 +345,12 @@ export default function PrivacyPage() {
                 <Section title="7. How long we keep it">
                     <p>
                         We keep your account data for as long as your
-                        account is active. Drills, conversations, audio
+                        account is active. Conversations, replays, audio
                         files, and coaching artifacts are retained so you
                         can review your progress over time.
                     </p>
                     <p>
-                        When you delete a drill or a conversation inside
+                        When you delete a conversation or a replay inside
                         the Service, we permanently delete the audio file
                         and associated transcript and analysis from our
                         systems. This action cannot be undone.
@@ -370,8 +368,8 @@ export default function PrivacyPage() {
                     <p>You can, at any time:</p>
                     <ul className="mt-3 space-y-2 pl-5 [list-style:disc]">
                         <li>
-                            Review and delete any individual drill or
-                            conversation inside the Service.
+                            Review and delete any individual conversation
+                            or replay inside the Service.
                         </li>
                         <li>
                             Edit your profile information from the review
@@ -395,8 +393,8 @@ export default function PrivacyPage() {
                         Depending on where you live, you may have
                         additional rights under data-protection laws such
                         as the GDPR (European Economic Area, United
-                        Kingdom, Switzerland) or the CCPA/CPRA (California)
-                        — including the right to access, correct, or
+                        Kingdom, Switzerland) or the CCPA/CPRA (California),
+                        including the right to access, correct, or
                         object to certain processing of your personal
                         information, and the right not to be discriminated
                         against for exercising those rights. To exercise

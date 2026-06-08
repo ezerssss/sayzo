@@ -6,7 +6,7 @@ import { ArrowLeft, Download } from "lucide-react";
 import { InstallFlow } from "@/components/install/install-flow";
 
 export const metadata: Metadata = {
-    title: "Install the desktop companion — Sayzo",
+    title: "Install the desktop companion",
     description:
         "Download the Sayzo desktop companion for Windows or macOS. Clickable installer, no terminal required.",
 };
@@ -49,10 +49,11 @@ export default function InstallPage() {
                         Bring Sayzo into your real meetings.
                     </h1>
                     <p className="text-sm leading-relaxed text-muted-foreground">
-                        Drills in the browser show you what Sayzo feels like.
-                        The desktop companion is what turns it into a coach
-                        that knows your actual work — the standups you lead,
-                        the client calls you ran this week, the 1:1 that
+                        Sayzo joins the work calls you choose and, after each
+                        one, shows you how it went, then lets you replay the
+                        moments worth practicing. It works best on desktop,
+                        where it can sit in on the standups you lead, the
+                        client calls you ran this week, and the 1:1 that
                         didn&apos;t go how you wanted.
                     </p>
                 </div>
@@ -69,10 +70,10 @@ export default function InstallPage() {
                             />
                             <span>
                                 <span className="text-foreground">
-                                    Drills tuned to your actual week.
+                                    Coaching tuned to your actual week.
                                 </span>{" "}
-                                Each new drill comes from the meetings you
-                                just had — not a generic curriculum.
+                                Your feedback comes from the conversations you
+                                just had, not a generic curriculum.
                             </span>
                         </li>
                         <li className="flex gap-2.5">
@@ -86,7 +87,7 @@ export default function InstallPage() {
                                 </span>{" "}
                                 The moment you hesitated, the point that
                                 didn&apos;t land, the answer you wish you had
-                                ready — surfaced while it&apos;s still fresh.
+                                ready, surfaced while it&apos;s still fresh.
                             </span>
                         </li>
                         <li className="flex gap-2.5">
@@ -120,7 +121,7 @@ export default function InstallPage() {
                         </h2>
                         <p className="mt-2">
                             Remove it the same way you&apos;d remove any other
-                            app — through your apps list in Windows Settings,
+                            app, through your apps list in Windows Settings,
                             or by dragging it from Applications to the Trash on
                             macOS.
                         </p>
@@ -131,10 +132,9 @@ export default function InstallPage() {
                             Not ready yet?
                         </h2>
                         <p className="mt-2">
-                            You can use Sayzo&apos;s drills on the web without
-                            the companion. You&apos;ll just be practicing with
-                            generated scenarios instead of the ones from your
-                            actual week.{" "}
+                            Sayzo needs the desktop companion to bring your
+                            real conversations in. You can still open the web
+                            app to sign in and look around.{" "}
                             <Link
                                 href="/app"
                                 className="text-foreground underline-offset-4 hover:underline"

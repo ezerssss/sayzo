@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronDown, Mic, RotateCcw, Square } from "lucide-react";
+import { ChevronDown, Mic, RotateCcw, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CreditsBanner } from "@/components/credits/credits-banner";
@@ -8,10 +8,7 @@ import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { AudioPlayer } from "@/components/session/audio-player";
 import { Button } from "@/components/ui/button";
-import { useAllCaptures } from "@/hooks/use-all-captures";
-import { useLatestSession } from "@/hooks/use-latest-session";
 import { useSession } from "@/hooks/use-session";
-import { useUserProfileExists } from "@/hooks/use-user-profile-exists";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
 import { track } from "@/lib/analytics/client";
@@ -57,7 +54,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     const [drillState, setDrillState] = useState<DrillState>("idle");
     const [seconds, setSeconds] = useState(DEFAULT_MAX_SECONDS);
     const [drillError, setDrillError] = useState<string | null>(null);
-    const [isCreatingDrill, setIsCreatingDrill] = useState(false);
     const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(
         null,
     );
@@ -68,16 +64,11 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const { isRecording, stream, start, stop } = useVoiceRecorder();
 
-    const latestHook = useLatestSession(sessionId ? undefined : uid);
-    const specificHook = useSession(sessionId);
     const {
         session,
         loading: loadingSession,
         error: latestSessionError,
-    } = sessionId ? specificHook : latestHook;
-
-    const { captures } = useAllCaptures(uid);
-    const { firstDrillCompletedAt } = useUserProfileExists(uid);
+    } = useSession(sessionId);
 
     const currentPlan = session?.plan ?? FALLBACK_PLAN;
     const maxSeconds = Math.max(
@@ -182,35 +173,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         track("drill_completed", { completion_status: status });
     }, [session?.id, session?.completionStatus]);
 
-    // Heartbeat `viewedAt` so the pre-generator's dailyRefresh path doesn't
-    // mutate this drill out from under a user reading the brief. Only the
-    // pending drill needs the lock — completed/skipped drills can't be
-    // mutated by pre-gen.
-    const sessionIdForView =
-        session?.completionStatus === "pending" ? session?.id : undefined;
-    useEffect(() => {
-        if (!sessionIdForView) return;
-        if (typeof document === "undefined") return;
-
-        const ping = () => {
-            if (document.visibilityState !== "visible") return;
-            api.post(`/api/sessions/${sessionIdForView}/viewed`, {
-                timeout: 10_000,
-            }).catch((err) => {
-                console.warn("[session-home] viewedAt heartbeat failed", err);
-            });
-        };
-
-        ping();
-        const intervalId = window.setInterval(ping, 5 * 60 * 1000);
-        document.addEventListener("visibilitychange", ping);
-
-        return () => {
-            window.clearInterval(intervalId);
-            document.removeEventListener("visibilitychange", ping);
-        };
-    }, [sessionIdForView]);
-
     // Auto-stop at 0:00. The recorder is still running when the timer ticks
     // down, so we trigger stopRecording() (which posts the audio) instead of
     // just flipping the state — otherwise the audio never makes it server-side.
@@ -242,7 +204,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         !isServerProcessing &&
         !hasPendingAnalysisRequest;
     const stateLabel = useMemo(() => {
-        if (isCreatingDrill) return "Creating your next drill…";
         if (isRecording || drillState === "recording") {
             return "Recording your response…";
         }
@@ -263,7 +224,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         }
         if (drillState === "analyzing") return "Syncing latest status…";
         if (drillState === "complete") {
-            if (isSkipped) return "This drill was skipped.";
+            if (isSkipped) return "This replay was skipped.";
             if (needsRetry) {
                 return "Listen to your last take, then tap Try again.";
             }
@@ -273,7 +234,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     }, [
         drillState,
         hasPendingAnalysisRequest,
-        isCreatingDrill,
         isRecording,
         isServerProcessing,
         processingStage,
@@ -306,7 +266,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         setDrillState("analyzing");
 
         if (!session?.id || !result?.blob.size) {
-            setDrillError("No active drill found to save this recording.");
+            setDrillError("No active replay found to save this recording.");
             setHasPendingAnalysisRequest(false);
             setDrillState("idle");
             return;
@@ -363,31 +323,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
         stopRecordingRef.current = stopRecording;
     });
 
-    const createNewDrillRequest = async () => {
-        setIsCreatingDrill(true);
-        try {
-            const data = await api
-                .post("/api/sessions/new-drill", { json: {} })
-                .json<{ session?: { id?: string } }>();
-            if (data.session?.id) {
-                window.location.href = `/app/drills/${data.session.id}`;
-            } else {
-                window.location.href = "/app/drills/latest";
-            }
-        } catch (error) {
-            if (isKyHttpStatus(error, 402)) {
-                track("credit_limit_reached", { feature: "drill" });
-                creditGate.openLimitDialog();
-                return;
-            }
-            setDrillError(
-                await getKyErrorMessage(error, "Could not start a new drill."),
-            );
-        } finally {
-            setIsCreatingDrill(false);
-        }
-    };
-
     const [isRetrying, setIsRetrying] = useState(false);
     const requestVoluntaryRetry = async () => {
         if (!session?.id) return;
@@ -401,7 +336,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
             // ("needs_retry") and the page re-renders into the retry UI.
         } catch (error) {
             setDrillError(
-                await getKyErrorMessage(error, "Could not retry this drill."),
+                await getKyErrorMessage(error, "Could not retry this replay."),
             );
         } finally {
             setIsRetrying(false);
@@ -432,10 +367,10 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
                                     {isSkipped
-                                        ? "Skipped drill"
+                                        ? "Skipped replay"
                                         : shouldShowResults
-                                          ? "Drill feedback"
-                                          : "Today's drill"}
+                                          ? "Replay feedback"
+                                          : "Replay"}
                                     {session.createdAt ? (
                                         <>
                                             <span className="mx-1.5 text-sky-700/50">
@@ -453,43 +388,22 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                                     {currentPlan.scenario.title}
                                 </h2>
                             </div>
-                            {shouldShowResults && !isSkipped ? (
+                            {shouldShowResults &&
+                            !isSkipped &&
+                            session.completionStatus === "passed" ? (
                                 <div className="relative flex shrink-0 flex-wrap items-center gap-2">
-                                    {session.completionStatus === "passed" ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() =>
-                                                void requestVoluntaryRetry()
-                                            }
-                                            disabled={
-                                                loadingSession ||
-                                                isRetrying ||
-                                                isCreatingDrill
-                                            }
-                                        >
-                                            <RotateCcw />
-                                            {isRetrying
-                                                ? "Setting up retry…"
-                                                : "Retry this drill"}
-                                        </Button>
-                                    ) : null}
                                     <Button
                                         size="sm"
+                                        variant="outline"
                                         onClick={() =>
-                                            void createNewDrillRequest()
+                                            void requestVoluntaryRetry()
                                         }
-                                        disabled={
-                                            loadingSession ||
-                                            isCreatingDrill ||
-                                            requiresRetry ||
-                                            isRetrying
-                                        }
+                                        disabled={loadingSession || isRetrying}
                                     >
-                                        <ArrowRight />
-                                        {isCreatingDrill
-                                            ? "Building next drill…"
-                                            : "Start another drill"}
+                                        <RotateCcw />
+                                        {isRetrying
+                                            ? "Setting up retry…"
+                                            : "Retry this replay"}
                                     </Button>
                                 </div>
                             ) : null}
@@ -504,7 +418,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
 
                         {loadingSession ? (
                             <p className="text-sm text-muted-foreground">
-                                Syncing your latest drill…
+                                Syncing your replay…
                             </p>
                         ) : null}
                         {drillError ? (
@@ -542,7 +456,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                                 className="flex w-full items-center justify-between p-4"
                             >
                                 <span className="text-sm font-medium">
-                                    Drill prompt
+                                    Replay prompt
                                 </span>
                                 <ChevronDown
                                     className={`size-4 text-muted-foreground transition-transform ${
@@ -602,9 +516,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             onSeekToSecond={seekToSecond}
                             sessionId={session?.id}
                             uid={uid}
-                            captureCount={captures.length}
-                            firstDrillCompletedAt={firstDrillCompletedAt}
-                            drillCreatedAt={session?.createdAt ?? null}
                         />
                     </>
                 ) : null}
@@ -624,9 +535,6 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                         onSeekToSecond={seekToSecond}
                         sessionId={session?.id}
                         uid={uid}
-                        captureCount={captures.length}
-                        firstDrillCompletedAt={firstDrillCompletedAt}
-                        drillCreatedAt={session?.createdAt ?? null}
                     />
                 ) : null}
 

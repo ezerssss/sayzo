@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { SupportForm } from "./support-form";
 
 export const metadata: Metadata = {
-    title: "Support — Sayzo",
+    title: "Support",
     description:
         "Something off, a question, or an idea? Reach the Sayzo team here. We read every message.",
 };
@@ -70,8 +70,8 @@ export default async function SupportPage({
                         How can we help?
                     </h1>
                     <p className="text-sm leading-relaxed text-muted-foreground">
-                        Something off, a question about a drill, or an idea
-                        you&apos;d love to see? Drop us a note below — a real
+                        Something off, a question about a replay, or an idea
+                        you&apos;d love to see? Drop us a note below. A real
                         person on the Sayzo team reads every message, usually
                         within a day or two.
                     </p>

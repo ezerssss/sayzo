@@ -10,8 +10,10 @@ import {
 import {
     getAdminFirestore,
 } from "@/lib/firebase/admin";
-import { planScenarioReplayFromCapture } from "@/services/capture-replay-planner";
-import { buildSessionFromPlan } from "@/services/planner";
+import {
+    buildSessionFromPlan,
+    planScenarioReplayFromCapture,
+} from "@/services/capture-replay-planner";
 import type { CaptureType } from "@/schemas";
 import type { SessionType } from "@/schemas";
 import { getOrHydrateLearnerModel } from "@/lib/learner-model/store";
@@ -130,10 +132,7 @@ export async function POST(
         });
 
         // 5. Build the session with sourceCaptureId link
-        const session = buildSessionFromPlan(uid, plan, {
-            sourceCaptureId: captureId,
-            type: "scenario_replay",
-        });
+        const session = buildSessionFromPlan(uid, plan, captureId);
 
         // 6. Insert into Firestore
         await db

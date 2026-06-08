@@ -33,7 +33,7 @@ export function CreditLimitDialog(props: Readonly<PropsInterface>) {
                                 <DialogTitle>Request received</DialogTitle>
                             </div>
                             <DialogDescription>
-                                Thanks — we&apos;ve got your request and will
+                                Thanks, we&apos;ve got your request and will
                                 follow up by email as soon as we can unlock full
                                 access for you.
                             </DialogDescription>

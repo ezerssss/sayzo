@@ -73,8 +73,8 @@ export function ProfilePanel({
                             profile?.onboardingStatus ?? "—",
                         ],
                         [
-                            "Drills saved",
-                            String(profile?.onboardingDrills?.length ?? 0),
+                            "Samples saved",
+                            String(profile?.onboardingSamples?.length ?? 0),
                         ],
                     ]}
                 />

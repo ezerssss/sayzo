@@ -38,7 +38,7 @@ const CATEGORY_OPTIONS: ReadonlyArray<{
     {
         id: "bug",
         label: "Something broke",
-        description: "A crash, a hang, a drill that wouldn't load",
+        description: "A crash, a hang, a replay that wouldn't load",
         icon: Bug,
     },
     {
@@ -355,7 +355,7 @@ export function SupportForm({ agentVersion, agentOs, clientUid }: Readonly<Props
                     maxLength={200}
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    placeholder="A short summary — e.g. 'Drill won't start on macOS'"
+                    placeholder="A short summary, e.g. 'Replay won't start on macOS'"
                     disabled={submitting}
                     className={INPUT_CLASS}
                 />

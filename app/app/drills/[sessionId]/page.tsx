@@ -1,23 +1,19 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
-
-import { SessionHome } from "@/components/session/session-home";
-import { useAuthUser } from "@/hooks/use-auth-user";
-
-export default function DrillPage() {
-    const { user, authError } = useAuthUser();
-    const params = useParams<{ sessionId: string }>();
-    const rawSessionId = params.sessionId;
-    const sessionId = rawSessionId === "latest" ? undefined : rawSessionId;
-
-    if (!user) return null;
-
-    return (
-        <SessionHome
-            uid={user.uid}
-            authError={authError}
-            sessionId={sessionId}
-        />
-    );
+/**
+ * Deprecated route. Standalone drills were removed and the replay player moved
+ * to /app/replays/[id]. Kept as a thin server-side redirect for a grace period
+ * so old links, bookmarks, and in-flight desktop-agent notifications resolve
+ * instead of 404ing. Safe to delete once no old agents remain in the field.
+ */
+export default async function LegacyDrillRedirect({
+    params,
+}: {
+    params: Promise<{ sessionId: string }>;
+}) {
+    const { sessionId } = await params;
+    if (sessionId && sessionId !== "latest") {
+        redirect(`/app/replays/${sessionId}`);
+    }
+    redirect("/app");
 }

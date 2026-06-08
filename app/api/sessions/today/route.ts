@@ -1,90 +1,27 @@
 import { requireAuth } from "@/lib/auth/require-auth";
-import { pregenerateNextDrillFor } from "@/services/drill-pre-generator";
 import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
 /**
- * Returns today's drill — the user's current pending drill, generating one
- * synchronously if none exists. The desktop helper polls this endpoint to
- * surface a notification + deep link; the dashboard hero can also use it
- * to skip the Firestore listener race when the user opens the app right
- * after finishing a drill.
+ * DEPRECATED — standalone drills were removed. This endpoint used to return
+ * "today's drill" plus a deep link that the desktop companion turned into a
+ * "do your drill" notification. There are no generated drills anymore, so it
+ * now always reports "nothing to notify" (`{ sessionId: null }`).
  *
- * Behavior:
- * - Pending drill exists → returns it.
- * - No pending drill → calls `pregenerateNextDrillFor` synchronously and
- *   returns the new session.
- * - Latest drill is `needs_retry` → 409 (the user must redo it before a
- *   new drill is created).
- * - Over credit limit → 402 (no drill is created; the user needs to upgrade
- *   to keep recording).
+ * It is intentionally NOT deleted: already-installed agents still poll it, and
+ * a hard 404 could be misread. Removing the agent's drill notification is a
+ * separate agent-app release — this server change alone does not silence
+ * installed agents. Bearer auth is preserved so the contract is unchanged.
+ *
+ * The `200 { sessionId: null }` shape is intentional and confirmed: the agent
+ * only fires a notification on a truthy sessionId, so a null reads as "nothing
+ * to notify". Retire this endpoint once the agent release that stops polling
+ * has rolled out and no old agents remain in the field.
  */
-function buildDeepLinkUrl(sessionId: string): string {
-    const baseUrl =
-        process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://sayzo.app";
-    const trimmed = baseUrl.replace(/\/+$/, "");
-    return `${trimmed}/app/drills/${sessionId}`;
-}
-
 export async function GET(request: NextRequest) {
     const auth = await requireAuth(request);
     if (auth instanceof NextResponse) return auth;
-    const { uid } = auth;
 
-    const outcome = await pregenerateNextDrillFor(uid);
-
-    if (outcome.ok) {
-        return NextResponse.json({
-            sessionId: outcome.session.id,
-            deepLinkUrl: buildDeepLinkUrl(outcome.session.id),
-            isReplay: outcome.session.type === "scenario_replay",
-            scenarioTitle: outcome.session.plan?.scenario?.title ?? "",
-            question: outcome.session.plan?.scenario?.question ?? "",
-        });
-    }
-
-    if (outcome.reason === "no_user") {
-        return NextResponse.json(
-            { error: "User profile not found." },
-            { status: 404 },
-        );
-    }
-    if (outcome.reason === "not_onboarded") {
-        return NextResponse.json(
-            {
-                error: "Complete onboarding to get personalized drills.",
-                code: "ONBOARDING_REQUIRED",
-            },
-            { status: 404 },
-        );
-    }
-    if (outcome.reason === "needs_retry") {
-        return NextResponse.json(
-            {
-                error:
-                    outcome.session.completionReason?.trim() ||
-                    "Please redo your current drill before getting a new one.",
-                code: "DRILL_RETRY_REQUIRED",
-                sessionId: outcome.session.id,
-                deepLinkUrl: buildDeepLinkUrl(outcome.session.id),
-            },
-            { status: 409 },
-        );
-    }
-    if (outcome.reason === "still_processing") {
-        return NextResponse.json(
-            {
-                error:
-                    "Your last drill is still processing. Wait for it to finish.",
-                code: "DRILL_STILL_PROCESSING",
-                sessionId: outcome.session.id,
-            },
-            { status: 409 },
-        );
-    }
-    return NextResponse.json(
-        { error: outcome.message || "Failed to fetch today's drill." },
-        { status: 500 },
-    );
+    return NextResponse.json({ sessionId: null }, { status: 200 });
 }

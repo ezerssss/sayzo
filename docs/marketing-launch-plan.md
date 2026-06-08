@@ -1,5 +1,10 @@
 # Sayzo Launch Plan — 3-Week Paid Video Test
 
+> **Update:** Product framing changed. Sayzo no longer has standalone "drills";
+> it coaches your real conversations and lets you replay the moments that
+> matter. Any "drill" wording in the landing-page concepts below should say
+> "conversations" / "replay" instead.
+
 A 3-week paid short-form video test on TikTok and Instagram Reels to find out whether paid video is a viable acquisition channel for Sayzo. The sprint is structured as three one-week passes with a weekend checkpoint between each — so you can read the data, pivot, and reinvest before committing the next chunk of budget. Total budget is PHP 15,000 across 8 videos plus a PHP 3,000 reserve for reallocation to the winning concept. Every video is a 15-second relatable workplace moment (meme-flavored) ending with a 3-second Sayzo brand card. By day 22 you'll have a clean call on whether to scale, iterate, or kill this channel.
 
 This is your sprint — own the prep, the execution, the weekly reviews, and the final call.

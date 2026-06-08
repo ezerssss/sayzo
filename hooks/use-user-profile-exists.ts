@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { FirestoreCollections } from "@/schemas";
 import { db } from "@/lib/firebase/client";
 import type {
-    OnboardingDrillProgress,
+    OnboardingSampleProgress,
     UserProfileType,
 } from "@/schemas";
 
@@ -19,8 +19,8 @@ export function useUserProfileExists(uid: string | undefined) {
     const [onboardingStatus, setOnboardingStatus] = useState<
         UserProfileType["onboardingStatus"] | null
     >(null);
-    const [onboardingDrills, setOnboardingDrills] = useState<
-        OnboardingDrillProgress[]
+    const [onboardingSamples, setOnboardingSamples] = useState<
+        OnboardingSampleProgress[]
     >([]);
     const [firstDrillCompletedAt, setFirstDrillCompletedAt] = useState<
         string | null
@@ -40,9 +40,9 @@ export function useUserProfileExists(uid: string | undefined) {
                     const data = snapshot.data() as Partial<UserProfileType>;
                     setOnboardingComplete(Boolean(data.onboardingComplete));
                     setOnboardingStatus(data.onboardingStatus ?? null);
-                    setOnboardingDrills(
-                        Array.isArray(data.onboardingDrills)
-                            ? data.onboardingDrills
+                    setOnboardingSamples(
+                        Array.isArray(data.onboardingSamples)
+                            ? data.onboardingSamples
                             : [],
                     );
                     setFirstDrillCompletedAt(
@@ -51,7 +51,7 @@ export function useUserProfileExists(uid: string | undefined) {
                 } else {
                     setOnboardingComplete(false);
                     setOnboardingStatus(null);
-                    setOnboardingDrills([]);
+                    setOnboardingSamples([]);
                     setFirstDrillCompletedAt(null);
                 }
                 setLoading(false);
@@ -61,7 +61,7 @@ export function useUserProfileExists(uid: string | undefined) {
                 setExists(false);
                 setOnboardingComplete(false);
                 setOnboardingStatus(null);
-                setOnboardingDrills([]);
+                setOnboardingSamples([]);
                 setFirstDrillCompletedAt(null);
                 setLoading(false);
             },
@@ -75,7 +75,7 @@ export function useUserProfileExists(uid: string | undefined) {
         exists,
         onboardingComplete,
         onboardingStatus,
-        onboardingDrills,
+        onboardingSamples,
         firstDrillCompletedAt,
     };
 }
