@@ -90,6 +90,21 @@ export async function getAuthSession(
     return snap.data() as AuthSessionData;
 }
 
+/**
+ * Returns the session only if it exists and hasn't expired — the gate `/login`
+ * uses to decide whether a live OAuth handshake is in progress. Keeping the
+ * `Date.now()` expiry check here (a server-only module) avoids calling an impure
+ * function inside the server-component render path.
+ */
+export async function getValidAuthSession(
+    sessionId: string,
+): Promise<AuthSessionData | null> {
+    const session = await getAuthSession(sessionId);
+    if (!session) return null;
+    if (Date.now() > session.expiresAt) return null;
+    return session;
+}
+
 export async function deleteAuthSession(sessionId: string): Promise<void> {
     const db = getAdminFirestore();
     await db

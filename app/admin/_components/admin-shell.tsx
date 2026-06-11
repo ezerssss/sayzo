@@ -15,6 +15,7 @@ import {
     Users,
 } from "lucide-react";
 
+import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -30,7 +31,13 @@ const NAV_ITEMS: Array<{ href: string; label: string; Icon: typeof Users }> = [
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
-    const { user, loading: authLoading, signOut } = useAuthUser();
+    const {
+        user,
+        loading: authLoading,
+        authError,
+        signInWithGoogle,
+        signOut,
+    } = useAuthUser();
     const { isAdmin, loading: adminLoading } = useIsAdmin(user?.uid);
     const router = useRouter();
     const pathname = usePathname();
@@ -39,14 +46,27 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (!ready) return;
-        if (!user) {
-            router.replace("/login");
-            return;
-        }
-        if (isAdmin === false) {
+        // Signed-out admins sign in inline below (see GoogleLoginPanel) rather
+        // than being bounced to /login, which is the desktop OAuth bridge and
+        // can't complete a plain web sign-in.
+        if (user && isAdmin === false) {
             router.replace("/app");
         }
     }, [ready, user, isAdmin, router]);
+
+    // Signed out: render the in-place Google sign-in (mirrors AppShell). After
+    // sign-in the admin stays on /admin and the isAdmin check resumes.
+    if (ready && !user) {
+        return (
+            <div className="flex flex-1 items-center justify-center p-6">
+                <GoogleLoginPanel
+                    loading={false}
+                    authError={authError}
+                    onSignInWithGoogle={signInWithGoogle}
+                />
+            </div>
+        );
+    }
 
     if (!ready || !user || isAdmin !== true) {
         return (
