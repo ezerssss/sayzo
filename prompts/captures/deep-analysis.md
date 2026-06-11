@@ -33,6 +33,16 @@ This is a **real organic conversation**, not a rehearsed practice drill. Calibra
 - Distinguish genuine errors (article omission, wrong tense, mispronounced words affecting meaning) from acceptable informal speech.
 - Do **not** apply academic-writing standards. The goal is effective workplace communication in real talk.
 
+<!-- include: shared/spoken-rewrite-spec.md -->
+
+## Priority order when rules pull against each other
+
+1. Never invent content the user didn't say.
+2. Match the register of the room — never make the user sound more formal than the conversation they were actually in.
+3. Only then: improve clarity, structure, and economy.
+
+A "better" sentence that breaks 1 or 2 is a worse sentence.
+
 ## Off-task / thin guardrail
 
 - If the user contributes very little substantive speech, state that in `mainIssue` and keep dimensional sections honest about the thin evidence.
@@ -67,12 +77,12 @@ Every coaching moment — whether it lives in `fixTheseFirst`, `moreMoments`, or
 >
 > For dimensional `findings[]` arrays, anchor may stay paraphrased — those don't get linked back to specific lines, so the contract is looser.
 
-**(2) betterOption** — A concrete alternative. Exact wording when possible, or a specific structural / delivery change. Not just "be more clear". **Any quoted wording inside `betterOption` must sound like SPEECH, not written prose** — this is a real conversation, not an essay. Avoid the **noun—em-dash—appositive** pattern (*"Sayzo.app — an English tutoring app"*); say *"Sayzo.app, it's an English tutoring app"* (comma + "it's") or break into two sentences. Avoid semicolons, bracketed annotations like `[claim]`, defining colons. Use contractions, short sentences, conversational connectives. Never put an em dash or en dash in the spoken wording. There's no audible dash, so use the comma or period the line actually has when spoken (*"Yes, we're on track"*).
+**(2) betterOption** — A concrete alternative. Exact wording when possible, or a specific structural / delivery change. Not just "be more clear". Quoted spoken wording inside `betterOption` follows the **Spoken-rewrite spec** and the **Grounding rule** above: double-quoted, speakable, zero invented facts.
 
 <!-- examples:start -->
-Examples:
-- *"'Tuesday, we hit the schema migration on Monday and validated it overnight.'"*
-- *"Lead with the recommendation, then the trade-offs: 'I'd hold the launch by a week. The schema fix still needs validation time, and rushing it risks another incident like last quarter's.'"*
+Examples (note how each rewrite contains ZERO facts the speaker didn't already say — no new dates, teams, or reasons):
+- anchor *"I think maybe like, you know, it should probably be fine, I think."* → betterOption *"Commit to the position you actually hold. "Yes, it should be fine." Or, if you genuinely don't know yet, "I'm not sure yet. Let me check and get back to you.""*
+- anchor *"...so yeah there's trade-offs and stuff but I'd probably say we wait."* → betterOption *"Lead with the call you already made, then name the trade-offs you mentioned. "I'd say we wait. There are trade-offs, but on balance I'd still hold off.""*
 <!-- examples:end -->
 
 **(3) whyThisMatters** — **The single most important narrative**. One cohesive 2-4 sentence explanation that covers BOTH:
@@ -88,10 +98,12 @@ Examples:
 - *"Vague pronouns like 'the thing' force the listener to guess what you mean and slow comprehension. Name the noun the first time; only pronoun it once the referent is already in the air. Precision earns trust: specific words signal that you know what you're talking about."*
 <!-- examples:end -->
 
+<!-- chat:start -->
 **Why each part matters:**
 - Without (1), feedback is generic and ungrounded.
 - Without (2), the learner has no concrete target to aim for.
 - Without (3), the learner doesn't understand the cost and can't generalize the lesson — they'll need the same correction next time.
+<!-- chat:end -->
 
 **`whyThisMatters` must contain a reusable principle.** If you can't articulate a principle the learner can carry into future situations, the moment isn't worth coaching — drop it.
 
@@ -129,7 +141,8 @@ The depth here should match the **drill-side feedback prompt**, not the drill-si
 
 **General rules across all dimensional fields:**
 - **`assessment` is paragraph prose**, not bullets. 2-4 sentences. State the headline pattern for the dimension and tie it to the conversational context. Where relevant, include "what the user did vs what would have been more effective" framing — this is one of the most useful coaching framings.
-- **`findings` is an array of `CoachingMoment` objects**, each with all three parts (`anchor`, `betterOption`, `whyThisMatters`). Aim for 0-5 findings per dimension depending on evidence. **Never produce a finding with only 1 or 2 of the parts** — incomplete findings are worse than none, because they don't teach.
+- **`findings` is an array of `CoachingMoment` objects**, each with all three parts (`anchor`, `betterOption`, `whyThisMatters`). 0-5 findings per dimension depending on evidence; **zero is the normal result** when the dimension had no listener-visible cost in this conversation. **Never produce a finding with only 1 or 2 of the parts** — incomplete findings are worse than none, because they don't teach.
+- **A finding must have mattered HERE.** `whyThisMatters` must name what the moment cost the listener in THIS conversation. If the only justification is "this would matter in a formal setting", it didn't matter here — drop the finding.
 - **If evidence is genuinely thin** for a dimension, write a brief one-sentence assessment ("Evidence is too thin to evaluate clarity meaningfully — most of the user's turns were too short.") and leave findings as an empty array. Do not manufacture content.
 - **Calibrate to conversational register** — organic conversations are looser than rehearsed presentations. Don't penalize natural patterns. Only flag issues when they genuinely hurt clarity, impact, or the listener's experience.
 
@@ -154,7 +167,7 @@ For `assessment` (3-5 sentences), you MUST address **all three** of the followin
    - **What it does → Why it matters → How it works** — best for demos, walkthroughs, technical explanations
    Explain why this framework fits the conversational moment: *"The PM asked for your recommendation — a Claim → Support → Impact structure would work best here because the audience wants your position first, not a tour of all the options."*
 
-3. **Compare what the user did vs what the ideal structure would look like.** Be concrete: *"You opened with 3 minutes of background before revealing your recommendation. With Claim → Support → Impact the answer would land in 15 seconds: 'I'd recommend delaying the launch by a week. The schema fix needs overnight validation, and rushing it risks another incident like last quarter's. So a week's delay gets us out clean.' — same content, a tenth of the airtime, and the PM has your answer immediately."*
+3. **Compare what the user did vs what the ideal structure would look like.** Be concrete, and build the comparison from what the user actually said — the recommendation they eventually gave, the reasons they actually mentioned, never specifics you invent for them: *"You opened with 3 minutes of background before revealing your recommendation. With Claim → Support → Impact the answer lands in 15 seconds: lead with the recommendation you ended on, follow with the strongest reason you'd already given, and stop. Same content, a tenth of the airtime, and the PM has your answer immediately."*
 
 **Additionally assess:**
 - **Did the user manage the multi-turn arc?** Captures span multiple turns, so structure also means: did the user build coherently on prior turns, or jump around? Did they re-anchor after topic shifts? Did they manage their own contribution rhythm (substantive turns vs short interjections) appropriately?
@@ -162,18 +175,18 @@ For `assessment` (3-5 sentences), you MUST address **all three** of the followin
 For `findings` (array of `CoachingMoment` objects), include specific moments where structure broke down. Each finding must have all three parts of the teachable shape.
 
 <!-- examples:start -->
-Example finding:
+Example finding (note how every specific in the betterOption is the user's own — the ETA they eventually gave is the headline, no invented validation status or cutover detail):
 
 ```json
 {
-  "anchor": "When the PM asked 'what's the latest on the migration?', you spent ~90 seconds walking through how the deadline was originally set before mentioning the current ETA.",
-  "betterOption": "Open with the headline, then the supporting context only if asked: 'We're tracking for next Tuesday, schema fix is validated, just need the production cutover. Want me to walk through how we got here?'",
+  "anchor": "When the PM asked 'what's the latest on the migration?', you spent ~90 seconds walking through how the deadline was originally set before saying you were tracking for next Tuesday.",
+  "betterOption": "Open with the headline you ended on, then offer the history instead of leading with it. \"We're tracking for next Tuesday. Want me to walk through how we got here?\"",
   "whyThisMatters": "In a status update, the audience wants the headline first — they're asking 'where are we?' not 'how did we get here?'. Walking through history makes the PM scan past your context to find the actual answer, and signals you haven't prioritized what matters to them. Status updates want the pyramid shape: top-line answer first, supporting facts second, context only on request. Lead with what the listener actually asked for; let them dig in if they want more. This respects their time AND signals you understand their priorities."
 }
 ```
 <!-- examples:end -->
 
-Aim for 2-5 findings on `structureAndFlow` for any conversation with substantive user contributions. If the conversation is too short or too thin for meaningful structural assessment, say so briefly in `assessment` and leave `findings` empty.
+Up to 5 findings on `structureAndFlow` when structure genuinely broke down in a conversation with substantive user contributions; for a casual conversation with no structural stakes, fewer or none is correct. If the conversation is too short or too thin for meaningful structural assessment, say so briefly in `assessment` and leave `findings` empty.
 
 ---
 
@@ -230,21 +243,22 @@ Each entry uses the **three-part teachable shape** (see "Teachable shape" sectio
 
 **Selection criteria — be ruthless about what earns a slot here:**
 - Moments that represent the **biggest impact on listener comprehension or professional credibility** (usually `major` severity, sometimes `moderate` when the pattern is repeated)
+- **The moment had a listener-visible cost in THIS conversation.** "A better sentence exists" is not a cost — in a casual exchange, casual phrasing is not a cost. If the listener got it, trusted it, and the conversation moved on cleanly, the moment doesn't earn a slot.
 - Moments that map directly to the `mainIssue` or `secondaryIssues` you identified
 - Moments that reveal a pattern the learner is likely to repeat — fixing one unblocks several future wins
 - Moments where the `whyThisMatters` delivers a genuinely transferable principle, not just a local correction
 
-Aim for **2-4 moments**. If there's nothing truly urgent, return a smaller list — don't pad. If the user's speech is thin or clearly off-task, return an empty array and let `mainIssue` carry the narrative.
+**0-4 moments.** Zero is the correct output for a clean or casual conversation — don't pad. If the user's speech is thin or clearly off-task, return an empty array and let `mainIssue` carry the narrative.
 
 <!-- examples:start -->
-Example:
+Example (note how the betterOption re-says only what the speaker already said — it commits to the position they actually voiced, with zero invented facts like dates or team names):
 ```json
 {
   "type": "communication",
   "severity": "moderate",
   "anchor": "I think maybe like, you know, it should probably be fine, I think.",
-  "betterOption": "'Yes, we're on track. The schema fix landed Tuesday and we validated it overnight.' If you genuinely don't know, say that directly: 'Honestly, I'm not sure yet, let me check with the platform team and get back to you by EOD.'",
-  "whyThisMatters": "When the PM asked if the migration would hit the deadline, three layered hedges ('I think maybe like... probably... I think') in a single sentence signal uncertainty before you've stated your actual position. Listeners discount everything that follows because they don't trust the speaker's confidence in their own answer. Hedging language is a confidence drain — every 'I think maybe' is a withdrawal from your credibility account. Native speakers either commit to a position or commit to finding the answer; they don't pre-hedge factual statements. Saying 'I don't know but I'll find out' is more confident than 'I think maybe it's probably fine'."
+  "betterOption": "Commit to the position you actually hold. \"Yes, it should be fine.\" Or, if you genuinely don't know yet, \"Honestly, I'm not sure yet. Let me check and get back to you.\"",
+  "whyThisMatters": "When the PM asked if the migration would hit the deadline, three layered hedges ('I think maybe like... probably... I think') in a single sentence signal uncertainty before you've stated your actual position. Listeners discount everything that follows because they don't trust the speaker's confidence in their own answer. Hedging language is a confidence drain — every 'I think maybe' is a withdrawal from your credibility account. Fluent speakers either commit to a position or commit to finding the answer; they don't pre-hedge factual statements. Saying 'I don't know but I'll find out' is more confident than 'I think maybe it's probably fine'."
 }
 ```
 <!-- examples:end -->
@@ -258,7 +272,7 @@ Additional coachable moments **beyond** the top priorities — the learner can e
 - Secondary patterns that are worth flagging but wouldn't make the biggest difference if fixed first
 - `minor` severity moments (stylistic refinement) that are worth surfacing but not urgent
 
-Aim for **3-8 moments** depending on capture length and coachable evidence. **Do not duplicate** moments from `fixTheseFirst`. Do not manufacture moments to fill the array — if there's nothing more to flag, return an empty array.
+**0-8 moments** depending on capture length and coachable evidence; the same listener-visible-cost bar as `fixTheseFirst` applies, and zero is a normal result. **Do not duplicate** moments from `fixTheseFirst`. Do not manufacture moments to fill the array — if there's nothing more to flag, return an empty array.
 
 Type meanings (same for both `fixTheseFirst` and `moreMoments`):
 - `grammar`: article omission, tense confusion, subject-verb agreement, preposition errors
@@ -303,7 +317,7 @@ Empty array if no recurring patterns.
 
 ### turnRewrites
 
-For **every user turn in the transcript**, emit exactly one `turnRewrites` entry showing how a fluent native English speaker would have phrased that turn — even when the original was already fine (use `verdict: "keep"` in that case). This is the user's most concrete learning surface: they see "what I said" next to "what a fluent speaker would have said" **for every turn they took**, with no unexplained gaps.
+For **every user turn in the transcript**, emit exactly one `turnRewrites` entry showing the strongest version of that turn **in the user's own register** — even when the original was already fine (use `verdict: "keep"` in that case; in most casual conversations most turns are). This is the user's most concrete learning surface: they see "what I said" next to "the strongest version of it" **for every turn they took**, with no unexplained gaps.
 
 Drills have a single prose rewrite (`improvedVersion` on `SessionFeedbackType`) because a drill is one continuous monologue. Captures are turn-based — the user is interleaved with other speakers, so the primitive is the turn, not the paragraph. The "read straight through" experience is reconstructed by the UI from these turn entries, so there is no separate prose field.
 
@@ -317,7 +331,7 @@ Drills have a single prose rewrite (`improvedVersion` on `SessionFeedbackType`) 
 **For each entry:**
 
 - **original**: the user's exact words from that turn — **verbatim substring of one (or consecutive) `user`-tagged transcript line(s)**. Quote them word-for-word. The server resolves the transcript position from this text; entries whose `original` doesn't match a user line are dropped.
-- **rewrite**: how a fluent native speaker would phrase the same message in the same conversational context. For `verdict: "keep"`, this may equal `original`.
+- **rewrite**: the strongest version of the same message in the same conversational context and the same register. The Spoken-rewrite spec and the Grounding rule apply to this whole field. For `verdict: "keep"`, this may equal `original`.
 - **verdict**: one of `keep`, `tighten`, `sharpen`, `reframe`, `reorder` (see rubric below)
 - **note**: 1-2 sentences that name the **transferable principle** a fluent speaker is applying — not just what mechanically changed. **This is the main learning tool.** Without it the learner sees a "better" version of this one turn and has no idea how to apply the same thinking to a different sentence next week; they'll copy this rewrite but their next turn won't improve. Required for every non-`keep` verdict. For `keep`, may be `null` OR a brief reason the turn already works ("good concrete example — no change needed"). See the quality bar below.
 - **suggestedBeforeIdx**: only meaningful when `verdict === "reorder"` — the index of the user turn this rewrite would logically have preceded (use the `[N]` prefix from the indexed transcript). Set to `null` for every other verdict (the field is always required; use `null` when not applicable). The server clamps out-of-range values to `null`.
@@ -344,6 +358,8 @@ The UI already shows a verdict pill next to every turn ("Tighten", "Sharpen", et
   - *"Stronger transition into the next idea — 'so basically' is filler; 'which means' actually links cause to effect."*
 <!-- examples:end -->
 
+**Necessity gate — `keep` is the default verdict.** In a real conversation most turns already do their job. Before any non-keep verdict, name to yourself the specific cost the original had for the listener IN THIS CONVERSATION — what they misheard, lost, had to reconstruct, or discounted. If you can't name that cost, the verdict is `keep`. Casual register, fragments, and informal phrasing are not costs in a casual exchange. In most casual conversations the majority of verdicts should be `keep`.
+
 **Verdict rubric** — pick the one that best fits. Do not manufacture a change to avoid `keep`; many turns are fine.
 
 - **`keep`** — already strong in its context. Filler acknowledgements ("yeah", "right"), clear direct statements, tight responses that don't need improving. `rewrite` may equal `original`. Example note: *"Concrete acknowledgement that moves the conversation forward — directness here is the right register."*
@@ -355,7 +371,7 @@ The UI already shows a verdict pill next to every turn ("Tighten", "Sharpen", et
 **What "better" means (same categories the drill version uses):**
 
 - **Structure within the turn** — clearer arc, better sequencing of ideas
-- **Word choice** — more precise, more professional, less vague
+- **Word choice** — more precise, in the user's register, less vague
 - **Transitions** — smoother connections between ideas within the turn
 - **Conciseness** — same message, fewer words
 - **Flow** — natural rhythm, no awkward pauses or restarts
@@ -364,13 +380,13 @@ The UI already shows a verdict pill next to every turn ("Tighten", "Sharpen", et
 **Preservation and register rules:**
 
 - Preserve the user's **meaning, key facts, and intent** — only improve wording, structure, transitions, conciseness, flow, and confidence
-- Keep it as **spoken conversation**, not academic writing — contractions, natural register, occasional sentence fragments are fine
-- **Avoid written-prose-only structures.** The biggest offender: the **noun—em-dash—appositive** pattern (*"Sayzo.app — an English tutoring app that does drills"*). Speakers don't talk that way. Rewrite as *"Sayzo.app, it's an English tutoring app that does drills"* or break into two sentences. Also avoid semicolons, bracketed annotations (`[claim]`, `[support]`), and defining colons (*"X: a thing that..."*). Never put an em dash or en dash in the spoken wording. There's no audible dash, so use the comma or period the line actually has when spoken (*"Yes, we're on track"*).
+- **Every fact, name, number, or commitment in `rewrite` must appear in the original turn** (or the user's immediately adjacent turns when one thought was split) — the Grounding rule. Never hand the user specifics they didn't say.
+- Keep it as **spoken conversation**, not academic writing — the **Spoken-rewrite spec** applies to the whole `rewrite` field: contractions and natural fragments are fine; dashes, semicolons, defining colons, brackets, and list structure are not.
 - Match the **register** of the original conversation (casual chat → casual rewrite; formal meeting → formal rewrite)
 - The rewrite should be **plausibly something the user could say** — don't make it sound like a stranger took over
 - **Do not include stage directions, timestamps, speaker labels, or any meta-text** in the `rewrite` field — just the literal words the user would speak
 
-**Framework carry-over:** When your `structureAndFlow.assessment` recommends a framework (SCQA, Pyramid, STAR, Claim → Support → Impact, etc.), use `reorder` and `reframe` verdicts to demonstrate that framework in action — and spell out the framework in the relevant `note`s. The user should see the framework's skeleton in the sequence of improved turns, not just hear about it as an abstract recommendation.
+**Framework carry-over:** When your `structureAndFlow.assessment` recommends a framework (SCQA, Pyramid, STAR, Claim → Support → Impact, etc.), use `reorder` and `reframe` verdicts to demonstrate that framework in action — and spell out the framework in the relevant `note`s. The user should see the framework's skeleton in the sequence of improved turns, not just hear about it as an abstract recommendation. This does not override the necessity gate: only apply these verdicts to the turns where the reorder or reframe actually would have helped the listener — don't manufacture changes on turns that were fine just to illustrate the framework.
 
 ### structuralObservations
 
@@ -434,18 +450,17 @@ Phrase this like a quick, practical tip a sharp colleague would slip you right a
   - `pacing`: a concrete pacing or filler moment
   - `strength`: something real the user did well — positive reinforcement is a valid, valuable choice when the standout moment is a good one
   - `other`: anything genuinely useful that doesn't fit the above
-- **headline** — ≤60 chars. Plain (not clever wordplay) **AND specific to what actually happened** AND **everyday conversational words**. "Plain" means clear at a glance — not abstract AND not coaching jargon. Anchor it to the specific moment using language a non-coach would use.
+- **headline** — Plain (not clever wordplay) **AND specific to what actually happened** AND **everyday conversational words**. Keep it short enough to read at a glance, but there is no hard character limit. "Plain" means clear at a glance — not abstract AND not coaching jargon. Anchor it to the specific moment using language a non-coach would use.
   - ❌ Too clever / cryptic: *"You hedged your ask"*
   - ❌ Too generic: *"Speak more clearly"* / *"Improve your structure"* / *"Reduce filler words for clearer communication"*
   - ❌ Specific but jargony — requires reader effort: *"Drop the triple-hedge"*, *"Cut the preamble-cluster"*, *"Reframe the SCQA opener"*. Coaching terms like *triple-hedge*, *cluster*, *SCQA*, *preamble* force the reader to translate — use the everyday verb instead (e.g. *"just answer"*, *"drop the X"*, *"skip the wind-up"*).
   - **Test:** read your headline aloud. If a friend at the bar would need you to explain what it means, it's jargon — rewrite with everyday verbs. The right wording for THIS capture comes from the moment + your everyday speech vocabulary; do not copy phrasings from this prompt.
-- **quote** — ≤120 chars. When the insight is about a specific thing the user said, a **VERBATIM, distinctive span (aim for ≥5 words) copied exactly from a `user`-tagged line** — same verbatim contract as `fixTheseFirst.anchor`. The server verifies it against the user's transcript and drops it if it isn't a real substring, so do not paraphrase or stitch together words the user didn't actually say. Set `null` for insights that aren't about one specific utterance (e.g. a multi-turn structural observation).
-- **body** — ≤140 chars. **Must reference something concrete from THIS capture** — a quote, the specific moment, or a specific behavior the user exhibited. The actual pro-tip: a concrete rewrite, a specific reorder, or a named behavior swap. Never abstract principle, never "be more X." A reader who hasn't seen this transcript should still be able to tell which moment this is about.
-  - **Quote/body alignment (NEGATIVE rule — read this carefully):** if your body is a `Try: "..."` rewrite, the `quote` MUST be exactly the words your rewrite replaces — same span, same start, same end. If you can only quote a *fragment* (e.g. just the filler) within a larger sentence the rewrite would replace, do **NOT** write a `Try:` rewrite at all — describe what to do instead (e.g. *"Lead with the recommendation first."*). A card that shows half a clause in the quote next to a full-sentence rewrite in the body is misleading.
-  - **Self-contained test (apply before emitting):** read JUST the `quote` and JUST the `body`, as if you'd never seen the transcript. Does it tell a complete story — what the user said, what they should try instead? If your `body` mentions any noun, subject, or context **not present in the `quote`** (e.g. body says *"Try: 'The deploy is blocked...'"* but the quote never mentioned "the deploy"), the quote is missing context. Fix: either expand the quote to include the missing context (must still be a verbatim substring of one user line), OR rewrite the body using only words/subjects that ARE in the quote. Don't ship a card where the rewrite invents content the reader can't trace back to the quote.
+- **quote** — nullable, no length limit. When the insight is about a specific thing the user said: the user's **COMPLETE thought, never a fragment** — a verbatim, contiguous span of one or more complete consecutive sentences copied exactly from `user`-tagged line(s), starting and ending at natural sentence boundaries. Quote the whole thought, however long it runs — do not clip it to fit a size budget. Never quote just the filler or half a clause. Same verbatim contract as `fixTheseFirst.anchor`: the server verifies it against the user's transcript and drops anything that isn't a real substring, so do not paraphrase or stitch together words the user didn't say. Set `null` for insights that aren't about one specific utterance (e.g. a multi-turn structural observation).
+- **body** — no length limit; write what the tip needs and no more. **Must reference something concrete from THIS capture** — a quote, the specific moment, or a specific behavior the user exhibited. The actual pro-tip: a concrete rewrite, a specific reorder, or a named behavior swap. Never abstract principle, never "be more X." A reader who hasn't seen this transcript should still be able to tell which moment this is about.
+  - **Scope parity (hard rule, BOTH directions):** the body may only re-say what the quote covers — same start, same end, same information, nothing added. The desktop card shows ONLY the quote and the body; the reader cannot see the transcript. If your body is a `Try: "..."` rewrite, the quote MUST be exactly the words the rewrite replaces. If your body mentions any noun, subject, or fact not present in the quote, the quote is wrong or the moment is wrong — expand the quote (still a complete verbatim thought) or return null. A card that shows half a clause next to a full-sentence rewrite is misleading; the server rejects a `Try:` body that arrives without a verified quote.
   - **Rewrite-only is often the cleanest shape.** When the body is `Try: "..."` and the rewrite makes the lesson obvious by itself, **drop the commentary** — no "this enhances clarity," no "this builds credibility." The mental diff between quote and rewrite teaches the move. Add explanation only when the rewrite needs context to land.
-  - **Rewrites must sound like SPEECH, not written prose** (critical — this is a real conversation, not an essay). Read your `Try: "..."` line aloud. If it reads like a written sentence, rewrite it as something someone would actually SAY. The most common offender: the **noun-followed-by-em-dash-appositive** pattern (*"Sayzo.app — an English tutoring app that does drills"*). Speakers don't talk like that. They say *"Sayzo.app, it's an English tutoring app that does drills"* (comma + "it's") or break into two sentences (*"It's called Sayzo.app. Does drills and meeting coaching."*). Other written-only patterns to avoid: semicolons, bracketed annotations like `[claim]` / `[support]`, long compound sentences, parenthetical asides, defining colons (*"Sayzo.app: an app for X"*). Use natural spoken patterns: contractions (*it's, we're, I'll, don't*), short sentences strung together by periods, conversational connectives (*so, and, but, look*). Never put an em dash or en dash in the spoken wording. There's no audible dash, so use the comma or period the line actually has when spoken (*"Yes, we're on track"*).
-- **why** — ≤80 chars, optional (`null` if not needed). One line on why it helps — the specific cost of not doing it. *"Three stacked hedges read as 'I don't trust my own answer.'"* — not *"Clarity matters."*
+  - **The rewrite must sound like SPEECH and stay grounded** — the Spoken-rewrite spec and the Grounding rule apply to the wording inside `Try: "..."`: double-quoted, speakable, zero facts the user didn't say. Read it aloud; if it reads like an email, rewrite it as something someone would actually say in that room.
+- **why** — optional (`null` if not needed), no length limit. One line on why it helps — the specific cost of not doing it. *"Three stacked hedges read as 'I don't trust my own answer.'"* — not *"Clarity matters."*
 
 #### Type / headline / body must teach the SAME lesson (critical)
 
@@ -547,7 +562,7 @@ When you have a clean problem-sentence the user said and a clean rewrite of it, 
 
 - `type`: the coaching type that matches the body's actual lesson
 - `headline`: a **tiny pro-tip phrase** (~5-8 words) naming the move in everyday words
-- `quote`: the **full problem-sentence** from the transcript (verbatim — same span as what the body rewrites)
+- `quote`: the user's **complete thought** from the transcript (verbatim — exactly the span the body rewrites)
 - `body`: `Try: "..."` with the **direct rewrite** of that sentence — natural speech, no commentary
 - `why`: `null` (the mental diff between quote and rewrite IS the lesson — no explanation needed)
 
@@ -561,12 +576,21 @@ Before you emit a `coachingInsight`, ask yourself:
 2. **Can I point to the exact moment in THIS transcript this is about?** If not → return `null`.
 3. **Is the body actionable in 5 seconds?** A user glancing at this card should know what to do differently next time. Not *"be clearer"* — *"swap 'the thing' for the specific noun."*
 4. **Is the tone friendly and specific, not lecturing?** Pro-tip from a friend, not coach-speak.
+5. **Did this moment actually cost the user something in this conversation, or am I improving a line that was fine for its room?** If it was fine → return `null`.
 
-If you can't say YES to all four, **return `null`**. One real insight or none.
+If you can't say YES to all five, **return `null`**. One real insight or none.
 
 ### userLanguageIsEnglish
 
 `true` when the `user`-tagged speech is predominantly English. `false` when it is predominantly another language (the transcript may look garbled, because transcription assumes English). Sayzo coaches English, so when this is `false` the server suppresses the coaching card.
+
+<!-- recap:start -->
+Final check before you answer — the three rules most often broken:
+
+1. Spoken wording contains only speakable words: no dashes, semicolons, defining colons, parentheses, or brackets in any rewrite — the whole `turnRewrites[].rewrite`, and the quoted wording inside `betterOption` and the insight body.
+2. Zero invented specifics: every fact, name, number, and date in any rewrite appears in the user's own transcript lines.
+3. coachingInsight: the quote is the user's complete thought, verbatim (or null); the body re-says only that quote; when in doubt, return null. And most turn verdicts in a casual conversation are `keep` — but turns with a real listener cost still earn a real rewrite.
+<!-- recap:end -->
 
 ## Output format
 

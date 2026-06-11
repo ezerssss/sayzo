@@ -21,8 +21,8 @@ import type { DifferentialContext } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
-import { loadModelPrompt } from "@/lib/openai/prompt";
-import { temperatureOptions } from "@/lib/openai/reasoning";
+import { loadModelPromptParts } from "@/lib/openai/prompt";
+import { modelTuningOptions } from "@/lib/openai/reasoning";
 import { sanitizeSpokenFields } from "@/lib/text/despeechify";
 
 /**
@@ -241,6 +241,7 @@ export async function analyzeSession(
     const userContent = buildContextUserMessage(input, replay);
 
     const modelName = defaultAnalyzerModel();
+    const promptParts = loadModelPromptParts(system, modelName);
     const result = await generateText({
         model: openai(modelName),
         output: Output.object({
@@ -249,21 +250,32 @@ export async function analyzeSession(
             description:
                 "Structured analysis of one 60-second spoken practice session — main issue, ranked coaching moments (0-3), dimensional findings, and an optional what-went-well call-out.",
         }),
-        system: loadModelPrompt(system, modelName),
-        prompt: userContent,
-        ...temperatureOptions(modelName, 0.2),
+        system: promptParts.system,
+        // Chat models get a short rule recap AFTER the transcript (late
+        // instructions weigh heavier there); reasoning models get none.
+        prompt: promptParts.postTranscriptRecap
+            ? `${userContent}\n\n${promptParts.postTranscriptRecap}`
+            : userContent,
+        ...modelTuningOptions(modelName, {
+            temperature: 0.2,
+            // Extraction-style analysis over a short transcript — the
+            // documented case for scaling reasoning effort down.
+            reasoningEffort: "low",
+            textVerbosity: "low",
+        }),
     });
 
-    // Floor: strip un-speakable em/en dashes from every `betterOption` (the
+    // Floor: strip un-speakable punctuation from every `betterOption` (the
     // spoken "say it like this" target). See lib/text/despeechify.
     return sanitizeSpokenFields(result.output);
 }
 
 /**
- * Polished rewrite for the learner — the "Improved Version" tab on the
- * feedback page. Single-field output (`improvedVersion`): a fluent native
- * speaker's version of the same response with `> **Note:**` annotations
- * after each paragraph explaining what changed and why.
+ * Stronger rewrite for the learner — the "Improved Version" tab on the
+ * feedback page. Single-field output (`improvedVersion`): the strongest
+ * spoken version of the same response, in the drill scenario's register,
+ * with `> **Note:**` annotations after each paragraph explaining what
+ * changed and why.
  *
  * When `replay` is provided, the rewrite acknowledges what improved (or
  * didn't) compared to the original capture.
@@ -283,20 +295,30 @@ export async function generateSessionFeedback(
     }
 
     const modelName = defaultAnalyzerModel();
+    const promptParts = loadModelPromptParts(system, modelName);
+    const userContent = `${context}${analysisBlock}`;
     const result = await generateText({
         model: openai(modelName),
         output: Output.object({
             schema: zodSchema(sessionFeedbackSchema),
             name: "SessionFeedback",
             description:
-                "Polished native-speaker rewrite of the learner's drill response with per-paragraph change notes.",
+                "Stronger spoken rewrite of the learner's drill response with per-paragraph change notes.",
         }),
-        system: loadModelPrompt(system, modelName),
-        prompt: `${context}${analysisBlock}`,
-        ...temperatureOptions(modelName, 0.35),
+        system: promptParts.system,
+        prompt: promptParts.postTranscriptRecap
+            ? `${userContent}\n\n${promptParts.postTranscriptRecap}`
+            : userContent,
+        ...modelTuningOptions(modelName, {
+            temperature: 0.35,
+            reasoningEffort: "low",
+            // The rewrite is length-bound by the "same airtime" rule and the
+            // Note annotations need room — medium, not low.
+            textVerbosity: "medium",
+        }),
     });
 
-    // Floor: strip un-speakable em/en dashes from the spoken rewrite paragraphs
+    // Floor: strip un-speakable punctuation from the spoken rewrite paragraphs
     // of `improvedVersion` (the `> **Note:**` coaching prose is left intact).
     return sanitizeSpokenFields(result.output);
 }

@@ -7,11 +7,13 @@ import { z } from "zod";
  * snake_case `coaching_insight` field on `GET /api/captures/{id}`.
  *
  * The server is the SOLE source and guardrail (the agent has no local
- * transcript). The char limits size the copy for a tiny card. `quote`, when
- * present, is VERIFIED server-side to be a verbatim substring of the user's own
- * (already echo-filtered) transcript channel before it reaches this shape — see
- * `verifyInsightQuote` in `lib/captures/analyze.ts`. `null` (no insight) is a
- * first-class, correct outcome — never padded with generic filler.
+ * transcript). Field lengths are uncapped — the desktop card and the web hero
+ * both wrap text, so a complete thought is never truncated mid-sentence.
+ * `quote`, when present, is VERIFIED server-side to be a verbatim substring of
+ * the user's own (already echo-filtered) transcript channel before it reaches
+ * this shape — see `verifyInsightQuote` in `lib/captures/analyze.ts`. `null`
+ * (no insight) is a first-class, correct outcome — never padded with generic
+ * filler.
  */
 export const coachingInsightTypeSchema = z.enum([
     "rephrase", // a better way to phrase a specific line the user said
@@ -26,16 +28,16 @@ export type CoachingInsightType = z.infer<typeof coachingInsightTypeSchema>;
 export const coachingInsightSchema = z.object({
     type: coachingInsightTypeSchema,
     /** Plain, self-explanatory headline for the card — not clever. */
-    headline: z.string().max(60),
+    headline: z.string(),
     /**
      * Verbatim substring of the user's own transcript channel, or null when the
      * insight isn't about one specific utterance. Never paraphrased — the server
      * verifies it against the user lines and nulls it if it isn't a real quote.
      */
-    quote: z.string().max(120).nullable(),
+    quote: z.string().nullable(),
     /** The concrete suggestion / rewrite / observation for THIS capture. */
-    body: z.string().max(140),
+    body: z.string(),
     /** Optional one-liner on why it helps. */
-    why: z.string().max(80).nullable(),
+    why: z.string().nullable(),
 });
 export type CoachingInsight = z.infer<typeof coachingInsightSchema>;

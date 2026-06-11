@@ -36,8 +36,8 @@ import {
     resolveAnchorIdx,
 } from "@/lib/transcripts/anchor-resolver";
 import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
-import { loadModelPrompt } from "@/lib/openai/prompt";
-import { temperatureOptions } from "@/lib/openai/reasoning";
+import { loadModelPromptParts } from "@/lib/openai/prompt";
+import { modelTuningOptions } from "@/lib/openai/reasoning";
 import { sanitizeSpokenFields } from "@/lib/text/despeechify";
 import { isShortUserDrillLine } from "./drill-input-filter";
 
@@ -79,9 +79,9 @@ const captureAnalysisSchema = z.object({
     structuralObservations: z.array(structuralObservationSchema),
 
     // Single card-sized coaching takeaway (or null). Kept deliberately LENIENT
-    // (plain string `type`, no length caps) so a malformed insight can never
-    // fail the whole structured-output parse — the server coerces the enum,
-    // enforces the char limits, and verifies the quote in post-processing.
+    // (plain string `type`) so a malformed insight can never fail the whole
+    // structured-output parse — the server coerces the enum, trims whitespace,
+    // and verifies the quote in post-processing. Field lengths are uncapped.
     coachingInsight: z
         .object({
             type: z.string(),
@@ -155,6 +155,22 @@ function defaultTemperature(): number {
         : 0.15;
 }
 
+const REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as const;
+type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
+/**
+ * Reasoning effort for the capture analyzer (reasoning models only). Default
+ * "low": this is an extraction-style task over a delimited transcript — the
+ * documented case for scaling effort DOWN — and it sits in the latency window
+ * the desktop agent polls. Overridable via env (invalid values fall back).
+ */
+function defaultReasoningEffort(): ReasoningEffort {
+    const raw = process.env.CAPTURE_ANALYZER_REASONING_EFFORT?.trim();
+    return REASONING_EFFORTS.includes(raw as ReasoningEffort)
+        ? (raw as ReasoningEffort)
+        : "low";
+}
+
 function formatTranscript(
     transcript: CaptureTranscriptLine[],
     skip: (line: CaptureTranscriptLine, idx: number) => boolean = () => false,
@@ -170,53 +186,6 @@ function formatTranscript(
     return lines.join("\n");
 }
 
-/** Trim a string to `max` chars on a word boundary (keeps card copy readable). */
-function trimToLimit(value: string, max: number): string {
-    const t = value.trim();
-    if (t.length <= max) return t;
-    const slice = t.slice(0, max);
-    const lastSpace = slice.lastIndexOf(" ");
-    return (lastSpace > max * 0.6 ? slice.slice(0, lastSpace) : slice).trim();
-}
-
-/**
- * Trim a quote to `max` chars preferring clause-boundary breaks so the result
- * doesn't end mid-thought. Tries sentence-end (.!?) first (kept), then mid-
- * clause (,;:—) (dropped), then word boundary, then hard cut.
- *
- * Why a separate function: the body of a coachingInsight often rewrites the
- * same span as the quote (e.g. body: `Try: "..."`). A mid-word cut on the
- * quote breaks the visual alignment between "You said: ..." and the rewrite —
- * the reader can't mentally diff a half-sentence against a full one.
- */
-function trimQuoteToLimit(value: string, max: number): string {
-    const t = value.trim();
-    if (t.length <= max) return t;
-
-    const slice = t.slice(0, max);
-    const minBoundary = max * 0.6;
-
-    // Sentence-end punctuation — keep it (a quote ending in "." or "?" reads cleanly).
-    for (let i = slice.length - 1; i >= minBoundary; i--) {
-        if (/[.!?]/.test(slice[i])) {
-            return slice.slice(0, i + 1).trim();
-        }
-    }
-    // Mid-clause punctuation — cut BEFORE it (don't end a quote with a comma/dash).
-    for (let i = slice.length - 1; i >= minBoundary; i--) {
-        if (/[,;:—]/.test(slice[i])) {
-            return slice.slice(0, i).trim();
-        }
-    }
-    // Word boundary fallback (same threshold as trimToLimit).
-    const lastSpace = slice.lastIndexOf(" ");
-    if (lastSpace > minBoundary) {
-        return slice.slice(0, lastSpace).trim();
-    }
-    // No good boundary — hard cut.
-    return slice.trim();
-}
-
 /**
  * Verify a coaching-insight quote against the user's own transcript lines and
  * return the user's VERBATIM words (or null). Stricter than the moment
@@ -224,6 +193,9 @@ function trimQuoteToLimit(value: string, max: number): string {
  * `fuzzy` (paraphrase) path — the feature's rule 1 is "real quotes only" and the
  * agent cannot re-check this. User lines are already echo-leak filtered at
  * transcription time, so a user-line match is inherently the post-echo set.
+ * The quote is returned at full length — the card wraps, so a complete thought
+ * is never trimmed to a fragment (the "complete thought" contract is enforced
+ * by the prompt; the server never shortens what it verified as verbatim).
  */
 function verifyInsightQuote(
     quote: string | null | undefined,
@@ -251,7 +223,7 @@ function verifyInsightQuote(
     if (!line) return null;
     const at = line.text.toLowerCase().indexOf(q.toLowerCase());
     const verbatim = at >= 0 ? line.text.slice(at, at + q.length) : line.text;
-    return trimQuoteToLimit(verbatim, 120);
+    return verbatim.trim();
 }
 
 /**
@@ -278,12 +250,100 @@ function isGenericInsightText(text: string): boolean {
     return GENERIC_INSIGHT_STEMS.some((stem) => norm.includes(stem));
 }
 
+/** A `Try: "…"` body is a direct rewrite of the quote — it makes no sense on
+ * the agent card without a verified quote next to it. */
+function isTryRewriteBody(body: string): boolean {
+    return /(^|\s)try[:,]?\s*["“]/i.test(body);
+}
+
+/** Double-quoted spans (straight or curly) — the spoken-rewrite portions of a
+ * framing field like the insight body or a `betterOption`. */
+function extractQuotedSpans(text: string): string[] {
+    const spans: string[] = [];
+    for (const re of [/"([^"\n]+)"/g, /“([^”\n]+)”/g]) {
+        for (const m of text.matchAll(re)) spans.push(m[1]);
+    }
+    return spans;
+}
+
+const SPELLED_INTEGERS = [
+    "zero", "one", "two", "three", "four", "five", "six",
+    "seven", "eight", "nine", "ten", "eleven", "twelve",
+];
+
+// Proper-noun-shaped tokens that are normal in any rewrite regardless of the
+// transcript. Deliberately tiny — weekdays/months are NOT here, because an
+// invented "Tuesday" is exactly the fabrication class this floor exists for.
+const PROPER_NOUN_ALLOWLIST = new Set([
+    "i", "i'm", "i'll", "i'd", "i've", "ok", "okay", "english",
+]);
+
+/**
+ * Conservative fabrication floor for suggested spoken wording: a rewrite may
+ * only re-say what was actually said, so any DIGIT token or PROPER-NOUN token
+ * in it that appears nowhere in the conversation is an invented specific
+ * ("validated it Tuesday", a team name, a number the user never gave).
+ *
+ * Deliberately low-false-positive — the check runs against the FULL transcript
+ * (all speakers), wider than the prompt's stricter user-only rule: a token
+ * absent from the entire conversation is definitely fabricated, a token only
+ * the other speaker said might be a legitimate re-say. Proper-noun detection
+ * skips sentence-initial positions (sentence case is indistinguishable there).
+ * Worst case of a miss is a fabricated detail surviving (the prompt's job);
+ * worst case of a hit is a dropped insight — never a wrong card.
+ *
+ * Returns the first offending token, or null when the spans are grounded.
+ */
+function findFabricatedToken(
+    spans: string[],
+    transcript: CaptureTranscriptLine[],
+): string | null {
+    if (spans.length === 0) return null;
+
+    const haystack = transcript.map((l) => l.text).join("\n").toLowerCase();
+    // Digit comparison ignores formatting ("5,000" vs "5000", "3pm" vs "3 PM").
+    const digitHaystack = haystack.replace(/[^a-z0-9]/g, "");
+
+    for (const span of spans) {
+        const tokens = span.split(/\s+/).filter(Boolean);
+        let sentenceInitial = true;
+        for (const rawToken of tokens) {
+            const token = rawToken.replace(/^[^\p{L}\p{N}'’$]+|[^\p{L}\p{N}'’%]+$/gu, "");
+            const startsSentence = sentenceInitial;
+            sentenceInitial = /[.!?]$/.test(rawToken);
+            if (!token) continue;
+
+            if (/\d/.test(token)) {
+                const normalized = token.toLowerCase().replace(/[^a-z0-9]/g, "");
+                if (digitHaystack.includes(normalized)) continue;
+                const asInt = Number.parseInt(normalized, 10);
+                if (
+                    String(asInt) === normalized &&
+                    asInt >= 0 &&
+                    asInt <= 12 &&
+                    haystack.includes(SPELLED_INTEGERS[asInt])
+                ) {
+                    continue;
+                }
+                return token;
+            }
+
+            if (startsSentence) continue;
+            if (!/^[A-Z][a-z'’]+$/.test(token)) continue;
+            if (PROPER_NOUN_ALLOWLIST.has(token.toLowerCase())) continue;
+            if (!haystack.includes(token.toLowerCase())) return token;
+        }
+    }
+    return null;
+}
+
 /**
  * Build the stored `coachingInsight` from the lenient LLM output: gate on the
- * language flag, coerce the type to the enum, enforce the char limits, and
- * verify the quote. Wrapped so it NEVER throws — on any problem we return null
- * and the capture still reaches `analyzed` (failure isolation). `null` is also
- * the correct output when nothing is actionable.
+ * language flag, coerce the type to the enum, trim whitespace, and verify the
+ * quote. Field lengths are uncapped (the card wraps). Wrapped so it NEVER
+ * throws — on any problem we return null and the capture still reaches
+ * `analyzed` (failure isolation). `null` is also the correct output when
+ * nothing is actionable.
  */
 function buildCoachingInsight(
     raw: {
@@ -299,8 +359,8 @@ function buildCoachingInsight(
     try {
         if (!raw || !languageIsEnglish) return null;
 
-        const headline = trimToLimit(raw.headline ?? "", 60);
-        const body = trimToLimit(raw.body ?? "", 140);
+        const headline = (raw.headline ?? "").trim();
+        const body = (raw.body ?? "").trim();
         // A card with no headline or no concrete suggestion teaches nothing.
         if (!headline || !body) return null;
 
@@ -319,12 +379,81 @@ function buildCoachingInsight(
             : "other";
 
         const quote = verifyInsightQuote(raw.quote, transcript);
-        const whyTrimmed = trimToLimit(raw.why ?? "", 80);
+
+        // A Try-rewrite body with no verified quote would show the reader a
+        // rewrite of something they can't see — scope parity is unverifiable
+        // and the card is misleading. Null is first-class; reject.
+        if (isTryRewriteBody(body) && quote === null) {
+            console.warn(
+                "[coaching-insight] rejected: Try-rewrite body without a verified quote",
+            );
+            return null;
+        }
+
+        // Fabrication floor: suggested wording may not contain specifics the
+        // conversation never contained.
+        const fabricated = findFabricatedToken(
+            extractQuotedSpans(body),
+            transcript,
+        );
+        if (fabricated) {
+            console.warn(
+                `[coaching-insight] rejected: body invents a specific not in the transcript ("${fabricated}")`,
+            );
+            return null;
+        }
+
+        const whyTrimmed = (raw.why ?? "").trim();
         const why = whyTrimmed.length > 0 ? whyTrimmed : null;
 
         return { type, headline, quote, body, why };
     } catch {
         return null;
+    }
+}
+
+/**
+ * Log-only fabrication telemetry for the non-card suggestion surfaces.
+ * Deliberately NOT enforced yet: turnRewrites can't simply be dropped (the
+ * coverage invariant — enforcement would mean downgrading to `keep`), and the
+ * token floor's false-positive rate on free-form rewrites is unproven. Watch
+ * these warnings in production; promote to enforcement once the rate is
+ * known-near-zero. The agent-facing coachingInsight is the only hard-enforced
+ * surface (see buildCoachingInsight).
+ */
+function logFabricationTelemetry(
+    analysis: Pick<
+        ItemAnalysis,
+        "turnRewrites" | "fixTheseFirst" | "moreMoments"
+    >,
+    transcript: CaptureTranscriptLine[],
+): void {
+    try {
+        for (const t of analysis.turnRewrites ?? []) {
+            const token = findFabricatedToken([t.rewrite], transcript);
+            if (token) {
+                console.warn(
+                    `[fabrication-telemetry] turnRewrites[${t.transcriptIdx}].rewrite contains "${token}" not found in transcript`,
+                );
+            }
+        }
+        const moments = [
+            ...analysis.fixTheseFirst,
+            ...(analysis.moreMoments ?? []),
+        ];
+        for (const m of moments) {
+            const token = findFabricatedToken(
+                extractQuotedSpans(m.betterOption),
+                transcript,
+            );
+            if (token) {
+                console.warn(
+                    `[fabrication-telemetry] betterOption (anchor "${m.anchor.slice(0, 40)}") contains "${token}" not found in transcript`,
+                );
+            }
+        }
+    } catch {
+        // Telemetry must never break analysis.
     }
 }
 
@@ -396,6 +525,11 @@ Indices are NOT contiguous — a few sub-coaching-threshold user fragments are h
 ${formatTranscript(transcript, isShortUserDrillLine)}`;
 
     const modelName = defaultModel();
+    // Reasoning models (gpt-5-mini default here) get the lean, example-free
+    // prompt; fast models keep the few-shot blocks plus a post-transcript
+    // rule recap (late instructions weigh heavier on chat models). See
+    // loadModelPromptParts.
+    const promptParts = loadModelPromptParts(readPrompt(), modelName);
     const result = await generateText({
         model: openai(modelName),
         output: Output.object({
@@ -404,11 +538,17 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
             description:
                 "Deep analysis of a captured English conversation for coaching purposes.",
         }),
-        // Reasoning models (gpt-5-mini default here) get the lean, example-free
-        // prompt; fast models keep the few-shot blocks. See loadModelPrompt.
-        system: loadModelPrompt(readPrompt(), modelName),
-        prompt,
-        ...temperatureOptions(modelName, defaultTemperature()),
+        system: promptParts.system,
+        prompt: promptParts.postTranscriptRecap
+            ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
+            : prompt,
+        ...modelTuningOptions(modelName, {
+            temperature: defaultTemperature(),
+            reasoningEffort: defaultReasoningEffort(),
+            // Per-field length contracts in the prompt ("2-4 sentences")
+            // locally override the low global verbosity.
+            textVerbosity: "low",
+        }),
     });
 
     const isUserLine = (line: CaptureTranscriptLine) =>
@@ -525,12 +665,26 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
         ),
     };
 
+    logFabricationTelemetry(analysis, transcript);
+
     return {
         serverTitle: result.output.serverTitle,
         serverSummary: result.output.serverSummary,
-        // Floor: strip un-speakable em/en dashes from spoken sub-fields
-        // (turnRewrites.rewrite, coachingInsight.body, every betterOption).
-        // The prompt asks the model to avoid them; this guarantees it.
+        // Floor: strip un-speakable punctuation (dashes everywhere; colons,
+        // semicolons, brackets inside quoted spoken wording) from spoken
+        // sub-fields (turnRewrites.rewrite, coachingInsight.body, every
+        // betterOption). The prompt asks the model to avoid them; this
+        // guarantees it. See lib/text/despeechify.ts.
         analysis: sanitizeSpokenFields(analysis),
     };
 }
+
+// Exposed for unit tests only (mirrors lib/transcripts/anchor-resolver.ts).
+export const __test = {
+    buildCoachingInsight,
+    verifyInsightQuote,
+    isTryRewriteBody,
+    extractQuotedSpans,
+    findFabricatedToken,
+    isGenericInsightText,
+};

@@ -22,3 +22,36 @@ export function temperatureOptions(
 ): { temperature: number } | Record<string, never> {
     return isReasoningModel(model) ? {} : { temperature };
 }
+
+type ModelTuning = {
+    /** Used for chat models only — reasoning models reject it (see above). */
+    temperature: number;
+    /** Reasoning models only. OpenAI's guidance: scale effort DOWN for
+     * extraction-style tasks; never crank it up to paper over a weak prompt. */
+    reasoningEffort?: "minimal" | "low" | "medium" | "high";
+    /** Reasoning models only. Output-length steering — per-field length
+     * contracts in the prompt ("2-4 sentences") override this locally. */
+    textVerbosity?: "low" | "medium" | "high";
+};
+
+/**
+ * Per-model-class call options, superset of `temperatureOptions`: chat models
+ * get the temperature, reasoning models get `reasoningEffort`/`textVerbosity`
+ * via the AI SDK's `providerOptions.openai` passthrough instead. Spread the
+ * result into `generateText` options.
+ */
+export function modelTuningOptions(model: string, tuning: ModelTuning) {
+    if (!isReasoningModel(model)) {
+        return { temperature: tuning.temperature };
+    }
+    const openaiOptions: Record<string, string> = {};
+    if (tuning.reasoningEffort) {
+        openaiOptions.reasoningEffort = tuning.reasoningEffort;
+    }
+    if (tuning.textVerbosity) {
+        openaiOptions.textVerbosity = tuning.textVerbosity;
+    }
+    return Object.keys(openaiOptions).length > 0
+        ? { providerOptions: { openai: openaiOptions } }
+        : {};
+}

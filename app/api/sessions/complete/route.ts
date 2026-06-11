@@ -20,7 +20,7 @@ import { reconcileMoments } from "@/lib/transcripts/anchor-resolver";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
 import { mergeDrillNotesFromSession } from "@/services/learner-context-updater";
 import { refreshSkillMemoryFromLatestSession } from "@/services/skill-memory-updater";
-import { temperatureOptions } from "@/lib/openai/reasoning";
+import { modelTuningOptions } from "@/lib/openai/reasoning";
 import { Output, generateText, zodSchema } from "ai";
 import { randomUUID } from "node:crypto";
 import {
@@ -402,7 +402,11 @@ Time cap: ${session.plan.maxDurationSeconds ?? 60} seconds (hard stop — mid-th
 
 ## Transcript
 ${transcript}`,
-            ...temperatureOptions(relevanceCheckModel, 0),
+            // Three booleans + a sentence — minimal reasoning effort.
+            ...modelTuningOptions(relevanceCheckModel, {
+                temperature: 0,
+                reasoningEffort: "minimal",
+            }),
         });
 
         const relevanceReason =
