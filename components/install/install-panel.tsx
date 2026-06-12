@@ -4,66 +4,24 @@ import Link from "next/link";
 import {
     Apple,
     ArrowRight,
-    Check,
-    Copy,
-    Download,
     Monitor,
+    ShieldCheck,
     Smartphone,
-    Terminal,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { SaveLinkActions } from "@/components/mobile/save-link-actions";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { track } from "@/lib/analytics/client";
 import type { InstallPanelSource } from "@/lib/analytics/events";
 import { useIsMobile } from "@/lib/device/is-mobile";
-import { cn } from "@/lib/utils";
 
-const DOWNLOAD_TIMESTAMP_KEY = "sayzo.desktop.downloadedAt";
+import { DownloadCta } from "./download-cta";
+import { detectOS, type OS, otherOS, PLATFORMS } from "./platforms";
+import { TerminalInstall } from "./terminal-install";
 
-export type OS = "windows" | "macos";
-
-type PlatformCopy = {
-    label: string;
-    shell: string;
-    command: string;
-    downloadUrl: string;
-    fileName: string;
-    minOS: string;
-};
-
-export const PLATFORMS: Record<OS, PlatformCopy> = {
-    windows: {
-        label: "Windows",
-        shell: "PowerShell",
-        command: "irm https://sayzo.app/releases/windows/install.ps1 | iex",
-        downloadUrl: "https://sayzo.app/releases/windows/sayzo-setup.exe",
-        fileName: "sayzo-setup.exe",
-        minOS: "Windows 10 or newer",
-    },
-    macos: {
-        label: "macOS",
-        shell: "Terminal",
-        command: "curl -fsSL https://sayzo.app/releases/macos/install.sh | bash",
-        downloadUrl: "https://sayzo.app/releases/macos/Sayzo.dmg",
-        fileName: "Sayzo.dmg",
-        minOS: "macOS 14.4 or newer",
-    },
-};
-
-export function detectOS(): OS {
-    if (typeof navigator === "undefined") return "windows";
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("mac") || ua.includes("iphone") || ua.includes("ipad")) {
-        return "macos";
-    }
-    return "windows";
-}
-
-export function otherOS(os: OS): OS {
-    return os === "windows" ? "macos" : "windows";
-}
+// Platform constants/utilities moved to ./platforms — re-exported here so
+// existing imports (e.g. sessions-dashboard) keep working unchanged.
+export { detectOS, type OS, otherOS, PLATFORMS } from "./platforms";
 
 type Props = {
     showViewAllLink?: boolean;
@@ -74,6 +32,11 @@ type Props = {
     onOSChange?: (os: OS) => void;
     // Where this panel is embedded — used to attribute download clicks in analytics.
     analyticsSource?: InstallPanelSource;
+    // Where the "Windows shows a caution screen" note links to. A "#" href
+    // scrolls in-page (the install page); anything else opens in a new tab.
+    // Pass null to hide the note. Defaults on so every embed forewarns
+    // Windows users about the caution screen.
+    windowsCautionHref?: string | null;
 };
 
 export function InstallPanel(props: Readonly<Props>) {
@@ -84,10 +47,10 @@ export function InstallPanel(props: Readonly<Props>) {
         os: controlledOS,
         onOSChange,
         analyticsSource = "landing_panel",
+        windowsCautionHref = "/install#windows-caution",
     } = props;
     const isControlled = controlledOS !== undefined;
     const [internalOS, setInternalOS] = useState<OS>("windows");
-    const [copied, setCopied] = useState(false);
     const isMobile = useIsMobile();
     const mobileDetectedRef = useRef(false);
 
@@ -110,37 +73,10 @@ export function InstallPanel(props: Readonly<Props>) {
         track("mobile_visitor_detected", { page: "install_page" });
     }, [isMobile]);
 
-    const handleCopy = async (command: string) => {
-        try {
-            await navigator.clipboard.writeText(command);
-            setCopied(true);
-            track("install_terminal_copied", { os });
-            setTimeout(() => setCopied(false), 1500);
-        } catch {
-            // Clipboard blocked — user can copy manually
-        }
-    };
-
     const switchOS = () => {
         const next = otherOS(os);
         track("install_os_switched", { from: os, to: next });
         setOS(next);
-        setCopied(false);
-    };
-
-    const handleDownloadClick = () => {
-        track("desktop_download_clicked", {
-            os,
-            source: analyticsSource,
-        });
-        try {
-            window.localStorage.setItem(
-                DOWNLOAD_TIMESTAMP_KEY,
-                String(Date.now()),
-            );
-        } catch {
-            // localStorage may be unavailable (private mode) — best effort only.
-        }
     };
 
     const active = PLATFORMS[os];
@@ -162,13 +98,10 @@ export function InstallPanel(props: Readonly<Props>) {
                         <Smartphone className="size-3" />
                         You&apos;re on mobile — save for your computer
                     </div>
-                    <SaveLinkActions
-                        source="install_page"
-                        layout="stacked"
-                    />
+                    <SaveLinkActions source="install_page" layout="stacked" />
                     <p className="text-xs text-muted-foreground">
-                        Sayzo runs on Windows and macOS. Send yourself the
-                        link and finish the install on your computer.
+                        Sayzo runs on Windows and macOS. Send yourself the link
+                        and finish the install on your computer.
                     </p>
                 </div>
             ) : (
@@ -179,21 +112,59 @@ export function InstallPanel(props: Readonly<Props>) {
                             Detected {active.label}
                         </div>
 
-                        <a
-                            href={active.downloadUrl}
-                            download
-                            onClick={handleDownloadClick}
-                            className={cn(
-                                buttonVariants({ size: "lg" }),
-                                "w-full",
-                            )}
-                        >
-                            <Download className="size-4" />
-                            Download for {active.label}
-                        </a>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                            {active.fileName} · {active.minOS}
-                        </p>
+                        <DownloadCta
+                            os={os}
+                            analyticsSource={analyticsSource}
+                            buttonClassName="w-full"
+                        />
+
+                        {os === "windows" && windowsCautionHref ? (
+                            <div className="mt-3 flex items-start gap-2 rounded-lg bg-sky-50/80 px-3 py-2 text-xs leading-relaxed text-sky-900 ring-1 ring-sky-200/70 dark:bg-sky-950/40 dark:text-sky-200 dark:ring-sky-900/60">
+                                <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+                                <span>
+                                    Windows will show a caution screen before
+                                    installing — that&apos;s expected.{" "}
+                                    {windowsCautionHref.startsWith("#") ? (
+                                        <>
+                                            The steps below show every click,
+                                            and you can read{" "}
+                                            <a
+                                                href={windowsCautionHref}
+                                                onClick={() =>
+                                                    track(
+                                                        "install_caution_link_clicked",
+                                                        {
+                                                            source: analyticsSource,
+                                                        },
+                                                    )
+                                                }
+                                                className="font-medium underline underline-offset-4 hover:text-sky-700 dark:hover:text-sky-100"
+                                            >
+                                                why it happens
+                                            </a>
+                                            .
+                                        </>
+                                    ) : (
+                                        <a
+                                            href={windowsCautionHref}
+                                            target="_blank"
+                                            rel="noopener"
+                                            onClick={() =>
+                                                track(
+                                                    "install_caution_link_clicked",
+                                                    {
+                                                        source: analyticsSource,
+                                                    },
+                                                )
+                                            }
+                                            className="font-medium underline underline-offset-4 hover:text-sky-700 dark:hover:text-sky-100"
+                                        >
+                                            See exactly what to click.
+                                        </a>
+                                    )}
+                                </span>
+                            </div>
+                        ) : null}
 
                         <button
                             type="button"
@@ -204,42 +175,9 @@ export function InstallPanel(props: Readonly<Props>) {
                         </button>
                     </div>
 
-                    <details className="group mt-4 border-t border-border/50 pt-3">
-                        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
-                            <Terminal className="size-3" />
-                            <span className="group-open:hidden">
-                                Prefer the terminal?
-                            </span>
-                            <span className="hidden group-open:inline">
-                                Hide terminal one-liner
-                            </span>
-                        </summary>
-                        <div className="mt-3">
-                            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                                {active.shell}
-                            </p>
-                            <div className="flex items-stretch gap-2">
-                                <code className="flex-1 overflow-x-auto rounded-lg border border-border/70 bg-background px-3 py-2 font-mono text-xs leading-relaxed">
-                                    {active.command}
-                                </code>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                        void handleCopy(active.command)
-                                    }
-                                    aria-label={`Copy ${active.shell} command`}
-                                >
-                                    {copied ? (
-                                        <Check className="size-3.5" />
-                                    ) : (
-                                        <Copy className="size-3.5" />
-                                    )}
-                                    {copied ? "Copied" : "Copy"}
-                                </Button>
-                            </div>
-                        </div>
-                    </details>
+                    <div className="mt-4 border-t border-border/50 pt-3">
+                        <TerminalInstall key={os} os={os} />
+                    </div>
                 </>
             )}
 
@@ -247,7 +185,7 @@ export function InstallPanel(props: Readonly<Props>) {
                 <div className="mt-4 flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
                     <Link
                         href="/install"
-                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                        className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
                     >
                         Open install page
                         <ArrowRight className="size-3" />

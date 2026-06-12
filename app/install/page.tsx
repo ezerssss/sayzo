@@ -8,7 +8,7 @@ import { InstallFlow } from "@/components/install/install-flow";
 export const metadata: Metadata = {
     title: "Install the desktop companion",
     description:
-        "Download the Sayzo desktop companion for Windows or macOS. Clickable installer, no terminal required.",
+        "Download the Sayzo desktop companion for Windows or macOS. We walk you through every step of the install — including exactly what to click.",
 };
 
 export default function InstallPage() {
@@ -39,111 +39,75 @@ export default function InstallPage() {
                 </Link>
             </header>
 
-            <article className="mx-auto w-full max-w-2xl px-6 pt-6 pb-20">
-                <div className="space-y-3">
-                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
+            <article className="pb-20">
+                <div className="mx-auto w-full max-w-4xl space-y-3 px-6 pt-6 pb-12">
+                    <p className="flex items-center gap-2 text-xs font-semibold tracking-wider text-sky-700 uppercase">
                         <Download className="size-3.5" />
                         Install
                     </p>
                     <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                        Bring Sayzo into your real meetings.
+                        Get Sayzo on your computer.
                     </h1>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                        Sayzo joins the work calls you choose and, after each
-                        one, shows you how it went, then lets you replay the
-                        moments worth practicing. It works best on desktop,
-                        where it can sit in on the standups you lead, the
-                        client calls you ran this week, and the 1:1 that
-                        didn&apos;t go how you wanted.
+                    <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                        It takes about two minutes, and this page walks you
+                        through every click. Once it&apos;s in, Sayzo joins the
+                        work calls you choose, shows you how each one went, and
+                        lets you replay the moments worth practicing.
                     </p>
-                </div>
-
-                <div className="mt-8 rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold tracking-tight">
-                        What the companion gives you
-                    </h2>
-                    <ul className="mt-3 space-y-2.5 text-sm leading-relaxed text-muted-foreground">
-                        <li className="flex gap-2.5">
-                            <span
-                                aria-hidden
-                                className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-sky-500"
-                            />
-                            <span>
-                                <span className="text-foreground">
-                                    Coaching tuned to your actual week.
-                                </span>{" "}
-                                Your feedback comes from the conversations you
-                                just had, not a generic curriculum.
-                            </span>
-                        </li>
-                        <li className="flex gap-2.5">
-                            <span
-                                aria-hidden
-                                className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-sky-500"
-                            />
-                            <span>
-                                <span className="text-foreground">
-                                    Coaching on the exact spots you got stuck.
-                                </span>{" "}
-                                The moment you hesitated, the point that
-                                didn&apos;t land, the answer you wish you had
-                                ready, surfaced while it&apos;s still fresh.
-                            </span>
-                        </li>
-                        <li className="flex gap-2.5">
-                            <span
-                                aria-hidden
-                                className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-sky-500"
-                            />
-                            <span>
-                                <span className="text-foreground">
-                                    Everything stays local until you choose.
-                                </span>{" "}
-                                Processing happens on your machine. Only the
-                                moments worth coaching on are sent to Sayzo,
-                                and you can review them first.
-                            </span>
-                        </li>
+                    <ul className="flex flex-wrap gap-2 pt-1">
+                        {[
+                            "Coaching from your real week",
+                            "The exact spots you got stuck",
+                            "Stays on your machine until you choose",
+                        ].map((point) => (
+                            <li
+                                key={point}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-3 py-1 text-xs text-muted-foreground"
+                            >
+                                <span
+                                    aria-hidden
+                                    className="size-1.5 rounded-full bg-sky-500"
+                                />
+                                {point}
+                            </li>
+                        ))}
                     </ul>
                 </div>
 
-                <div className="mt-6">
-                    <InstallFlow
-                        headline="Install it"
-                        subhead="Download the installer for your OS and follow the steps below. Takes a couple of minutes."
-                    />
-                </div>
+                <InstallFlow />
 
-                <div className="mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground">
-                    <section>
-                        <h2 className="text-base font-semibold tracking-tight text-foreground">
-                            Uninstalling
-                        </h2>
-                        <p className="mt-2">
-                            Remove it the same way you&apos;d remove any other
-                            app, through your apps list in Windows Settings,
-                            or by dragging it from Applications to the Trash on
-                            macOS.
-                        </p>
-                    </section>
+                <div className="mx-auto w-full max-w-4xl px-6">
+                    <div className="grid gap-8 border-t border-border/70 pt-10 text-sm leading-relaxed text-muted-foreground sm:grid-cols-2">
+                        <section>
+                            <h2 className="text-base font-semibold tracking-tight text-foreground">
+                                Uninstalling
+                            </h2>
+                            <p className="mt-2">
+                                Remove it the same way you&apos;d remove any
+                                other app, through your apps list in Windows
+                                Settings, or by dragging it from Applications to
+                                the Trash on macOS.
+                            </p>
+                        </section>
 
-                    <section>
-                        <h2 className="text-base font-semibold tracking-tight text-foreground">
-                            Not ready yet?
-                        </h2>
-                        <p className="mt-2">
-                            Sayzo needs the desktop companion to bring your
-                            real conversations in. You can still open the web
-                            app to sign in and look around.{" "}
-                            <Link
-                                href="/app"
-                                className="text-foreground underline-offset-4 hover:underline"
-                            >
-                                Open Sayzo
-                            </Link>
-                            .
-                        </p>
-                    </section>
+                        <section>
+                            <h2 className="text-base font-semibold tracking-tight text-foreground">
+                                Not ready yet?
+                            </h2>
+                            <p className="mt-2">
+                                Sayzo needs the desktop companion to bring your
+                                real conversations in. You can still open the
+                                web app to sign in and look around.{" "}
+                                <Link
+                                    href="/app"
+                                    className="text-foreground underline-offset-4 hover:underline"
+                                >
+                                    Open Sayzo
+                                </Link>
+                                .
+                            </p>
+                        </section>
+                    </div>
                 </div>
             </article>
         </main>

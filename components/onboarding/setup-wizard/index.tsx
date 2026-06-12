@@ -54,7 +54,9 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     const [step, setStep] = useState<SetupWizardStep>(() =>
         computeResumeStep(savedSamples),
     );
-    const sampleResults = useRef<Map<string, OnboardingSampleResult>>(new Map());
+    const sampleResults = useRef<Map<string, OnboardingSampleResult>>(
+        new Map(),
+    );
     const savedTranscripts = useRef<Map<string, string>>(new Map());
 
     useEffect(() => {
@@ -340,6 +342,7 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
                     <InstallPanel
                         headline="Last step: install Sayzo to start"
                         subhead="Sayzo runs on your computer and joins your work calls. After each one, you get feedback and can replay the moments worth practicing."
+                        analyticsSource="onboarding"
                     />
                 </div>
             </section>

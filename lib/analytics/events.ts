@@ -7,8 +7,15 @@ export type DesktopOS = "windows" | "macos";
 export type CreditFeature = "drill" | "capture" | "replay";
 export type LengthBucket = "short" | "medium" | "long";
 export type SignInSource = "login_page" | "install_page" | "nav" | "unknown";
-export type InstallPanelSource = "install_page" | "landing_panel";
-export type SupportCategoryEventValue = "bug" | "feature" | "question" | "other";
+export type InstallPanelSource =
+    | "install_page"
+    | "landing_panel"
+    | "onboarding";
+export type SupportCategoryEventValue =
+    | "bug"
+    | "feature"
+    | "question"
+    | "other";
 
 export type AnalyticsEventParams = {
     // Page / navigation (fired by instrumentation-client.ts)
@@ -34,6 +41,9 @@ export type AnalyticsEventParams = {
     };
     install_terminal_copied: { os: DesktopOS };
     desktop_first_capture_seen: { time_since_download_min: number | null };
+    install_caution_link_clicked: { source: InstallPanelSource };
+    install_caution_section_viewed: { os: DesktopOS };
+    install_faq_opened: { os: DesktopOS; question_id: string };
 
     // Onboarding
     onboarding_started: Record<string, never>;
