@@ -15,6 +15,7 @@ rules_version = '2';
 // Object layout (all written by the server):
 //   drills/{uid}/{sessionId}/{uuid}.{ext}: capture-replay audio (path name kept)
 //   captures/{uid}/{captureId}/audio.opus — captured conversation audio
+//   diagnostics/{uid}/{installId}/{logId}/{name} — companion diagnostic logs (plaintext)
 //   tts-cache/{hash}.mp3                   — TTS cache (server-managed)
 
 service firebase.storage {

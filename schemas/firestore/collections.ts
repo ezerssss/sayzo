@@ -17,6 +17,11 @@ export enum FirestoreCollectionName {
     SUPPORT_REPORTS = "support_reports",
     SUPPORT_REPORTS_RATE = "support_reports_rate",
     AUDIT_LOG = "audit_log",
+    /**
+     * Diagnostic logs uploaded by the desktop companion. Server-only (admin read,
+     * no client write). PII/content-free; auto-pruned (see lib/diagnostics/retention.ts).
+     */
+    DIAGNOSTIC_LOGS = "diagnostic_logs",
 }
 
 export const FirestoreCollections = {
@@ -55,5 +60,8 @@ export const FirestoreCollections = {
     },
     auditLog: {
         path: FirestoreCollectionName.AUDIT_LOG,
+    },
+    diagnosticLogs: {
+        path: FirestoreCollectionName.DIAGNOSTIC_LOGS,
     },
 } as const;

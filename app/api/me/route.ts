@@ -1,6 +1,11 @@
 import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import {
+    type AgentInventory,
+    inventoryChanged,
+    parseAgentInventoryHeaders,
+} from "@/lib/diagnostics/inventory";
 import { type UserProfileType } from "@/schemas";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -10,6 +15,13 @@ export const runtime = "nodejs";
  * Account-state gate for the desktop agent. The agent calls this on launch,
  * once per hour while running, and on a brief 8-second poll while the user is
  * on the "finish setup" screen. Bearer auth — same flow as /api/sessions/today.
+ *
+ * Also the agent-inventory + remote-diagnostics control channel (v3.16.0+):
+ *   - INGEST: persists the `X-Agent-Version`/`-Platform`/`-Install-Id` headers
+ *     as last-seen on the user doc (best-effort, only on change, never on a
+ *     missing doc — see the inventory block below).
+ *   - EMIT: `collect_logs` tells the agent to upload its diagnostic log on its
+ *     next poll (admin-set; one-shot, cleared by POST /api/diagnostics/upload).
  *
  * `account_state` is the discriminator the agent uses to decide whether to arm
  * recording. It is keyed off whether the user's baseline doc EXISTS, NOT off
@@ -52,6 +64,8 @@ export async function GET(request: NextRequest) {
 
     let onboardingComplete = false;
     let userExists = false;
+    let collectLogs = false;
+    let storedInventory: AgentInventory = {};
     try {
         const db = getAdminFirestore();
         const snap = await db
@@ -62,6 +76,12 @@ export async function GET(request: NextRequest) {
             userExists = true;
             const data = snap.data() as Partial<UserProfileType>;
             onboardingComplete = data.onboardingComplete === true;
+            collectLogs = data.collectLogs === true;
+            storedInventory = {
+                agentVersion: data.agentVersion,
+                agentPlatform: data.agentPlatform,
+                agentInstallId: data.agentInstallId,
+            };
         }
     } catch (error) {
         console.error("[/api/me] profile lookup failed", error);
@@ -69,6 +89,33 @@ export async function GET(request: NextRequest) {
             { error: "Failed to load account state." },
             { status: 500 },
         );
+    }
+
+    // Ingest the desktop agent's inventory headers (X-Agent-Version/-Platform/
+    // -Install-Id, sent by v3.16.0+). Best-effort and NON-FATAL — a write hiccup
+    // must never fail the agent's account-state gate. Two guards keep it cheap and
+    // safe: (1) only when the doc already exists — we never create on this read
+    // (that would resurrect a deleted user; see the header note); (2) only when a
+    // value actually CHANGED — this handler is hit on launch, hourly, and on an
+    // 8s onboarding poll, so an unconditional write would hammer the doc.
+    if (userExists) {
+        const incoming = parseAgentInventoryHeaders(request.headers);
+        if (inventoryChanged(storedInventory, incoming)) {
+            try {
+                await getAdminFirestore()
+                    .collection(FirestoreCollections.users.path)
+                    .doc(uid)
+                    .set(
+                        {
+                            ...incoming,
+                            agentLastSeenAt: new Date().toISOString(),
+                        },
+                        { merge: true },
+                    );
+            } catch (error) {
+                console.warn("[/api/me] agent inventory write failed", error);
+            }
+        }
     }
 
     // Precedence: hard account states FIRST, then provisioning/onboarding.
@@ -89,6 +136,10 @@ export async function GET(request: NextRequest) {
             onboarding_complete: onboardingComplete,
             onboarding_url: buildOnboardingUrl(),
             account_state: accountState,
+            // On-demand diagnostics pull: when an admin flips `collectLogs`, the
+            // agent uploads its current log on its next poll. One-shot — cleared
+            // on receipt of an `on_demand` POST /api/diagnostics/upload.
+            collect_logs: collectLogs,
             issued_at: new Date().toISOString(),
         },
         {

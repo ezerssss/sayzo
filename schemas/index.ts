@@ -32,5 +32,8 @@ export * from "./session/session";
 export * from "./capture/capture";
 export * from "./user/user";
 
+// Desktop-companion remote diagnostics
+export * from "./diagnostics/diagnostic-log";
+
 // Firestore collection registry
 export * from "./firestore/collections";

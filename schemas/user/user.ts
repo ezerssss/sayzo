@@ -89,6 +89,26 @@ export type UserProfileType = {
      * `requireAdmin()` — never trust the client value.
      */
     isAdmin?: boolean;
+
+    /**
+     * Last-seen desktop agent inventory, ingested from the `X-Agent-*` request
+     * headers on `GET /api/me` (shipped agent-side in v3.16.0). Absent until a
+     * v3.16.0+ agent has polled. `/api/me` only writes these when at least one
+     * value CHANGED and the user doc already exists (never created on that read).
+     */
+    agentVersion?: string;
+    agentPlatform?: string;
+    agentInstallId?: string;
+    /** ISO 8601 — set whenever the inventory above is (re)written. */
+    agentLastSeenAt?: string;
+
+    /**
+     * Admin-set on-demand pull flag. When true, `GET /api/me` returns
+     * `collect_logs: true` and the agent uploads its current diagnostic log on
+     * its next poll. One-shot: cleared back to false on receipt of a successful
+     * `POST /api/diagnostics/upload` with `reason="on_demand"` from this user.
+     */
+    collectLogs?: boolean;
 };
 
 /**

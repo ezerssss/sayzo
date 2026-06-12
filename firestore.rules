@@ -115,6 +115,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Desktop-companion diagnostic logs (device OS, app version, install id,
+    // error logs — PII/content-free, no meeting audio/transcripts). Admin read
+    // for the dashboard; the Admin SDK is the only writer.
+    match /diagnostic_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ----------------------------------------------------------------
     // Default deny: anything not explicitly allowed above is closed.
     // ----------------------------------------------------------------

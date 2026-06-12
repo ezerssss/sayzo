@@ -56,4 +56,41 @@ export async function register() {
     console.log(
         `[captures/cron] Polling loop registered — every ${POLL_INTERVAL_MS / 1000}s`,
     );
+
+    // Diagnostics retention sweep — far slower than the capture poll. Deletes
+    // log rows + blobs past the retention window (DIAGNOSTICS_RETENTION_DAYS).
+    // Runs shortly after startup, then every 6h.
+    const PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+    const PRUNE_STARTUP_DELAY_MS = 5 * 60 * 1000; // 5 min after boot
+
+    async function prune() {
+        try {
+            const res = await fetch(
+                `http://localhost:${port}/api/diagnostics/prune`,
+                {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${cronSecret}` },
+                },
+            );
+            const data = (await res.json()) as {
+                docsDeleted?: number;
+                blobsDeleted?: number;
+                error?: string;
+            };
+            if (data.docsDeleted) {
+                console.log(
+                    `[diagnostics/cron] Pruned ${data.docsDeleted} log(s), ${data.blobsDeleted ?? 0} blob(s)`,
+                );
+            }
+        } catch {
+            // Server may not be ready yet — retry on the next interval.
+        }
+    }
+
+    setTimeout(() => void prune(), PRUNE_STARTUP_DELAY_MS);
+    setInterval(() => void prune(), PRUNE_INTERVAL_MS);
+
+    console.log(
+        `[diagnostics/cron] Retention sweep registered — every ${PRUNE_INTERVAL_MS / 1000 / 3600}h`,
+    );
 }

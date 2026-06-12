@@ -15,7 +15,9 @@ export type AuditAction =
     | "access_request.deny"
     | "support_report.status.update"
     | "capture.retry"
-    | "session.retry";
+    | "session.retry"
+    | "user.collect_logs.update"
+    | "diagnostic_log.delete";
 
 export interface AuditLogEntry {
     /** Firestore doc id (auto). Not stored as a field. */

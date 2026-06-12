@@ -185,6 +185,25 @@ export default function AdminUsersPage() {
                             ),
                         },
                         {
+                            key: "agent",
+                            header: "Agent",
+                            cell: (r) =>
+                                r.agentVersion ? (
+                                    <div className="flex flex-col">
+                                        <span className="font-mono text-[11px]">
+                                            v{r.agentVersion}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground">
+                                            {formatDate(r.agentLastSeenAt)}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                        —
+                                    </span>
+                                ),
+                        },
+                        {
                             key: "createdAt",
                             header: "Created",
                             cell: (r) => (

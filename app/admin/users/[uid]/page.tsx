@@ -18,6 +18,7 @@ import { AdminToggle } from "./_components/admin-toggle";
 import { CapturesPanel } from "./_components/captures-panel";
 import { CreditsEditor } from "./_components/credits-editor";
 import { DangerZone } from "./_components/danger-zone";
+import { DiagnosticsPanel } from "./_components/diagnostics-panel";
 import { ProfilePanel } from "./_components/profile-panel";
 import { SessionsPanel } from "./_components/sessions-panel";
 
@@ -175,6 +176,12 @@ export default function AdminUserDetailPage() {
 
             <SessionsPanel sessions={sessions} />
             <CapturesPanel captures={captures} />
+
+            <DiagnosticsPanel
+                uid={uid}
+                profile={data.profile}
+                onProfileChange={refresh}
+            />
 
             <DangerZone
                 uid={uid}

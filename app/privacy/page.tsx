@@ -9,7 +9,7 @@ export const metadata: Metadata = {
         "How Sayzo collects, uses, stores, and protects your information. Local-first by design.",
 };
 
-const LAST_UPDATED = "April 15, 2026";
+const LAST_UPDATED = "June 12, 2026";
 const CONTACT_EMAIL = "team@sayzo.app";
 
 export default function PrivacyPage() {
@@ -220,6 +220,29 @@ export default function PrivacyPage() {
                             trackers.
                         </p>
                     </SubSection>
+
+                    <SubSection title="Diagnostic and error logs from the desktop companion">
+                        <p>
+                            To help us find and fix problems, the desktop
+                            companion can send Sayzo diagnostic logs. These
+                            describe how the app itself is running, not what
+                            you say. Specifically, they include your
+                            device&apos;s operating system, the
+                            companion&apos;s app version, a random install
+                            identifier that lets us tell one installation&apos;s
+                            logs from another&apos;s, and error logs.
+                        </p>
+                        <p>
+                            These diagnostic logs are designed to exclude your
+                            meeting audio and the transcripts of what you or
+                            anyone else said &mdash; that content is never part
+                            of them. Sending diagnostics is on by default, and
+                            you can turn it off in the companion at any time.
+                            We keep the logs we receive for a limited time (see
+                            &quot;How long we keep it&quot;) and you can ask us
+                            to delete them.
+                        </p>
+                    </SubSection>
                 </Section>
 
                 <Section title="4. How we use your information">
@@ -354,6 +377,12 @@ export default function PrivacyPage() {
                         the Service, we permanently delete the audio file
                         and associated transcript and analysis from our
                         systems. This action cannot be undone.
+                    </p>
+                    <p>
+                        Diagnostic and error logs from the desktop
+                        companion are kept for a limited window and then
+                        automatically deleted &mdash; by default within 30
+                        days of being received.
                     </p>
                     <p>
                         When you delete your account (see section 8), we

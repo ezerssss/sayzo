@@ -20,6 +20,7 @@ export interface CascadeDeleteResult {
     storageObjectsDeleted: number;
     sessionsDeleted: number;
     capturesDeleted: number;
+    diagnosticLogsDeleted: number;
     accessRequestsDeleted: number;
     supportReportsDeleted: number;
     refreshTokensDeleted: number;
@@ -61,6 +62,7 @@ export async function deleteUserCompletely(
         storageObjectsDeleted: 0,
         sessionsDeleted: 0,
         capturesDeleted: 0,
+        diagnosticLogsDeleted: 0,
         accessRequestsDeleted: 0,
         supportReportsDeleted: 0,
         refreshTokensDeleted: 0,
@@ -90,8 +92,13 @@ export async function deleteUserCompletely(
     }
 
     // 2. Storage. Drill audio lives under `drills/{uid}/`; capture audio under
-    //    `captures/{uid}/`. tts-cache is global and not user-scoped.
-    for (const prefix of [`drills/${targetUid}/`, `captures/${targetUid}/`]) {
+    //    `captures/{uid}/`; diagnostic logs under `diagnostics/{uid}/`. tts-cache
+    //    is global and not user-scoped.
+    for (const prefix of [
+        `drills/${targetUid}/`,
+        `captures/${targetUid}/`,
+        `diagnostics/${targetUid}/`,
+    ]) {
         try {
             const [files] = await bucket.getFiles({ prefix });
             await Promise.all(
@@ -170,6 +177,11 @@ export async function deleteUserCompletely(
         "uid",
         targetUid,
     );
+    result.diagnosticLogsDeleted = await deleteByEqual(
+        FirestoreCollections.diagnosticLogs.path,
+        "uid",
+        targetUid,
+    );
     result.accessRequestsDeleted = await deleteByEqual(
         FirestoreCollections.accessRequests.path,
         "uid",
@@ -206,6 +218,7 @@ export async function deleteUserCompletely(
             storageObjectsDeleted: result.storageObjectsDeleted,
             sessionsDeleted: result.sessionsDeleted,
             capturesDeleted: result.capturesDeleted,
+            diagnosticLogsDeleted: result.diagnosticLogsDeleted,
             accessRequestsDeleted: result.accessRequestsDeleted,
             supportReportsDeleted: result.supportReportsDeleted,
             refreshTokensDeleted: result.refreshTokensDeleted,
