@@ -19,6 +19,7 @@ import { Kicker, StaggerItem } from "@/components/coaching/briefing";
 import { CoachingInsightCard } from "@/components/conversations/coaching-insight-card";
 import { MeetingSummaryHero } from "@/components/conversations/meeting-summary-view";
 import { TranscriptView } from "@/components/conversations/transcript-view";
+import { PageTour } from "@/components/tour/page-tour";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { CreditsBanner } from "@/components/credits/credits-banner";
 import { CreditsIndicator } from "@/components/credits/credits-indicator";
@@ -362,6 +363,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                 (practiceSession ? (
                                     <Link
                                         href={`/app/replays/${practiceSession.id}`}
+                                        data-tour="replay-conversation"
                                         className={cn(
                                             buttonVariants({ size: "sm" }),
                                         )}
@@ -375,6 +377,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                 ) : (
                                     <Button
                                         size="sm"
+                                        data-tour="replay-conversation"
                                         onClick={() => void handlePractice()}
                                         disabled={practicing}
                                         className={cn(
@@ -533,6 +536,14 @@ export function ConversationDetailView(props: Readonly<Props>) {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {/* One-time page guide — arms only once the analysis (and
+                    its tour targets) are on screen. */}
+                <PageTour
+                    page="conversation"
+                    uid={uid}
+                    ready={Boolean(isAnalyzed)}
+                />
             </div>
         </section>
     );

@@ -58,7 +58,10 @@ function ClickableWords({
                     type="button"
                     onClick={() => onWordClick(segmentStart + tok.start)}
                     title="Click to fix what Sayzo heard"
-                    className="cursor-pointer rounded-sm hover:bg-sky-500/10 hover:underline hover:decoration-dotted hover:underline-offset-2"
+                    // Hovering anywhere on the line faintly underlines every
+                    // fixable word (the discover moment); hovering the word
+                    // itself upgrades to the sky treatment.
+                    className="cursor-pointer rounded-sm decoration-dotted underline-offset-2 group-hover/line:underline group-hover/line:decoration-foreground/25 hover:bg-sky-500/10 hover:underline hover:decoration-sky-500/70"
                 >
                     {tok.text}
                 </button>,
@@ -214,8 +217,11 @@ export function TranscriptView(props: Readonly<Props>) {
     return (
         <div className="space-y-1">
             {correctionsEnabled && (
-                <p className="mb-2 flex items-center gap-1.5 px-3 text-[11px] text-muted-foreground">
-                    <Pencil className="size-3 shrink-0" />
+                <p
+                    data-tour="transcript-fix"
+                    className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/50 px-3 py-1.5 text-[11px] font-medium text-muted-foreground"
+                >
+                    <Pencil className="size-3 shrink-0 text-sky-500" />
                     Misheard a name or word? Click it in the transcript to fix
                     it.
                 </p>
@@ -236,7 +242,7 @@ export function TranscriptView(props: Readonly<Props>) {
                     <div
                         key={idx}
                         className={cn(
-                            "rounded-lg px-3 py-2",
+                            "group/line rounded-lg px-3 py-2",
                             isUser &&
                                 "border-l-2 border-primary/30 bg-primary/5",
                         )}

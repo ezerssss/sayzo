@@ -292,11 +292,12 @@ export function FeedbackChat({
         return (
             <button
                 type="button"
+                data-tour="discuss-feedback"
                 onClick={() => {
                     track("feedback_chat_opened", { source });
                     setIsOpen(true);
                 }}
-                className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-sky-200/70 bg-sky-50/60 px-3 py-1.5 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100/60 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-300 dark:hover:bg-sky-950/40"
             >
                 <MessageCircle className="size-3.5" />
                 Discuss this feedback

@@ -33,6 +33,7 @@ export * from "./capture/capture";
 export * from "./capture/meeting-summary";
 export * from "./capture/transcript-correction";
 export * from "./user/user";
+export * from "./user/tour-steps";
 
 // Desktop-companion remote diagnostics
 export * from "./diagnostics/diagnostic-log";

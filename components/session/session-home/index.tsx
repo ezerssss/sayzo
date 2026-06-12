@@ -7,6 +7,7 @@ import { CreditsBanner } from "@/components/credits/credits-banner";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { AudioPlayer } from "@/components/session/audio-player";
+import { PageTour } from "@/components/tour/page-tour";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/use-session";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
@@ -395,6 +396,7 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                                     <Button
                                         size="sm"
                                         variant="outline"
+                                        data-tour="retry-replay"
                                         onClick={() =>
                                             void requestVoluntaryRetry()
                                         }
@@ -543,6 +545,14 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                         {authError}
                     </p>
                 ) : null}
+
+                {/* One-time page guide — arms only once feedback results
+                    (and their tour targets) are on screen. */}
+                <PageTour
+                    page="replay"
+                    uid={uid}
+                    ready={Boolean(shouldShowResults && !isSkipped)}
+                />
             </div>
         </section>
     );

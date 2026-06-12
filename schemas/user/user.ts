@@ -109,6 +109,15 @@ export type UserProfileType = {
      * `POST /api/diagnostics/upload` with `reason="on_demand"` from this user.
      */
     collectLogs?: boolean;
+
+    /**
+     * Page-guide spotlight steps this user has seen, by stable step id
+     * (`schemas/user/tour-steps.ts`). Absent = nothing seen (all pre-rollout
+     * docs — they get the full guide once). Server-written only, via
+     * `POST /api/tour/seen` (arrayUnion); clients read it live like the
+     * credit fields. May contain retired ids — readers ignore unknowns.
+     */
+    seenTourSteps?: string[];
 };
 
 /**

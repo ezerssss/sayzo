@@ -16,6 +16,7 @@ export type SupportCategoryEventValue =
     | "feature"
     | "question"
     | "other";
+export type TourPage = "conversation" | "replay";
 
 export type AnalyticsEventParams = {
     // Page / navigation (fired by instrumentation-client.ts)
@@ -68,6 +69,12 @@ export type AnalyticsEventParams = {
     // Captures / replays
     capture_opened: { source: string };
     scenario_replay_started: Record<string, never>;
+
+    // Page guide (one-time spotlight tour on the feedback surfaces)
+    tour_started: { page: TourPage; step_count: number };
+    tour_step_viewed: { page: TourPage; step_id: string; step_index: number };
+    tour_completed: { page: TourPage; step_count: number };
+    tour_skipped: { page: TourPage; step_id: string; steps_remaining: number };
 
     // Feedback chat
     feedback_chat_opened: { source: FeedbackChatSource };

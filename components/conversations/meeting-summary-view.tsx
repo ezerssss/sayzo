@@ -212,6 +212,7 @@ export function MeetingSummaryHero({
                 <div className="mt-3 overflow-hidden rounded-xl border border-sky-100 bg-white/70 shadow-sm backdrop-blur-sm">
                     <button
                         type="button"
+                        data-tour="meeting-notes"
                         onClick={() => setExpanded((v) => !v)}
                         aria-expanded={expanded}
                         className="group flex w-full min-w-0 items-center gap-2 px-3.5 py-2.5 text-left transition-colors hover:bg-sky-50/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-500"

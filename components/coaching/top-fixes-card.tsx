@@ -27,7 +27,10 @@ export function TopFixesCard({ moments, onSeek, max = 2 }: Readonly<Props>) {
     if (items.length === 0) return null;
 
     return (
-        <div className="rounded-2xl border border-sky-100 bg-background shadow-sm dark:border-sky-900/40">
+        <div
+            data-tour="fix-these-first"
+            className="rounded-2xl border border-sky-100 bg-background shadow-sm dark:border-sky-900/40"
+        >
             <button
                 type="button"
                 onClick={() => setIsOpen((v) => !v)}

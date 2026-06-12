@@ -34,7 +34,11 @@ export function FeedbackTabs({
                     <FileText className="size-3.5" />
                     Coaching
                 </TabsTrigger>
-                <TabsTrigger value="rewrites" className="shrink-0">
+                <TabsTrigger
+                    value="rewrites"
+                    className="shrink-0"
+                    data-tour="improved-version-tab"
+                >
                     <Sparkles className="size-3.5" />
                     Improved Version
                 </TabsTrigger>
