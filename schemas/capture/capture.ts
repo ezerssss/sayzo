@@ -1,5 +1,6 @@
 import type { CaptureTranscriptLine } from "@/schemas/shared/transcript";
 import type { ItemAnalysis } from "@/schemas/analysis/item-analysis";
+import type { MeetingSummary } from "@/schemas/capture/meeting-summary";
 import type { TranscriptCorrection } from "@/schemas/capture/transcript-correction";
 
 export type CaptureStatus =
@@ -71,4 +72,12 @@ export type CaptureType = {
     /** Unified per-item analysis (shared with drills). Captures fill the common
      *  fields + dimensions + conversation-only fields (turnRewrites, metrics). */
     analysis?: ItemAnalysis;
+
+    /**
+     * Structured actionable notes (TL;DR, action items, deadlines) generated
+     * best-effort alongside deep analysis. Absent on legacy captures and when
+     * generation failed — the UI hides the Summary tab then. Never regenerated
+     * on transcript corrections (same stance as `analysis`).
+     */
+    meetingSummary?: MeetingSummary;
 };

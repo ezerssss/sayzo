@@ -40,6 +40,7 @@ import { loadModelPromptParts } from "@/lib/openai/prompt";
 import { modelTuningOptions } from "@/lib/openai/reasoning";
 import { sanitizeSpokenFields } from "@/lib/text/despeechify";
 import { isShortUserDrillLine } from "./drill-input-filter";
+import { findFabricatedToken } from "./fabrication-floor";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
@@ -269,76 +270,8 @@ function extractQuotedSpans(text: string): string[] {
     return spans;
 }
 
-const SPELLED_INTEGERS = [
-    "zero", "one", "two", "three", "four", "five", "six",
-    "seven", "eight", "nine", "ten", "eleven", "twelve",
-];
-
-// Proper-noun-shaped tokens that are normal in any rewrite regardless of the
-// transcript. Deliberately tiny — weekdays/months are NOT here, because an
-// invented "Tuesday" is exactly the fabrication class this floor exists for.
-const PROPER_NOUN_ALLOWLIST = new Set([
-    "i", "i'm", "i'll", "i'd", "i've", "ok", "okay", "english",
-]);
-
-/**
- * Conservative fabrication floor for suggested spoken wording: a rewrite may
- * only re-say what was actually said, so any DIGIT token or PROPER-NOUN token
- * in it that appears nowhere in the conversation is an invented specific
- * ("validated it Tuesday", a team name, a number the user never gave).
- *
- * Deliberately low-false-positive — the check runs against the FULL transcript
- * (all speakers), wider than the prompt's stricter user-only rule: a token
- * absent from the entire conversation is definitely fabricated, a token only
- * the other speaker said might be a legitimate re-say. Proper-noun detection
- * skips sentence-initial positions (sentence case is indistinguishable there).
- * Worst case of a miss is a fabricated detail surviving (the prompt's job);
- * worst case of a hit is a dropped insight — never a wrong card.
- *
- * Returns the first offending token, or null when the spans are grounded.
- */
-function findFabricatedToken(
-    spans: string[],
-    transcript: CaptureTranscriptLine[],
-): string | null {
-    if (spans.length === 0) return null;
-
-    const haystack = transcript.map((l) => l.text).join("\n").toLowerCase();
-    // Digit comparison ignores formatting ("5,000" vs "5000", "3pm" vs "3 PM").
-    const digitHaystack = haystack.replace(/[^a-z0-9]/g, "");
-
-    for (const span of spans) {
-        const tokens = span.split(/\s+/).filter(Boolean);
-        let sentenceInitial = true;
-        for (const rawToken of tokens) {
-            const token = rawToken.replace(/^[^\p{L}\p{N}'’$]+|[^\p{L}\p{N}'’%]+$/gu, "");
-            const startsSentence = sentenceInitial;
-            sentenceInitial = /[.!?]$/.test(rawToken);
-            if (!token) continue;
-
-            if (/\d/.test(token)) {
-                const normalized = token.toLowerCase().replace(/[^a-z0-9]/g, "");
-                if (digitHaystack.includes(normalized)) continue;
-                const asInt = Number.parseInt(normalized, 10);
-                if (
-                    String(asInt) === normalized &&
-                    asInt >= 0 &&
-                    asInt <= 12 &&
-                    haystack.includes(SPELLED_INTEGERS[asInt])
-                ) {
-                    continue;
-                }
-                return token;
-            }
-
-            if (startsSentence) continue;
-            if (!/^[A-Z][a-z'’]+$/.test(token)) continue;
-            if (PROPER_NOUN_ALLOWLIST.has(token.toLowerCase())) continue;
-            if (!haystack.includes(token.toLowerCase())) return token;
-        }
-    }
-    return null;
-}
+// Fabrication floor (findFabricatedToken + token tables) lives in
+// ./fabrication-floor — shared with the meeting-summary pass.
 
 /**
  * Build the stored `coachingInsight` from the lenient LLM output: gate on the

@@ -15,7 +15,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
 import { AnalysisView } from "@/components/conversations/analysis-view";
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
+import { Kicker, StaggerItem } from "@/components/coaching/briefing";
 import { CoachingInsightCard } from "@/components/conversations/coaching-insight-card";
+import { MeetingSummaryHero } from "@/components/conversations/meeting-summary-view";
 import { TranscriptView } from "@/components/conversations/transcript-view";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
 import { CreditsBanner } from "@/components/credits/credits-banner";
@@ -320,7 +322,17 @@ export function ConversationDetailView(props: Readonly<Props>) {
                             <h2 className="mt-2 text-lg font-semibold tracking-tight">
                                 {title}
                             </h2>
-                            {summary ? (
+                            {/* The meeting summary lives here, where the
+                                one-line server summary used to be: TL;DR
+                                inline, full notes behind "Read more". Legacy
+                                captures without one fall back to the plain
+                                summary line. */}
+                            {capture.meetingSummary ? (
+                                <MeetingSummaryHero
+                                    captureId={captureId}
+                                    summary={capture.meetingSummary}
+                                />
+                            ) : summary ? (
                                 <p className="mt-1 text-sm text-muted-foreground">
                                     {summary}
                                 </p>
@@ -434,13 +446,14 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                     corrections={corrections}
                                 />
                                 {transcript.length > 0 && (
-                                    <div className="rounded-xl border border-border/70">
+                                    <StaggerItem
+                                        order={2}
+                                        className="rounded-2xl border border-sky-100 bg-background shadow-sm dark:border-sky-900/40"
+                                    >
                                         <div className="flex items-center justify-between p-4">
-                                            <span className="text-sm font-medium">
-                                                Transcript
-                                            </span>
+                                            <Kicker>Transcript</Kicker>
                                         </div>
-                                        <div className="border-t border-border/50 px-4 pb-4 pt-3">
+                                        <div className="border-t border-sky-100/70 px-4 pb-4 pt-3 dark:border-sky-900/40">
                                             <TranscriptView
                                                 transcript={transcript}
                                                 teachableMoments={[
@@ -457,7 +470,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                                 corrections={corrections}
                                             />
                                         </div>
-                                    </div>
+                                    </StaggerItem>
                                 )}
                             </>
                         }

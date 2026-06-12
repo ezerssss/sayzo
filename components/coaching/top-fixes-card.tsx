@@ -27,20 +27,20 @@ export function TopFixesCard({ moments, onSeek, max = 2 }: Readonly<Props>) {
     if (items.length === 0) return null;
 
     return (
-        <div className="rounded-2xl border border-border/70 bg-background">
+        <div className="rounded-2xl border border-sky-100 bg-background shadow-sm dark:border-sky-900/40">
             <button
                 type="button"
                 onClick={() => setIsOpen((v) => !v)}
                 className={cn(
                     "flex w-full items-center gap-2 p-4",
-                    isOpen && "border-b border-border/50",
+                    isOpen && "border-b border-sky-100/70 dark:border-sky-900/40",
                 )}
             >
                 <Wrench className="size-4 text-foreground/70" />
                 <h3 className="text-sm font-semibold tracking-tight">
                     Fix these first
                 </h3>
-                <span className="ml-auto text-xs text-muted-foreground">
+                <span className="ml-auto font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
                     {items.length === 1 ? "1 priority" : `${items.length} priorities`}
                 </span>
                 <ChevronDown
@@ -51,7 +51,7 @@ export function TopFixesCard({ moments, onSeek, max = 2 }: Readonly<Props>) {
                 />
             </button>
             {isOpen ? (
-                <ol className="divide-y divide-border/50">
+                <ol className="divide-y divide-sky-100/70 dark:divide-sky-900/40">
                     {items.map((moment, index) => (
                         <li
                             key={`${moment.timestamp}-${moment.transcriptIdx}-${index}`}
@@ -83,8 +83,8 @@ export function TopFixesCard({ moments, onSeek, max = 2 }: Readonly<Props>) {
                                 {moment.anchor}
                             </blockquote>
                             {moment.betterOption ? (
-                                <div className="rounded-lg bg-muted/50 p-3">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                <div className="rounded-lg bg-sky-50/60 p-3 dark:bg-sky-950/20">
+                                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-sky-700/80 dark:text-sky-300/80">
                                         Try instead
                                     </p>
                                     <div className="mt-1">
@@ -97,7 +97,7 @@ export function TopFixesCard({ moments, onSeek, max = 2 }: Readonly<Props>) {
                             ) : null}
                             {moment.whyThisMatters ? (
                                 <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                                         Why this matters
                                     </p>
                                     <div className="mt-1">

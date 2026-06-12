@@ -56,7 +56,7 @@ export function CalloutCard({ tone, label, body }: Readonly<Props>) {
                 <div className="min-w-0 flex-1">
                     <p
                         className={cn(
-                            "text-[11px] font-semibold uppercase tracking-wider",
+                            "font-mono text-[10px] font-medium uppercase tracking-[0.14em]",
                             styles.label,
                         )}
                     >

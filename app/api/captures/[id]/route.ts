@@ -16,6 +16,9 @@ export const runtime = "nodejs";
  * single card-sized coaching takeaway (or `null`) projected from the persisted
  * analysis once `status === "analyzed"`, for the desktop agent's post-capture
  * card. It is `null` until then and is stable across repeated GETs.
+ *
+ * `meetingSummary` is intentionally NOT projected here — the agent has no
+ * notes UI; the web reads the full doc via `useCapture`.
  */
 export async function GET(
     request: NextRequest,

@@ -3,6 +3,7 @@
 import { ChevronDown, Play, Sparkles } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
+import { Kicker, StaggerItem } from "@/components/coaching/briefing";
 import {
     TurnRewriteCard,
     VerdictPill,
@@ -312,10 +313,8 @@ function stripWrappingQuotes(input: string): string {
 function TryInsteadBox({ text }: { text: string }) {
     if (!text.trim()) return null;
     return (
-        <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Try instead
-            </p>
+        <div className="rounded-lg bg-sky-50/60 p-3 dark:bg-sky-950/20">
+            <Kicker>Try instead</Kicker>
             <div className="mt-1">
                 <InlineMarkdown text={text} tone="body" />
             </div>
@@ -403,7 +402,7 @@ function TopFixesCard({
 }) {
     const [open, setOpen] = useState(true);
     return (
-        <div className="rounded-2xl border border-border/70 bg-background">
+        <div className="rounded-2xl border border-sky-100 bg-background shadow-sm dark:border-sky-900/40">
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
@@ -413,7 +412,7 @@ function TopFixesCard({
                     Fix these first
                 </span>
                 <span className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
+                    <span className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
                         {moments.length === 1
                             ? "1 priority"
                             : `${moments.length} priorities`}
@@ -427,11 +426,11 @@ function TopFixesCard({
                 </span>
             </button>
             {open ? (
-                <ol className="space-y-4 border-t border-border/50 p-5">
+                <ol className="space-y-4 border-t border-sky-100/70 p-5 dark:border-sky-900/40">
                     {moments.map((moment, index) => (
                         <li
                             key={`${moment.timestamp}-${moment.transcriptIdx}-${index}`}
-                            className="rounded-xl border border-border/70 bg-background p-4"
+                            className="rounded-xl border border-sky-100/70 bg-background p-4 dark:border-sky-900/30"
                         >
                             <TopFixContent
                                 index={index + 1}
@@ -683,10 +682,8 @@ function StructuralNotesPanel({
     onSeekToSecond?: (seconds: number) => void;
 }) {
     return (
-        <div className="rounded-xl border border-border/70 bg-background p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Structural notes
-            </p>
+        <div className="rounded-xl border border-sky-100 bg-background p-4 shadow-sm dark:border-sky-900/40">
+            <Kicker>Structural notes</Kicker>
             <ol className="mt-3 space-y-4">
                 {observations.map((obs, i) => (
                     <li key={i} className="space-y-2">
@@ -799,53 +796,68 @@ function RewritesSection({
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-5">
-                <div className="flex items-center gap-2">
-                    <Sparkles className="size-4 text-foreground" />
-                    <h3 className="text-sm font-semibold tracking-tight">
-                        How it could sound
-                    </h3>
+            <StaggerItem
+                order={0}
+                className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/60 via-white to-indigo-50/30 p-5 shadow-sm dark:border-sky-900/40 dark:from-sky-950/20 dark:via-transparent dark:to-indigo-950/10"
+            >
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-gradient-to-br from-sky-100/60 to-indigo-100/40 blur-3xl"
+                />
+                <div className="relative flex items-start gap-3">
+                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-200/60 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+                        <Sparkles className="size-4" />
+                    </span>
+                    <div>
+                        <Kicker>Improved version</Kicker>
+                        <h3 className="mt-1 text-sm font-semibold tracking-tight">
+                            How it could sound
+                        </h3>
+                        <p className="mt-1.5 text-sm text-muted-foreground">
+                            Every turn you took, side by side with how a
+                            confident speaker would land it. Turns already
+                            working well are flagged strong.
+                        </p>
+                    </div>
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    Every turn you took, side by side with how a confident
-                    speaker would land it. Turns already working well are
-                    flagged strong.
-                </p>
-            </div>
+            </StaggerItem>
 
             {/* View toggle */}
             {hasRewrites && (
-                <div className="inline-flex rounded-lg border border-border/70 bg-background p-0.5 text-xs">
-                    <button
-                        type="button"
-                        onClick={() => setView("turns")}
-                        className={cn(
-                            "rounded-md px-3 py-1.5 font-medium transition-colors",
-                            view === "turns"
-                                ? "bg-foreground text-background"
-                                : "text-muted-foreground hover:text-foreground",
-                        )}
-                    >
-                        Turn-by-turn
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setView("prose")}
-                        className={cn(
-                            "rounded-md px-3 py-1.5 font-medium transition-colors",
-                            view === "prose"
-                                ? "bg-foreground text-background"
-                                : "text-muted-foreground hover:text-foreground",
-                        )}
-                    >
-                        Read straight through
-                    </button>
-                </div>
+                <StaggerItem order={1}>
+                    <div className="inline-flex rounded-lg border border-sky-100 bg-background p-0.5 text-xs dark:border-sky-900/40">
+                        <button
+                            type="button"
+                            onClick={() => setView("turns")}
+                            className={cn(
+                                "rounded-md px-3 py-1.5 font-medium transition-colors",
+                                view === "turns"
+                                    ? "bg-sky-600 text-white"
+                                    : "text-muted-foreground hover:text-foreground",
+                            )}
+                        >
+                            Turn-by-turn
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setView("prose")}
+                            className={cn(
+                                "rounded-md px-3 py-1.5 font-medium transition-colors",
+                                view === "prose"
+                                    ? "bg-sky-600 text-white"
+                                    : "text-muted-foreground hover:text-foreground",
+                            )}
+                        >
+                            Read straight through
+                        </button>
+                    </div>
+                </StaggerItem>
             )}
 
             {/* Turn-by-turn view */}
             {hasRewrites && view === "turns" && (
-                <ol className="space-y-3">
+                <StaggerItem order={2}>
+                    <ol className="space-y-3">
                     {groups.map((group, gIdx) => {
                         if (group.kind === "run") {
                             const isOpen = expandedRuns.has(gIdx);
@@ -854,7 +866,7 @@ function RewritesSection({
                             return (
                                 <li
                                     key={`run-${gIdx}`}
-                                    className="rounded-xl border border-border/70 bg-background"
+                                    className="rounded-xl border border-sky-100/70 bg-background dark:border-sky-900/30"
                                 >
                                     <button
                                         type="button"
@@ -908,7 +920,7 @@ function RewritesSection({
                                                         ) : null}
                                                         <div className="flex-1 space-y-1">
                                                             {turnNo && (
-                                                                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                                                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                                                                     Turn {turnNo}
                                                                 </p>
                                                             )}
@@ -946,7 +958,7 @@ function RewritesSection({
                         return (
                             <li
                                 key={turn.transcriptIdx}
-                                className="rounded-xl border border-border/70 bg-background p-4"
+                                className="rounded-xl border border-sky-100/70 bg-background p-4 dark:border-sky-900/30"
                             >
                                 <div className="flex items-center gap-2">
                                     {line && onSeekToSecond ? (
@@ -956,7 +968,7 @@ function RewritesSection({
                                         />
                                     ) : null}
                                     {turnNo && (
-                                        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                                        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                                             Turn {turnNo}
                                         </span>
                                     )}
@@ -971,15 +983,17 @@ function RewritesSection({
                             </li>
                         );
                     })}
-                </ol>
+                    </ol>
+                </StaggerItem>
             )}
 
             {/* Read straight through view */}
             {hasRewrites && view === "prose" && (
-                <div className="rounded-xl border border-border/70 bg-background p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Read straight through
-                    </p>
+                <StaggerItem
+                    order={2}
+                    className="rounded-xl border border-sky-100 bg-background p-4 shadow-sm dark:border-sky-900/40"
+                >
+                    <Kicker>Read straight through</Kicker>
                     <p className="mt-2 text-[11px] text-muted-foreground italic">
                         Stitched from your turns — rewrite used where a better
                         version exists, original used otherwise. Skips lines
@@ -991,22 +1005,38 @@ function RewritesSection({
                             <p key={i}>{para}</p>
                         ))}
                     </div>
-                </div>
+                </StaggerItem>
             )}
 
             {/* Structural observations */}
             {hasStructural && (
-                <StructuralNotesPanel
-                    observations={(analysis.structuralObservations ?? [])}
-                    turnRewrites={(analysis.turnRewrites ?? [])}
-                    transcript={transcript}
-                    onSeekToSecond={onSeekToSecond}
-                />
+                <StaggerItem order={3}>
+                    <StructuralNotesPanel
+                        observations={(analysis.structuralObservations ?? [])}
+                        turnRewrites={(analysis.turnRewrites ?? [])}
+                        transcript={transcript}
+                        onSeekToSecond={onSeekToSecond}
+                    />
+                </StaggerItem>
             )}
 
-            {renderChat("rewrites", "Improved version", rewriteContent)}
+            <StaggerChat order={4}>
+                {renderChat("rewrites", "Improved version", rewriteContent)}
+            </StaggerChat>
         </div>
     );
+}
+
+/** Stagger wrapper that renders nothing when the chat is disabled (null). */
+function StaggerChat({
+    order,
+    children,
+}: {
+    order: number;
+    children: ReactNode;
+}) {
+    if (children == null) return null;
+    return <StaggerItem order={order}>{children}</StaggerItem>;
 }
 
 export function AnalysisView(props: Readonly<Props>) {
@@ -1068,13 +1098,17 @@ export function AnalysisView(props: Readonly<Props>) {
         return (
             <div className="space-y-4">
                 {topFixes.length > 0 ? (
-                    <TopFixesCard
-                        moments={topFixes.slice(0, 2)}
-                        onSeek={onSeekToSecond}
-                    />
+                    <StaggerItem order={0}>
+                        <TopFixesCard
+                            moments={topFixes.slice(0, 2)}
+                            onSeek={onSeekToSecond}
+                        />
+                    </StaggerItem>
                 ) : null}
 
-                {renderChat("now", "Now", chatContext)}
+                <StaggerChat order={1}>
+                    {renderChat("now", "Coaching", chatContext)}
+                </StaggerChat>
             </div>
         );
     }

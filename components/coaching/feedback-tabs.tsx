@@ -13,11 +13,13 @@ type Props = {
 };
 
 /**
- * Shared two-tab shell for post-feedback UIs ("Now" / "Improved Version").
- * Used by both the drill page (SessionFeedbackSection) and the capture detail
- * page so the two surfaces share one structure. Each surface fills `now` and
- * `improved` with its own content; "Discuss this feedback" lives inside the
- * tab content, after the feedback and before the transcript.
+ * Shared two-tab shell for post-feedback UIs ("Coaching" / "Improved
+ * Version"). Used by both the drill page (SessionFeedbackSection) and the
+ * capture detail page so the two surfaces share one structure. Each surface
+ * fills `now` and `improved` with its own content; "Discuss this feedback"
+ * lives inside the tab content, after the feedback and before the
+ * transcript. (The conversation page's meeting summary lives in the hero
+ * above the tabs, not in a tab — coaching stays the landing view.)
  */
 export function FeedbackTabs({
     now,
@@ -30,7 +32,7 @@ export function FeedbackTabs({
             <TabsList className="w-full justify-start gap-1 overflow-x-auto">
                 <TabsTrigger value="now" className="shrink-0">
                     <FileText className="size-3.5" />
-                    Now
+                    Coaching
                 </TabsTrigger>
                 <TabsTrigger value="rewrites" className="shrink-0">
                     <Sparkles className="size-3.5" />

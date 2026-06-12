@@ -10,6 +10,7 @@ import type { CaptureStatus, CaptureType } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 
 import { analyzeCaptureDeep } from "./analyze";
+import { generateMeetingSummary } from "./meeting-summary";
 import { updateUserProfileFromCapture } from "./profile";
 import { generateQuickSummary } from "./quick-summary";
 import { transcribeCapture } from "./transcribe";
@@ -304,36 +305,57 @@ async function runAnalysisAndProfiling(
             })),
     };
 
-    const { serverTitle, serverSummary, analysis } = await analyzeCaptureDeep({
-        transcript,
-        agentTitle: capture.title,
-        agentSummary: capture.summary,
-        durationSecs,
-        userProfile: {
-            role: userProfile.role ?? "",
-            industry: userProfile.industry ?? "",
-            companyName: userProfile.companyName ?? "",
-            companyDescription: userProfile.companyDescription ?? "",
-            workplaceCommunicationContext:
-                userProfile.workplaceCommunicationContext ?? "",
-            motivation: userProfile.motivation ?? "",
-            goals: Array.isArray(userProfile.goals) ? userProfile.goals : [],
-            additionalContext: userProfile.additionalContext ?? "",
-        },
-        skillMemory: {
-            strengths: model.strengths,
-            weaknesses: model.weaknesses,
-            masteredFocus: model.masteredFocus,
-            reinforcementFocus: model.reinforcementFocus,
-        },
-        differential,
-    });
+    // The meeting summary is a best-effort sibling of deep analysis (same
+    // stance as the quick summary in runTranscription): it runs concurrently
+    // — the small pass finishes inside the deep-analysis window — and its
+    // failure leaves the field absent (the UI hides the Summary tab) without
+    // ever blocking coaching. An analyze_failed retry re-runs both, which is
+    // idempotent.
+    const [{ serverTitle, serverSummary, analysis }, meetingSummary] =
+        await Promise.all([
+            analyzeCaptureDeep({
+                transcript,
+                agentTitle: capture.title,
+                agentSummary: capture.summary,
+                durationSecs,
+                userProfile: {
+                    role: userProfile.role ?? "",
+                    industry: userProfile.industry ?? "",
+                    companyName: userProfile.companyName ?? "",
+                    companyDescription: userProfile.companyDescription ?? "",
+                    workplaceCommunicationContext:
+                        userProfile.workplaceCommunicationContext ?? "",
+                    motivation: userProfile.motivation ?? "",
+                    goals: Array.isArray(userProfile.goals)
+                        ? userProfile.goals
+                        : [],
+                    additionalContext: userProfile.additionalContext ?? "",
+                },
+                skillMemory: {
+                    strengths: model.strengths,
+                    weaknesses: model.weaknesses,
+                    masteredFocus: model.masteredFocus,
+                    reinforcementFocus: model.reinforcementFocus,
+                },
+                differential,
+            }),
+            generateMeetingSummary({ transcript, durationSecs }).catch(
+                (err) => {
+                    console.warn(
+                        `[captures/process] Meeting summary failed for ${captureId}, continuing without it`,
+                        err,
+                    );
+                    return null;
+                },
+            ),
+        ]);
 
     await captureRef.set(
         {
             serverTitle,
             serverSummary,
             analysis,
+            ...(meetingSummary ? { meetingSummary } : {}),
             error: null,
         },
         { merge: true },

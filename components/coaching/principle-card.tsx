@@ -19,7 +19,7 @@ export function PrincipleCard({ shape }: Readonly<Props>) {
                     <Lightbulb className="size-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-800/80 dark:text-sky-300/80">
+                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-sky-800/80 dark:text-sky-300/80">
                         Principle
                     </p>
                     {principle ? (
@@ -29,7 +29,7 @@ export function PrincipleCard({ shape }: Readonly<Props>) {
                     ) : null}
                     {shapeText ? (
                         <div className="mt-3 border-t border-sky-200/60 pt-3 dark:border-sky-900/40">
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-800/70 dark:text-sky-300/70">
+                            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-sky-800/70 dark:text-sky-300/70">
                                 Shape for this replay
                             </p>
                             <p className="mt-1 text-sm leading-relaxed text-foreground">

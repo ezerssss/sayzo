@@ -13,6 +13,7 @@ import {
     Loader2,
     LogOut,
     Users,
+    Wrench,
 } from "lucide-react";
 
 import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
@@ -27,6 +28,7 @@ const NAV_ITEMS: Array<{ href: string; label: string; Icon: typeof Users }> = [
     { href: "/admin/access-requests", label: "Access requests", Icon: BadgeCheck },
     { href: "/admin/support-reports", label: "Support reports", Icon: LifeBuoy },
     { href: "/admin/jobs", label: "Failed jobs", Icon: AlertCircle },
+    { href: "/admin/maintenance", label: "Maintenance", Icon: Wrench },
     { href: "/admin/audit", label: "Audit log", Icon: History },
 ];
 

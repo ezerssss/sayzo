@@ -1,3 +1,4 @@
+import { StaggerItem } from "@/components/coaching/briefing";
 import { CalloutCard } from "@/components/coaching/callout-card";
 import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
 import { PrincipleCard } from "@/components/coaching/principle-card";
@@ -136,18 +137,22 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                 now={
                     <>
                         {currentAnalysis?.whatWentWell ? (
-                            <CalloutCard
-                                tone="positive"
-                                label="What went well"
-                                body={currentAnalysis.whatWentWell}
-                            />
+                            <StaggerItem order={0}>
+                                <CalloutCard
+                                    tone="positive"
+                                    label="What went well"
+                                    body={currentAnalysis.whatWentWell}
+                                />
+                            </StaggerItem>
                         ) : null}
                         {currentAnalysis?.mainIssue ? (
-                            <CalloutCard
-                                tone="warning"
-                                label="Main issue"
-                                body={currentAnalysis.mainIssue}
-                            />
+                            <StaggerItem order={1}>
+                                <CalloutCard
+                                    tone="warning"
+                                    label="Main issue"
+                                    body={currentAnalysis.mainIssue}
+                                />
+                            </StaggerItem>
                         ) : (
                             <div className="rounded-xl border border-border/70 p-4">
                                 <p className="text-sm font-medium">
@@ -158,34 +163,44 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                                 </p>
                             </div>
                         )}
-                        <PrincipleCard
-                            shape={currentAnalysis?.mainIssueShape}
-                        />
+                        {currentAnalysis?.mainIssueShape ? (
+                            <StaggerItem order={2}>
+                                <PrincipleCard
+                                    shape={currentAnalysis.mainIssueShape}
+                                />
+                            </StaggerItem>
+                        ) : null}
                         {fixes.length > 0 ? (
-                            <TopFixesCard
-                                moments={fixes}
-                                onSeek={onSeekToSecond}
-                            />
+                            <StaggerItem order={3}>
+                                <TopFixesCard
+                                    moments={fixes}
+                                    onSeek={onSeekToSecond}
+                                />
+                            </StaggerItem>
                         ) : null}
                         {showChat && sessionId ? (
-                            <FeedbackChat
-                                source="session"
-                                sourceId={sessionId}
-                                sectionKey="now"
-                                sectionTitle="Now"
-                                feedbackContent={chatContext}
-                                onSeekToSecond={onSeekToSecond}
-                            />
+                            <StaggerItem order={4}>
+                                <FeedbackChat
+                                    source="session"
+                                    sourceId={sessionId}
+                                    sectionKey="now"
+                                    sectionTitle="Coaching"
+                                    feedbackContent={chatContext}
+                                    onSeekToSecond={onSeekToSecond}
+                                />
+                            </StaggerItem>
                         ) : null}
                         {currentTranscript ||
                         (currentServerTranscript &&
                             currentServerTranscript.length > 0) ? (
-                            <DrillTranscriptView
-                                serverTranscript={currentServerTranscript}
-                                transcript={currentTranscript}
-                                fixTheseFirst={fixes}
-                                onSeekToSecond={onSeekToSecond}
-                            />
+                            <StaggerItem order={5}>
+                                <DrillTranscriptView
+                                    serverTranscript={currentServerTranscript}
+                                    transcript={currentTranscript}
+                                    fixTheseFirst={fixes}
+                                    onSeekToSecond={onSeekToSecond}
+                                />
+                            </StaggerItem>
                         ) : (
                             <div className="rounded-xl border border-border/70 p-4">
                                 <p className="text-sm font-medium">
@@ -200,23 +215,29 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                 }
                 improved={
                     <>
-                        <ImprovedVersionView
-                            content={currentFeedback?.improvedVersion ?? ""}
-                        />
+                        <StaggerItem order={0}>
+                            <ImprovedVersionView
+                                content={
+                                    currentFeedback?.improvedVersion ?? ""
+                                }
+                            />
+                        </StaggerItem>
                         {hasImprovedVersion &&
                         sessionId &&
                         uid &&
                         currentFeedback?.improvedVersion ? (
-                            <FeedbackChat
-                                source="session"
-                                sourceId={sessionId}
-                                sectionKey="rewrites"
-                                sectionTitle="Improved version"
-                                feedbackContent={
-                                    currentFeedback.improvedVersion
-                                }
-                                onSeekToSecond={onSeekToSecond}
-                            />
+                            <StaggerItem order={1}>
+                                <FeedbackChat
+                                    source="session"
+                                    sourceId={sessionId}
+                                    sectionKey="rewrites"
+                                    sectionTitle="Improved version"
+                                    feedbackContent={
+                                        currentFeedback.improvedVersion
+                                    }
+                                    onSeekToSecond={onSeekToSecond}
+                                />
+                            </StaggerItem>
                         ) : null}
                     </>
                 }

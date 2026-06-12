@@ -17,6 +17,10 @@ const PROMPT_FILES = [
     "analyzer/session-feedback.md",
 ];
 
+// Prompts that use the model-aware markers but produce WRITTEN copy, not
+// spoken rewrites — the spoken-rewrite spec and despeechify lint don't apply.
+const MARKER_ONLY_FILES = ["captures/meeting-summary.md"];
+
 const REASONING = "gpt-5-mini";
 const CHAT = "gpt-4o-mini";
 
@@ -80,5 +84,27 @@ describe.each(PROMPT_FILES)("prompt lint: %s", (rel) => {
                 ).toBe(spoken);
             }
         }
+    });
+});
+
+describe.each(MARKER_ONLY_FILES)("prompt lint (markers only): %s", (rel) => {
+    const raw = readPromptFile(rel);
+
+    it("loads without leaking markers for either model class", () => {
+        for (const model of [REASONING, CHAT]) {
+            const { system, postTranscriptRecap } = loadModelPromptParts(
+                raw,
+                model,
+            );
+            expect(system).not.toMatch(/<!--/);
+            expect(postTranscriptRecap ?? "").not.toMatch(/<!--/);
+        }
+    });
+
+    it("has a post-transcript recap for chat models only", () => {
+        expect(loadModelPromptParts(raw, CHAT).postTranscriptRecap).toBeTruthy();
+        expect(loadModelPromptParts(raw, REASONING).postTranscriptRecap).toBe(
+            null,
+        );
     });
 });
