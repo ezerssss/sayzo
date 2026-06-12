@@ -156,7 +156,7 @@ type SpokenAnalysisLike = {
     relevanceAndFocus?: DimensionalAnalysis;
     engagement?: DimensionalAnalysis;
     professionalism?: DimensionalAnalysis;
-    turnRewrites?: { rewrite: string }[];
+    turnRewrites?: { rewrite: string; verdict?: string }[];
     coachingInsight?: { body: string } | null;
     improvedVersion?: string | null;
 };
@@ -189,10 +189,13 @@ export function sanitizeSpokenFields<T extends SpokenAnalysisLike>(analysis: T):
         }
     }
     if (Array.isArray(analysis.turnRewrites)) {
-        next.turnRewrites = analysis.turnRewrites.map((t) => ({
-            ...t,
-            rewrite: despeechifySpokenPunctuation(t.rewrite),
-        }));
+        // non_english entries are a verbatim passthrough of transcript text
+        // (rewrite === original) — despeechifying would break that invariant.
+        next.turnRewrites = analysis.turnRewrites.map((t) =>
+            t.verdict === "non_english"
+                ? t
+                : { ...t, rewrite: despeechifySpokenPunctuation(t.rewrite) },
+        );
     }
     if (analysis.coachingInsight) {
         next.coachingInsight = {

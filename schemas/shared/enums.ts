@@ -36,6 +36,11 @@ export const rewriteVerdictSchema = z.enum([
     "sharpen",
     "reframe",
     "reorder",
+    // Turn was predominantly non-English (or unreadably garbled — ASR runs
+    // language=en, so other languages transcribe as pseudo-English). Pure
+    // passthrough: rewrite === original, note === null, excluded from every
+    // coaching/metrics surface, rendered dimmed in the UI.
+    "non_english",
 ]);
 export type RewriteVerdict = z.infer<typeof rewriteVerdictSchema>;
 

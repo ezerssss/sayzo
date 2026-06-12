@@ -134,13 +134,27 @@ async function runTranscription(
     const file = bucket.file(capture.audioStoragePath);
     const [audioBuffer] = await file.download();
 
+    // Per-user keyterm hints (names/terms from accepted transcript
+    // corrections). Best-effort: a vocab read failure must never fail
+    // transcription.
+    let keyterms: string[] = [];
+    try {
+        const model = await getOrHydrateLearnerModel(db, capture.uid);
+        keyterms = model.asrVocabulary;
+    } catch (err) {
+        console.warn(
+            `[captures/process] keyterm vocabulary load failed for ${captureId}`,
+            err,
+        );
+    }
+
     const {
         serverTranscript,
         durationSecs,
         echoLeakSuppressed,
         echoLeakDroppedSpans,
         echoLeakRuleVersion,
-    } = await transcribeCapture(audioBuffer);
+    } = await transcribeCapture(audioBuffer, { keyterms });
 
     // Generate a quick title/summary from the fresh Deepgram transcript so the
     // UI can replace the synthesized placeholder set at upload time. Best-effort:

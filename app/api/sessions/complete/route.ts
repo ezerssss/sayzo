@@ -269,7 +269,11 @@ export async function POST(request: NextRequest) {
             ReturnType<typeof transcribeAudioFileWithUtterances>
         >;
         try {
-            deepgramResult = await transcribeAudioFileWithUtterances(audio);
+            // Per-user keyterm hints from accepted transcript corrections.
+            deepgramResult = await transcribeAudioFileWithUtterances(
+                audio,
+                model.asrVocabulary,
+            );
         } catch (transcribeError) {
             console.error(
                 "[app/api/sessions/complete] transcription failed",

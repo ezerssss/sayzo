@@ -73,12 +73,20 @@ type TranscriptionResult = {
  */
 export async function transcribeCapture(
     audioBuffer: Buffer,
+    opts?: {
+        /** Per-user vocabulary (names/terms from accepted transcript
+         *  corrections) sent as Nova-3 keyterm hints. */
+        keyterms?: string[];
+    },
 ): Promise<TranscriptionResult> {
     const energy: ChannelEnergy = await computeChannelEnergy(audioBuffer);
     const leftAlive = energy.maxLeftRms >= DEAD_CHANNEL_FLOOR_RMS;
     const rightAlive = energy.maxRightRms >= DEAD_CHANNEL_FLOOR_RMS;
 
-    const dg = await transcribeStereoWithDeepgram(audioBuffer);
+    const dg = await transcribeStereoWithDeepgram(
+        audioBuffer,
+        opts?.keyterms ?? [],
+    );
 
     const { lines, echoLeakSuppressed, echoLeakDroppedSpans } =
         mapUtterancesToLines(dg.utterances, energy, leftAlive, rightAlive);
@@ -94,6 +102,7 @@ export async function transcribeCapture(
 
 async function transcribeStereoWithDeepgram(
     stereoBuffer: Buffer,
+    keyterms: string[],
 ): Promise<{ utterances: DeepgramUtterance[]; durationSecs: number }> {
     const apiKey = process.env.DEEPGRAM_API_KEY?.trim();
     if (!apiKey) {
@@ -111,6 +120,12 @@ async function transcribeStereoWithDeepgram(
     params.set("filler_words", "true");
     for (const entity of REDACTION_ENTITIES) {
         params.append("redact", entity);
+    }
+    // Nova-3 keyterm prompting: per-user names/terms (from accepted transcript
+    // corrections) the engine would otherwise mishear. English-only feature —
+    // fine, language is pinned to en above.
+    for (const term of keyterms) {
+        params.append("keyterm", term);
     }
 
     const audioBlob = new Blob([new Uint8Array(stereoBuffer)], {

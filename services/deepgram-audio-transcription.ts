@@ -31,6 +31,8 @@ export type TranscribedUtterance = {
  */
 export async function transcribeAudioFileWithUtterances(
     file: File,
+    /** Per-user vocabulary sent as Nova-3 keyterm hints. */
+    keyterms: string[] = [],
 ): Promise<{ text: string; utterances: TranscribedUtterance[] }> {
     const apiKey = process.env.DEEPGRAM_API_KEY?.trim();
     if (!apiKey) {
@@ -46,6 +48,9 @@ export async function transcribeAudioFileWithUtterances(
     params.set("utterances", "true");
     for (const entity of REDACTION_ENTITIES) {
         params.append("redact", entity);
+    }
+    for (const term of keyterms) {
+        params.append("keyterm", term);
     }
 
     const audioBytes = await file.arrayBuffer();

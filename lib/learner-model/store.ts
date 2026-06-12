@@ -39,6 +39,7 @@ export function hydrateLearnerModel(uid: string, data: unknown): LearnerModel {
             realWorldNotes: d.context?.realWorldNotes ?? "",
             deliveryNotes: d.context?.deliveryNotes ?? "",
         },
+        asrVocabulary: Array.isArray(d.asrVocabulary) ? d.asrVocabulary : [],
         lastProcessedSessionId:
             typeof d.lastProcessedSessionId === "string"
                 ? d.lastProcessedSessionId

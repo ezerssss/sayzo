@@ -9,6 +9,7 @@ const VERDICT_LABELS: Record<RewriteVerdict, string> = {
     sharpen: "Sharpen",
     reframe: "Reframe",
     reorder: "Reorder",
+    non_english: "Unclear",
 };
 
 const VERDICT_TONES: Record<RewriteVerdict, string> = {
@@ -17,7 +18,12 @@ const VERDICT_TONES: Record<RewriteVerdict, string> = {
     sharpen: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
     reframe: "bg-violet-500/10 text-violet-700 dark:text-violet-300",
     reorder: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
+    // Neutral on purpose — not a coaching judgment, just "out of scope".
+    non_english: "bg-muted text-muted-foreground",
 };
+
+const NON_ENGLISH_EXPLAINER =
+    "Sayzo couldn't make this turn out clearly, so it wasn't coached. It may have been spoken in another language.";
 
 export function VerdictPill({ verdict }: { verdict: RewriteVerdict }) {
     return (
@@ -68,7 +74,37 @@ export function TurnRewriteCard({
         rewrite;
 
     const rewriteDiffers = improved.trim() !== original.trim();
-    const showRewrite = verdict !== "keep" && rewriteDiffers;
+    const showRewrite =
+        verdict !== "keep" && verdict !== "non_english" && rewriteDiffers;
+
+    // Out-of-scope turn, not a coaching verdict: pill + explainer only (the
+    // generic fallbacks below would wrongly claim the turn "already works").
+    if (verdict === "non_english") {
+        return (
+            <div
+                className={cn(
+                    variant === "embedded" &&
+                        "rounded-xl border border-border/60 bg-background p-4",
+                    variant === "standalone" && "space-y-3",
+                )}
+            >
+                <VerdictPill verdict={verdict} />
+                {variant === "standalone" && (
+                    <p className="text-xs leading-relaxed text-muted-foreground/70 italic">
+                        {original}
+                    </p>
+                )}
+                <p
+                    className={cn(
+                        "text-xs leading-relaxed text-muted-foreground italic",
+                        variant === "embedded" && "mt-3",
+                    )}
+                >
+                    {NON_ENGLISH_EXPLAINER}
+                </p>
+            </div>
+        );
+    }
 
     if (variant === "embedded") {
         return (

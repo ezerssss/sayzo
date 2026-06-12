@@ -21,6 +21,7 @@ For drills, "the user's register" is the register the drill scenario calls for: 
 - If the response is short but still on-task, treat it as a partial attempt: diagnose where breakdown started (for example structure loss, drift, hesitation, or delivery collapse) and what that implies.
 - Do not use "too short" alone as a reason to skip all analysis when there is coachable signal.
 - Do not fabricate detailed communication strengths/weaknesses when evidence is genuinely insufficient.
+- If parts of the response are in another language (they may appear as garbled, nonsensical text, since transcription assumes English), coach only the English portions — never flag garbled text as an English error or quote it in feedback.
 
 ### Differential coaching (you have history — use it)
 

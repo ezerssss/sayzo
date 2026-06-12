@@ -14,7 +14,7 @@ const validationSchema = z.object({
     isRelevant: z.boolean(),
     isOrganic: z.boolean(),
     hasSubstance: z.boolean(),
-    isEnglish: z.boolean(),
+    hasCoachableEnglish: z.boolean(),
     rejectionReason: z.string().nullable(),
 });
 
@@ -23,8 +23,8 @@ type ValidationResult = {
     rejectionReason: string | null;
 };
 
-const NON_ENGLISH_REJECTION =
-    "Conversation was not in English. Sayzo currently analyzes English conversations only.";
+const NO_COACHABLE_ENGLISH_REJECTION =
+    "This conversation didn't have enough English speech from you for Sayzo to coach. Mixed-language conversations are fine — there just need to be a few English turns from you.";
 
 function readPrompt(): string {
     return readFileSync(
@@ -35,7 +35,7 @@ function readPrompt(): string {
 
 /**
  * Validation is a deterministic 4-boolean classification (relevant / organic /
- * substantive / English) at temperature 0 — mini handles it fine. Defaults to
+ * substantive / coachable-English) at temperature 0 — mini handles it fine. Defaults to
  * `gpt-4o-mini` directly so bumping `CAPTURE_ANALYZER_MODEL` for the deep
  * synthesis call doesn't drag this cheap classification along with it.
  */
@@ -74,20 +74,25 @@ export async function validateCaptureRelevance(
         isRelevant,
         isOrganic,
         hasSubstance,
-        isEnglish,
+        hasCoachableEnglish,
         rejectionReason,
     } = result.output;
-    const accepted = isRelevant && isOrganic && hasSubstance && isEnglish;
+    const accepted =
+        isRelevant && isOrganic && hasSubstance && hasCoachableEnglish;
 
     if (accepted) {
         return { accepted: true, rejectionReason: null };
     }
 
-    // Non-English overrides any other rejection reason — it's the most
-    // actionable feedback ("we only support English"), and the LLM may have
-    // populated `rejectionReason` with a generic relevance complaint.
-    if (!isEnglish) {
-        return { accepted: false, rejectionReason: NON_ENGLISH_REJECTION };
+    // No-coachable-English overrides any other rejection reason — it's the
+    // most actionable feedback ("speak some English and Sayzo can coach you"),
+    // and the LLM may have populated `rejectionReason` with a generic
+    // relevance complaint.
+    if (!hasCoachableEnglish) {
+        return {
+            accepted: false,
+            rejectionReason: NO_COACHABLE_ENGLISH_REJECTION,
+        };
     }
 
     return {

@@ -142,4 +142,18 @@ describe("sanitizeSpokenFields", () => {
             "Spoken line, cleaned\n> **Note:** prose — kept: as-is",
         );
     });
+
+    it("leaves non_english turn rewrites byte-identical (verbatim passthrough)", () => {
+        const garbled = "sige na — tapos: na yung migration";
+        const analysis = {
+            turnRewrites: [
+                { rewrite: garbled, verdict: "non_english" },
+                { rewrite: "Pure speech: no colons", verdict: "tighten" },
+            ],
+        };
+
+        const out = sanitizeSpokenFields(analysis);
+        expect(out.turnRewrites![0].rewrite).toBe(garbled);
+        expect(out.turnRewrites![1].rewrite).toBe("Pure speech, no colons");
+    });
 });

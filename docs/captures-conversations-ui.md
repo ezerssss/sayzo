@@ -121,9 +121,23 @@ All from existing Firestore collections written by the captures pipeline:
 
 ## Turn-based rewrites — implemented
 
-`CaptureAnalysis.turnRewrites` is implemented end-to-end. One entry per user turn in transcript order — `{ transcriptIdx, original, rewrite, verdict, note, suggestedBeforeIdx? }`. `verdict` is one of `keep | tighten | sharpen | reframe | reorder`; `keep` turns carry no required changes (rewrite may equal original). Cross-turn sequencing points live in `CaptureAnalysis.structuralObservations` (`{ observation, explanation, affectedTurnIdxs }`). No separate prose rewrite field exists — the "read straight through" view is derived in the UI by `stitchTurnRewrites()` in `lib/captures/rewrites.ts`.
+`CaptureAnalysis.turnRewrites` is implemented end-to-end. One entry per user turn in transcript order — `{ transcriptIdx, original, rewrite, verdict, note, suggestedBeforeIdx? }`. `verdict` is one of `keep | tighten | sharpen | reframe | reorder | non_english`; `keep` turns carry no required changes (rewrite may equal original); `non_english` marks turns spoken in another language (ASR runs `language=en`, so they transcribe garbled) — server-enforced pure passthrough (rewrite === original, note null), excluded from all coaching/metrics and from the stitched read-through. Cross-turn sequencing points live in `CaptureAnalysis.structuralObservations` (`{ observation, explanation, affectedTurnIdxs }`). No separate prose rewrite field exists — the "read straight through" view is derived in the UI by `stitchTurnRewrites()` in `lib/captures/rewrites.ts`.
 
-UI: the Rewrites tab has a view toggle (Turn-by-turn | Read straight through), with a collapsed "N turns already strong" row for 3+ consecutive `keep`s, and a structural notes panel at the bottom. Inline in the transcript, each user turn shows a "See improvement" / "Already strong" expander that opens a `TurnRewriteCard`.
+UI: the Rewrites tab has a view toggle (Turn-by-turn | Read straight through), with a collapsed "N turns already strong" / "N turns Sayzo couldn't make out" row for 3+ consecutive same-verdict `keep`s / `non_english`es, and a structural notes panel at the bottom. Inline in the transcript, each user turn shows a "See improvement" / "Already strong" expander that opens a `TurnRewriteCard`; `non_english` turns render dimmed with a static "Couldn't make this out clearly" chip instead (soft copy on purpose — the classifier can mislabel mangled English, so the UI never asserts "you spoke another language").
+
+---
+
+## Transcript corrections (mishearing fixes) — implemented
+
+Users can fix words the transcription misheard (proper nouns, domain terms) without being able to sanitize their speech — fillers/hedges are the coaching signal, so free editing stays banned. Mechanism: **constrained overlay** — `CaptureType.transcriptCorrections` holds span→replacement records `{ transcriptIdx, charStart, charEnd, original, replacement, isVocabularyTerm, createdAt }` anchored to the immutable `serverTranscript`; the raw transcript is never mutated. Applied at display/read time via `lib/captures/corrections.ts` (`applyTranscriptCorrections` / `applyCorrectionsToText` / `segmentLineWithCorrections`).
+
+Validation is two-layered at `POST /api/captures/[id]/corrections` (webapp-only — agent tokens rejected): deterministic guards (`checkCorrectionGuards`: whole-token spans ≤4 words, locked filler lexicon um/uh/you-know/i-mean, non-empty replacement ≤60 chars, no overlaps, 10/capture cap) then a batched gpt-4o-mini mishearing judge (`lib/captures/correction-judge.ts` + `prompts/captures/correction-judge.md`) that rejects sanitizing (filler/hedge/grammar edits) and non-phonetic swaps. Fail closed.
+
+Corrected text appears in: transcript view (dotted underline + "Corrected by you" tooltip), turn-anchored analysis quotes (turnRewrite `original`, teachable-moment `anchor` — render-time via `applyCorrectionsToAnalysis` in analysis-view; dimensional findings have no transcriptIdx and stay raw), feedback-chat transcript context, and replay-from-capture planner input. Stored analysis stays raw; no re-analysis.
+
+Editing UX is direct manipulation (no modal): a persistent hint line above the transcript ("Misheard a name or word? Click it in the transcript to fix it."), every word in the transcript is clickable (locked fillers and already-corrected spans aren't), and clicking opens `transcript-correction-editor.tsx` inline under that line — the clicked word shown as a chip, an autofocused input (Enter submits, Escape cancels), "Fix it"/Cancel. **One word per fix in the UI** (deliberate simplicity; the API still accepts multi-word spans up to 4 if a future UX needs them). The hint and clickability disappear at the 10-fix cap.
+
+Accepted corrections flagged `isVocabularyTerm` feed `learner-models/{uid}.asrVocabulary` (50-term cap, case-insensitive dedupe) which is passed as Nova-3 `keyterm` params on future capture AND replay transcriptions — the root-cause fix for recurring mishearings.
 
 ---
 

@@ -21,6 +21,7 @@ import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
+import { applyTranscriptCorrections } from "@/lib/captures/corrections";
 import { filterDrillCandidateTranscript } from "@/lib/captures/drill-input-filter";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "planner");
@@ -120,8 +121,13 @@ function buildReplayUserMessage(input: CaptureReplayPlannerInput): string {
     // The planner doesn't emit transcriptIdx-typed fields, so we filter the
     // array directly rather than skipping inside formatTranscript. Short
     // user lines hidden so echo-bleed fragments can't seed a drill.
+    // Mishearing fixes apply BEFORE the filter — corrections are idx-keyed
+    // against the full serverTranscript array.
     const transcript = filterDrillCandidateTranscript(
-        capture.serverTranscript ?? [],
+        applyTranscriptCorrections(
+            capture.serverTranscript ?? [],
+            capture.transcriptCorrections ?? [],
+        ),
     );
     const title = capture.serverTitle ?? capture.title;
     const summary = capture.serverSummary ?? capture.summary;

@@ -91,9 +91,12 @@ const captureAnalysisSchema = z.object({
             why: z.string().nullable(),
         })
         .nullable(),
-    // English-only coaching: false when the user's own speech is predominantly
-    // non-English, so the server suppresses the (English) coaching card.
-    userLanguageIsEnglish: z.boolean(),
+    // English-only coaching: false only when the user's speech contains
+    // essentially no coachable English, so the server suppresses the (English)
+    // coaching card. Mixed-language captures with coachable English turns are
+    // true — their non-English turns are handled per-turn via the
+    // `non_english` rewrite verdict instead.
+    hasCoachableEnglish: z.boolean(),
 });
 
 type AnalysisResult = {
@@ -353,11 +356,11 @@ function buildCoachingInsight(
         body: string;
         why: string | null;
     } | null,
-    languageIsEnglish: boolean,
+    hasCoachableEnglish: boolean,
     transcript: CaptureTranscriptLine[],
 ): CoachingInsight | null {
     try {
-        if (!raw || !languageIsEnglish) return null;
+        if (!raw || !hasCoachableEnglish) return null;
 
         const headline = (raw.headline ?? "").trim();
         const body = (raw.body ?? "").trim();
@@ -421,6 +424,22 @@ function buildCoachingInsight(
  * known-near-zero. The agent-facing coachingInsight is the only hard-enforced
  * surface (see buildCoachingInsight).
  */
+/**
+ * Server-enforced invariant for `non_english` turn entries: a pure
+ * passthrough of the transcribed text — `rewrite === original`, no note, no
+ * reorder target. The prompt asks the model for this; the server guarantees
+ * it so the UI and despeechify floor can rely on it.
+ */
+function enforceNonEnglishPassthrough(t: TurnRewrite): TurnRewrite {
+    if (t.verdict !== "non_english") return t;
+    return {
+        ...t,
+        rewrite: t.original,
+        note: null,
+        suggestedBeforeIdx: null,
+    };
+}
+
 function logFabricationTelemetry(
     analysis: Pick<
         ItemAnalysis,
@@ -430,6 +449,9 @@ function logFabricationTelemetry(
 ): void {
     try {
         for (const t of analysis.turnRewrites ?? []) {
+            // non_english entries are a verbatim passthrough of garbled
+            // transcript text, not a rewrite — nothing to check.
+            if (t.verdict === "non_english") continue;
             const token = findFabricatedToken([t.rewrite], transcript);
             if (token) {
                 console.warn(
@@ -574,21 +596,22 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
     const turnRewrites: TurnRewrite[] = reconcileWithAnchor(
         result.output.turnRewrites,
         (t) => t.original,
-        (t, idx) => ({
-            transcriptIdx: idx,
-            original: t.original,
-            rewrite: t.rewrite,
-            verdict: t.verdict,
-            note: t.note,
-            suggestedBeforeIdx:
-                t.suggestedBeforeIdx != null &&
-                Number.isInteger(t.suggestedBeforeIdx) &&
-                t.suggestedBeforeIdx >= 0 &&
-                t.suggestedBeforeIdx < transcript.length &&
-                !isShortUserDrillLine(transcript[t.suggestedBeforeIdx])
-                    ? t.suggestedBeforeIdx
-                    : null,
-        }),
+        (t, idx) =>
+            enforceNonEnglishPassthrough({
+                transcriptIdx: idx,
+                original: t.original,
+                rewrite: t.rewrite,
+                verdict: t.verdict,
+                note: t.note,
+                suggestedBeforeIdx:
+                    t.suggestedBeforeIdx != null &&
+                    Number.isInteger(t.suggestedBeforeIdx) &&
+                    t.suggestedBeforeIdx >= 0 &&
+                    t.suggestedBeforeIdx < transcript.length &&
+                    !isShortUserDrillLine(transcript[t.suggestedBeforeIdx])
+                        ? t.suggestedBeforeIdx
+                        : null,
+            }),
         transcript,
         isUserLine,
     );
@@ -660,7 +683,7 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
         structuralObservations,
         coachingInsight: buildCoachingInsight(
             result.output.coachingInsight,
-            result.output.userLanguageIsEnglish,
+            result.output.hasCoachableEnglish,
             transcript,
         ),
     };
@@ -682,6 +705,7 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
 // Exposed for unit tests only (mirrors lib/transcripts/anchor-resolver.ts).
 export const __test = {
     buildCoachingInsight,
+    enforceNonEnglishPassthrough,
     verifyInsightQuote,
     isTryRewriteBody,
     extractQuotedSpans,

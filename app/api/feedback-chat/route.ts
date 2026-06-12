@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { applyTranscriptCorrections } from "@/lib/captures/corrections";
 import {
     assertHasCredit,
     CreditLimitReachedError,
@@ -101,7 +102,12 @@ async function loadSourceContext(
     if (capture.uid !== uid) {
         return { ok: false, status: 403, error: "Unauthorized" };
     }
-    const lines = capture.serverTranscript ?? [];
+    // Mishearing fixes overlay — the chat should reference the corrected
+    // names/terms, not what the transcription originally heard.
+    const lines = applyTranscriptCorrections(
+        capture.serverTranscript ?? [],
+        capture.transcriptCorrections ?? [],
+    );
     return { ok: true, transcript: formatCaptureTranscript(lines) };
 }
 

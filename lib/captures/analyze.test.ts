@@ -137,7 +137,7 @@ describe("buildCoachingInsight", () => {
         expect(insight!.type).toBe("rephrase");
     });
 
-    it("returns null when the user language is not English", () => {
+    it("returns null when the user has no coachable English", () => {
         expect(buildCoachingInsight(validRaw, false, transcript)).toBe(null);
     });
 
@@ -201,5 +201,35 @@ describe("buildCoachingInsight", () => {
             body: "Try to be more concise next time you speak.",
         };
         expect(buildCoachingInsight(raw, true, transcript)).toBe(null);
+    });
+});
+
+describe("enforceNonEnglishPassthrough", () => {
+    const { enforceNonEnglishPassthrough } = __test;
+
+    it("forces rewrite=original, note=null, suggestedBeforeIdx=null on non_english", () => {
+        const enforced = enforceNonEnglishPassthrough({
+            transcriptIdx: 1,
+            original: "sige sige tapos na ang migration diba",
+            rewrite: "Yes, the migration is already done.",
+            verdict: "non_english",
+            note: "Translated and cleaned up.",
+            suggestedBeforeIdx: 0,
+        });
+        expect(enforced.rewrite).toBe("sige sige tapos na ang migration diba");
+        expect(enforced.note).toBe(null);
+        expect(enforced.suggestedBeforeIdx).toBe(null);
+    });
+
+    it("leaves other verdicts untouched", () => {
+        const entry = {
+            transcriptIdx: 2,
+            original: "I think maybe it should be fine.",
+            rewrite: "Yes, it should be fine.",
+            verdict: "tighten" as const,
+            note: "Drop the stacked hedges.",
+            suggestedBeforeIdx: null,
+        };
+        expect(enforceNonEnglishPassthrough(entry)).toEqual(entry);
     });
 });

@@ -65,6 +65,7 @@ Only list habits this capture actually evidences (reuse ids for ones we already 
 - Be conservative: only add items with clear support from this capture.
 - Quality over quantity. Most fields should have 0-3 items.
 - If the conversation doesn't reveal much new, mostly empty results are fine and expected.
+- User turns in another language may appear as garbled, nonsensical text (transcription assumes English) — never derive strengths, weaknesses, delivery notes, or tracked patterns from them.
 - **Context vs delivery is the key separation**: things the user says go in `contextAdditions`; how they say things goes in `deliveryAdditions`. Don't mix them.
 
 Return only schema-conformant output.

@@ -47,6 +47,14 @@ export const learnerModelSchema = z.object({
     // Prose — the planner's "who they are / their world / how they speak".
     context: learnerContextSchema,
 
+    /**
+     * Names/terms from accepted transcript corrections flagged
+     * `isVocabularyTerm`. Fed to the speech-to-text engine as keyterm hints on
+     * future transcriptions. Capped at MAX_ASR_VOCABULARY_TERMS, deduped
+     * case-insensitively, most recent kept.
+     */
+    asrVocabulary: z.array(z.string()),
+
     // Idempotency cursors (kept separate in Phase 1; Phase 2 consolidates).
     /** Last session consumed by the skill-memory writer. */
     lastProcessedSessionId: z.string().nullable(),
@@ -74,6 +82,7 @@ export function createEmptyLearnerModel(
         masteredFocus: [],
         reinforcementFocus: [],
         context: { drillNotes: "", realWorldNotes: "", deliveryNotes: "" },
+        asrVocabulary: [],
         lastProcessedSessionId: null,
         lastLearnerContextSessionId: "",
         lastCaptureContextCaptureId: "",

@@ -222,6 +222,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
     const duration = formatDuration(capture.durationSecs);
     const speakerCount = countSpeakers(transcript);
     const analysis = capture.analysis;
+    const corrections = capture.transcriptCorrections ?? [];
     const isAnalyzed = capture.status === "analyzed" && analysis;
     const coachingInsight = isAnalyzed
         ? (analysis?.coachingInsight ?? null)
@@ -430,6 +431,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                     section="overview"
                                     captureId={captureId}
                                     uid={uid}
+                                    corrections={corrections}
                                 />
                                 {transcript.length > 0 && (
                                     <div className="rounded-xl border border-border/70">
@@ -451,6 +453,8 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                                     analysis.turnRewrites
                                                 }
                                                 onSeekToSecond={seekToSecond}
+                                                captureId={captureId}
+                                                corrections={corrections}
                                             />
                                         </div>
                                     </div>
@@ -465,6 +469,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                 section="rewrites"
                                 captureId={captureId}
                                 uid={uid}
+                                corrections={corrections}
                             />
                         }
                     />

@@ -9,6 +9,10 @@ import {
 } from "@/components/conversations/turn-rewrite-card";
 import { FeedbackChat } from "@/components/session/feedback-chat";
 import { InlineMarkdown } from "@/components/session/inline-markdown";
+import {
+    applyCorrectionsToText,
+    groupCorrectionsByIdx,
+} from "@/lib/captures/corrections";
 import { stitchTurnRewrites } from "@/lib/captures/rewrites";
 import { cn } from "@/lib/utils";
 import type {
@@ -19,6 +23,7 @@ import type {
     StructuralObservation,
     TeachableMoment,
     TeachableMomentSeverity,
+    TranscriptCorrection,
     TurnRewrite,
 } from "@/schemas";
 
@@ -33,7 +38,40 @@ type Props = {
     /** When both provided, enables a per-section "Discuss this feedback" chat. */
     captureId?: string;
     uid?: string;
+    /** Mishearing fixes — turn-anchored quotes render with corrected text.
+     *  Dimensional findings have no transcriptIdx and stay raw (known gap). */
+    corrections?: TranscriptCorrection[];
 };
+
+/**
+ * Overlay mishearing corrections onto the analysis fields that quote
+ * transcript turns verbatim (turnRewrite `original`, teachable-moment
+ * `anchor`). Display-only — the stored analysis stays raw. The coach's own
+ * wording (`rewrite`, `betterOption`) is deliberately untouched.
+ */
+function applyCorrectionsToAnalysis(
+    analysis: ItemAnalysis,
+    corrections: TranscriptCorrection[],
+): ItemAnalysis {
+    if (corrections.length === 0) return analysis;
+    const byIdx = groupCorrectionsByIdx(corrections);
+    const correctMoment = (m: TeachableMoment): TeachableMoment => ({
+        ...m,
+        anchor: applyCorrectionsToText(m.anchor, byIdx.get(m.transcriptIdx) ?? []),
+    });
+    return {
+        ...analysis,
+        fixTheseFirst: (analysis.fixTheseFirst ?? []).map(correctMoment),
+        moreMoments: (analysis.moreMoments ?? []).map(correctMoment),
+        turnRewrites: (analysis.turnRewrites ?? []).map((t) => ({
+            ...t,
+            original: applyCorrectionsToText(
+                t.original,
+                byIdx.get(t.transcriptIdx) ?? [],
+            ),
+        })),
+    };
+}
 
 /** The coaching narrative shown under the single "Why this matters" toggle. */
 function resolveWhyThisMatters(moment: CoachingMoment): string {
@@ -97,7 +135,17 @@ function getMoreMoments(analysis: ItemAnalysis): TeachableMoment[] {
 
 function rewritesToText(analysis: ItemAnalysis): string {
     const parts: string[] = [];
-    const changed = (analysis.turnRewrites ?? []).filter((t) => t.verdict !== "keep");
+    const changed = (analysis.turnRewrites ?? []).filter(
+        (t) => t.verdict !== "keep" && t.verdict !== "non_english",
+    );
+    const nonEnglishCount = (analysis.turnRewrites ?? []).filter(
+        (t) => t.verdict === "non_english",
+    ).length;
+    if (nonEnglishCount > 0) {
+        parts.push(
+            `${nonEnglishCount} turn${nonEnglishCount === 1 ? "" : "s"} couldn't be made out clearly (likely spoken in another language) and weren't coached.`,
+        );
+    }
     if (changed.length > 0) {
         parts.push(
             `**Per-turn rewrites:**\n${changed
@@ -574,25 +622,34 @@ function BigPicturePanel({
     );
 }
 
-/** Runs of consecutive `keep` turns are folded into a single expandable row. */
+/**
+ * Runs of 3+ consecutive `keep` or `non_english` turns (same verdict) are
+ * folded into a single expandable row — mixed-language meetings can have long
+ * non-English stretches that would otherwise render as a wall of cards.
+ */
+type RunVerdict = "keep" | "non_english";
 type TurnGroup =
     | { kind: "single"; turn: TurnRewrite }
-    | { kind: "keep-run"; turns: TurnRewrite[] };
+    | { kind: "run"; verdict: RunVerdict; turns: TurnRewrite[] };
 
 function groupTurnRewrites(turns: TurnRewrite[]): TurnGroup[] {
     const groups: TurnGroup[] = [];
     let run: TurnRewrite[] = [];
+    let runVerdict: RunVerdict | null = null;
     const flushRun = () => {
-        if (run.length === 0) return;
+        if (run.length === 0 || runVerdict === null) return;
         if (run.length >= 3) {
-            groups.push({ kind: "keep-run", turns: run });
+            groups.push({ kind: "run", verdict: runVerdict, turns: run });
         } else {
             for (const t of run) groups.push({ kind: "single", turn: t });
         }
         run = [];
+        runVerdict = null;
     };
     for (const t of turns) {
-        if (t.verdict === "keep") {
+        if (t.verdict === "keep" || t.verdict === "non_english") {
+            if (runVerdict !== null && runVerdict !== t.verdict) flushRun();
+            runVerdict = t.verdict;
             run.push(t);
         } else {
             flushRun();
@@ -790,8 +847,10 @@ function RewritesSection({
             {hasRewrites && view === "turns" && (
                 <ol className="space-y-3">
                     {groups.map((group, gIdx) => {
-                        if (group.kind === "keep-run") {
+                        if (group.kind === "run") {
                             const isOpen = expandedRuns.has(gIdx);
+                            const isNonEnglishRun =
+                                group.verdict === "non_english";
                             return (
                                 <li
                                     key={`run-${gIdx}`}
@@ -803,10 +862,14 @@ function RewritesSection({
                                         className="flex w-full items-center justify-between gap-3 p-3 text-left"
                                     >
                                         <span className="flex items-center gap-2">
-                                            <VerdictPill verdict="keep" />
+                                            <VerdictPill
+                                                verdict={group.verdict}
+                                            />
                                             <span className="text-xs text-muted-foreground">
-                                                {group.turns.length} turns
-                                                already strong
+                                                {group.turns.length} turns{" "}
+                                                {isNonEnglishRun
+                                                    ? "Sayzo couldn't make out"
+                                                    : "already strong"}
                                             </span>
                                         </span>
                                         <ChevronDown
@@ -849,7 +912,14 @@ function RewritesSection({
                                                                     Turn {turnNo}
                                                                 </p>
                                                             )}
-                                                            <p className="text-xs leading-relaxed text-foreground">
+                                                            <p
+                                                                className={cn(
+                                                                    "text-xs leading-relaxed",
+                                                                    isNonEnglishRun
+                                                                        ? "text-muted-foreground/70 italic"
+                                                                        : "text-foreground",
+                                                                )}
+                                                            >
                                                                 {t.original}
                                                             </p>
                                                             {t.note && (
@@ -912,8 +982,9 @@ function RewritesSection({
                     </p>
                     <p className="mt-2 text-[11px] text-muted-foreground italic">
                         Stitched from your turns — rewrite used where a better
-                        version exists, original used otherwise. Skipped lines
-                        from other speakers.
+                        version exists, original used otherwise. Skips lines
+                        from other speakers and turns Sayzo couldn&apos;t make
+                        out clearly.
                     </p>
                     <div className="mt-3 space-y-3 text-sm leading-relaxed text-foreground">
                         {stitched.split("\n\n").map((para, i) => (
@@ -939,9 +1010,22 @@ function RewritesSection({
 }
 
 export function AnalysisView(props: Readonly<Props>) {
-    const { analysis, transcript, onSeekToSecond, section, captureId, uid } =
-        props;
+    const {
+        analysis: rawAnalysis,
+        transcript,
+        onSeekToSecond,
+        section,
+        captureId,
+        uid,
+        corrections = [],
+    } = props;
     const chatEnabled = Boolean(captureId && uid);
+
+    // Display-only overlay: turn-anchored quotes show the corrected text.
+    const analysis = useMemo(
+        () => applyCorrectionsToAnalysis(rawAnalysis, corrections),
+        [rawAnalysis, corrections],
+    );
 
     const renderChat = (
         sectionKey: string,

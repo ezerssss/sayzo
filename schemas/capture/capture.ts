@@ -1,5 +1,6 @@
 import type { CaptureTranscriptLine } from "@/schemas/shared/transcript";
 import type { ItemAnalysis } from "@/schemas/analysis/item-analysis";
+import type { TranscriptCorrection } from "@/schemas/capture/transcript-correction";
 
 export type CaptureStatus =
     | "queued"
@@ -46,6 +47,13 @@ export type CaptureType = {
     serverTitle?: string;
     serverSummary?: string;
     durationSecs?: number;
+
+    /**
+     * User-submitted mishearing fixes (overlay — `serverTranscript` is never
+     * mutated). Applied at display/read time via `lib/captures/corrections.ts`.
+     * Capped at MAX_CORRECTIONS_PER_CAPTURE; server is the only writer.
+     */
+    transcriptCorrections?: TranscriptCorrection[];
 
     /**
      * Count of channel-0 Deepgram utterances dropped as echo leaks during server

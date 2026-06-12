@@ -17,6 +17,7 @@ This pass is fast and approximate. The deep analysis stage will produce a better
 - 1 to 2 sentences, plain English.
 - Describe what happened — who was involved (in role terms, not by name unless a name is clearly used) and what they discussed.
 - No coaching, no judgment, no "the user said...". Describe the conversation, not the speaker quality.
+- Parts of the conversation may be in another language and appear as garbled English-looking text (transcription assumes English). Never quote garbled text; describe the topic from the parts you can read.
 
 ## Output
 

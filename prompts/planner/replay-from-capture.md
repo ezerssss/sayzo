@@ -28,6 +28,8 @@ The same `SessionPlanType` schema as the regular planner:
 
 Every scenario field must come from the actual capture. Do **not** invent stakeholders, deadlines, products, or facts that did not appear in the original conversation. The whole point of a replay is fidelity to the moment the learner already lived.
 
+Some user turns may be in another language and appear as garbled, nonsensical text (transcription assumes English) — never build the scenario question around those turns; pick the most coachable **English** moment.
+
 - **`scenario.title`** — derived from the capture's `serverTitle`. Tighten or rephrase if needed, but the topic must match.
 - **`scenario.question`** — find the **most coachable user turn** in the transcript (use `analysis.fixTheseFirst` + `moreMoments` plus the dimensional findings to identify it), then use the **prompt that someone else asked right before that turn** as the scenario question. Quote it in the voice of the original speaker. If no other speaker asked an explicit question, infer the implicit prompt the user was responding to (e.g., from the meeting context: "Where are we on the migration?", "What's your recommendation?"). The question is the **only** scenario field the learner sees beyond the title — it must read as a real prompt, not a coaching directive.
 - **`scenario.category`** — pick the snake_case slug from the recommended catalog that best matches the actual conversation type (`status_update`, `project_walkthrough`, `stakeholder_alignment`, `difficult_conversation`, `self_introduction`, `personal_reflection`, `interview_behavioral`, `interview_situational`), or invent a new one in valid format if none fit.

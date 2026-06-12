@@ -1,23 +1,124 @@
 "use client";
 
-import { ChevronDown, Flag, Play, Sparkles } from "lucide-react";
+import { ChevronDown, Flag, Pencil, Play, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { TranscriptCorrectionEditor } from "@/components/conversations/transcript-correction-editor";
 import { TurnRewriteCard } from "@/components/conversations/turn-rewrite-card";
 import { InlineMarkdown } from "@/components/session/inline-markdown";
+import {
+    applyCorrectionsToText,
+    groupCorrectionsByIdx,
+    isLockedFillerToken,
+    segmentLineWithCorrections,
+    tokenizeLine,
+} from "@/lib/captures/corrections";
 import { cn } from "@/lib/utils";
 import type {
     CaptureTranscriptLine,
     TeachableMoment,
+    TranscriptCorrection,
     TurnRewrite,
 } from "@/schemas";
+import { MAX_CORRECTIONS_PER_CAPTURE } from "@/schemas";
 
 type Props = {
     transcript: CaptureTranscriptLine[];
     teachableMoments?: TeachableMoment[];
     turnRewrites?: TurnRewrite[];
     onSeekToSecond?: (seconds: number) => void;
+    /** Enables the "fix a misheard word" affordance when provided. */
+    captureId?: string;
+    /** Mishearing fixes — rendered as an overlay; raw text stays the anchor. */
+    corrections?: TranscriptCorrection[];
 };
+
+/** Raw segment text where each word is clickable to start a fix. */
+function ClickableWords({
+    segmentText,
+    segmentStart,
+    onWordClick,
+}: {
+    segmentText: string;
+    segmentStart: number;
+    onWordClick: (charStart: number) => void;
+}) {
+    const nodes: React.ReactNode[] = [];
+    let cursor = 0;
+    for (const tok of tokenizeLine(segmentText)) {
+        if (tok.start > cursor) {
+            nodes.push(segmentText.slice(cursor, tok.start));
+        }
+        if (isLockedFillerToken(tok.text)) {
+            nodes.push(tok.text);
+        } else {
+            nodes.push(
+                <button
+                    key={tok.start}
+                    type="button"
+                    onClick={() => onWordClick(segmentStart + tok.start)}
+                    title="Click to fix what Sayzo heard"
+                    className="cursor-pointer rounded-sm hover:bg-sky-500/10 hover:underline hover:decoration-dotted hover:underline-offset-2"
+                >
+                    {tok.text}
+                </button>,
+            );
+        }
+        cursor = tok.end;
+    }
+    if (cursor < segmentText.length) {
+        nodes.push(segmentText.slice(cursor));
+    }
+    return <>{nodes}</>;
+}
+
+/**
+ * Line text with corrected spans marked (dotted underline + tooltip). When
+ * `onWordClick` is set, individual words are clickable to start a fix —
+ * already-corrected spans and locked fillers are not.
+ */
+function CorrectedLineText({
+    text,
+    corrections,
+    dimmed,
+    onWordClick,
+}: {
+    text: string;
+    corrections: TranscriptCorrection[];
+    dimmed: boolean;
+    onWordClick?: (charStart: number) => void;
+}) {
+    const segments = segmentLineWithCorrections(text, corrections);
+    return (
+        <p
+            className={cn(
+                "mt-1 text-sm leading-relaxed break-words",
+                dimmed && "text-muted-foreground/70 italic",
+            )}
+        >
+            {segments.map((s, i) =>
+                s.kind === "corrected" ? (
+                    <span
+                        key={i}
+                        className="underline decoration-dotted decoration-sky-500/60 underline-offset-2"
+                        title={`Corrected by you — Sayzo originally heard "${s.original}"`}
+                    >
+                        {s.text}
+                    </span>
+                ) : onWordClick ? (
+                    <ClickableWords
+                        key={i}
+                        segmentText={s.text}
+                        segmentStart={s.start}
+                        onWordClick={onWordClick}
+                    />
+                ) : (
+                    <span key={i}>{s.text}</span>
+                ),
+            )}
+        </p>
+    );
+}
 
 function formatTimestamp(seconds: number): string {
     const m = Math.floor(seconds / 60);
@@ -39,7 +140,20 @@ export function TranscriptView(props: Readonly<Props>) {
         teachableMoments = [],
         turnRewrites = [],
         onSeekToSecond,
+        captureId,
+        corrections = [],
     } = props;
+
+    const correctionsByIdx = useMemo(
+        () => groupCorrectionsByIdx(corrections),
+        [corrections],
+    );
+    const [editing, setEditing] = useState<{
+        lineIdx: number;
+        clickedStart: number;
+    } | null>(null);
+    const correctionsEnabled =
+        Boolean(captureId) && corrections.length < MAX_CORRECTIONS_PER_CAPTURE;
 
     const teachableByIdx = useMemo(() => {
         const map = new Map<number, TeachableMoment[]>();
@@ -99,12 +213,22 @@ export function TranscriptView(props: Readonly<Props>) {
 
     return (
         <div className="space-y-1">
+            {correctionsEnabled && (
+                <p className="mb-2 flex items-center gap-1.5 px-3 text-[11px] text-muted-foreground">
+                    <Pencil className="size-3 shrink-0" />
+                    Misheard a name or word? Click it in the transcript to fix
+                    it.
+                </p>
+            )}
             {transcript.map((line, idx) => {
                 const isUser = line.speaker === "user";
                 const moments = teachableByIdx.get(idx);
                 const rewrite = rewriteByIdx.get(idx);
                 const hasMoments = moments && moments.length > 0;
-                const hasRewrite = Boolean(rewrite);
+                // Non-English turns show a static label instead of the
+                // rewrite expander — there is no coaching behind it.
+                const isNonEnglish = rewrite?.verdict === "non_english";
+                const hasRewrite = Boolean(rewrite) && !isNonEnglish;
                 const isMomentExpanded = expandedMoments.has(idx);
                 const isRewriteExpanded = expandedRewrites.has(idx);
 
@@ -144,13 +268,44 @@ export function TranscriptView(props: Readonly<Props>) {
                                 >
                                     {speakerLabel(line.speaker)}
                                 </span>
-                                <p className="mt-1 text-sm leading-relaxed break-words">
-                                    {line.text}
-                                </p>
+                                <CorrectedLineText
+                                    text={line.text}
+                                    corrections={
+                                        correctionsByIdx.get(idx) ?? []
+                                    }
+                                    dimmed={isNonEnglish}
+                                    onWordClick={
+                                        correctionsEnabled
+                                            ? (charStart) =>
+                                                  setEditing({
+                                                      lineIdx: idx,
+                                                      clickedStart: charStart,
+                                                  })
+                                            : undefined
+                                    }
+                                />
+                                {captureId !== undefined &&
+                                    editing?.lineIdx === idx && (
+                                        <TranscriptCorrectionEditor
+                                            key={`${editing.lineIdx}-${editing.clickedStart}`}
+                                            captureId={captureId}
+                                            transcript={transcript}
+                                            transcriptIdx={idx}
+                                            corrections={corrections}
+                                            clickedStart={editing.clickedStart}
+                                            onClose={() => setEditing(null)}
+                                        />
+                                    )}
 
                                 {/* Inline badges for teachable moments and rewrites */}
-                                {(hasMoments || hasRewrite) && (
+                                {(hasMoments || hasRewrite || isNonEnglish) && (
                                     <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {isNonEnglish && (
+                                            <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                                Couldn&apos;t make this out
+                                                clearly
+                                            </span>
+                                        )}
                                         {hasMoments && (
                                             <button
                                                 type="button"
@@ -232,7 +387,12 @@ export function TranscriptView(props: Readonly<Props>) {
                                                     </div>
                                                     <div className="mt-3">
                                                         <blockquote className="border-l-2 border-border/70 pl-3 text-sm leading-relaxed text-foreground/90">
-                                                            {m.anchor}
+                                                            {applyCorrectionsToText(
+                                                                m.anchor,
+                                                                correctionsByIdx.get(
+                                                                    m.transcriptIdx,
+                                                                ) ?? [],
+                                                            )}
                                                         </blockquote>
                                                     </div>
                                                     {m.betterOption && (

@@ -30,6 +30,7 @@ export * from "./learner-model/learner-model";
 // Persisted document shapes
 export * from "./session/session";
 export * from "./capture/capture";
+export * from "./capture/transcript-correction";
 export * from "./user/user";
 
 // Desktop-companion remote diagnostics
