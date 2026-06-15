@@ -137,3 +137,67 @@ body {
         @apply font-sans;
     }
 }
+
+/* Landing hero demo — faithful recreation of the desktop HUD flow.
+   Keyframes mirror the agent's webui/src/index.css so the pill, toasts,
+   and insight card animate exactly like the real product. */
+@keyframes sayzo-soft-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.65;
+    }
+}
+
+.animate-sayzo-pulse {
+    animation: sayzo-soft-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes hud-element-enter {
+    from {
+        opacity: 0;
+        transform: translateX(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.hud-element-enter {
+    animation: hud-element-enter 260ms ease-out both;
+}
+
+@keyframes hud-toast-countdown {
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
+}
+
+/* Faux cursor tapping the "See full feedback" button in the hero demo. */
+@keyframes sayzo-cursor-tap {
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(1.5px) scale(0.82);
+    }
+}
+
+.animate-sayzo-cursor {
+    animation: sayzo-cursor-tap 1.3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-sayzo-pulse,
+    .hud-element-enter,
+    .animate-sayzo-cursor {
+        animation: none;
+    }
+}

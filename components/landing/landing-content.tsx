@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { LANDING_FAQ } from "@/components/landing/faq";
+import { HeroDemo } from "@/components/landing/hero-demo";
 import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
@@ -36,7 +37,7 @@ export function LandingContent() {
                 href={primaryHref}
                 className={cn(
                     buttonVariants({ variant: "default", size: "lg" }),
-                    "px-5",
+                    "bg-blue-600 px-5 text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 [a]:hover:bg-blue-700",
                 )}
             >
                 {primaryLabel}
@@ -101,49 +102,70 @@ export function LandingContent() {
             </header>
 
             {/* Hero */}
-            <section className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-3xl flex-col items-center justify-center px-6 pb-12 text-center">
-                <Image
-                    src="/sayzo-logo.png"
-                    alt="Sayzo logo"
-                    width={120}
-                    height={120}
-                    priority
-                    className="mb-6"
-                />
-                <p className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                    Coaching from your real conversations, not scripted
-                    practice.
-                </p>
-                <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-                    Do your best work
-                    <br />
-                    in English.
-                </h1>
-                <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                    For non-native English speakers at US, EU, and global
-                    companies. Sayzo learns from the way you actually speak at
-                    work: the standup where you went quiet, the client call
-                    where your point did not land, the interview you
-                    over-rehearsed. After each conversation it shows you what to
-                    say better next time, and lets you replay the moment until
-                    it feels natural.
-                </p>
-                <p className="mt-4 max-w-xl text-sm text-muted-foreground/80">
-                    Starting with remote professionals in the Philippines:
-                    engineers, VAs, ops, designers, and anyone on a global team.
-                </p>
-                <div className="mt-10 flex flex-col items-center gap-3">
-                    {cta}
-                    <p className="text-xs text-muted-foreground">
-                        Free to start. No credit card.
+            <section className="relative isolate overflow-hidden">
+                {/* Background atmosphere — restrained, not a wash. A faint sky
+                    dot-grid that masks out toward the edges for texture/depth,
+                    plus a single soft glow behind the demo so the card lifts
+                    off the page. The demo itself carries the blue. */}
+                <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle,rgba(2,132,199,0.07)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(60%_55%_at_50%_0%,black,transparent)]" />
+                <div className="pointer-events-none absolute left-1/2 top-[44%] -z-10 h-72 w-[42rem] max-w-[88vw] -translate-x-1/2 rounded-[50%] bg-sky-300/20 blur-[110px] dark:bg-sky-500/10" />
+
+                <div className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-4xl flex-col items-center justify-center px-6 py-8 text-center">
+                    <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+                        Do your best work in English.
+                    </h1>
+                    <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                        Sayzo sits in on the work calls you choose, tells you
+                        how your English landed, and lets you replay the moments
+                        that didn&rsquo;t.
                     </p>
+
+                    <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                        <Link
+                            href={primaryHref}
+                            className={cn(
+                                buttonVariants({
+                                    variant: "default",
+                                    size: "lg",
+                                }),
+                                "bg-blue-600 px-5 text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 [a]:hover:bg-blue-700",
+                            )}
+                        >
+                            {primaryLabel}
+                            <ArrowRight />
+                        </Link>
+                        <Link
+                            href={secondaryHref}
+                            className={cn(
+                                buttonVariants({
+                                    variant: "ghost",
+                                    size: "lg",
+                                }),
+                                "text-muted-foreground",
+                            )}
+                        >
+                            {secondaryLabel}
+                        </Link>
+                    </div>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                        Free to start. No credit card. Starting with remote
+                        professionals in the Philippines.
+                    </p>
+
+                    {/* The demo — the animated call → web app loop */}
+                    <div className="mt-8 w-full">
+                        <HeroDemo />
+                    </div>
                 </div>
             </section>
 
             {/* The loop */}
             <section className="mx-auto w-full max-w-5xl px-6 pb-24">
                 <div className="mx-auto max-w-2xl text-center">
-                    <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600 dark:text-sky-400">
+                        How it works
+                    </p>
+                    <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
                         Coaching from the conversations you actually have.
                     </h2>
                     <p className="mt-4 text-base leading-relaxed text-muted-foreground">
@@ -179,7 +201,10 @@ export function LandingContent() {
             <section className="border-y border-border/70 bg-muted/30">
                 <div className="mx-auto w-full max-w-5xl px-6 py-20">
                     <div className="mx-auto max-w-2xl text-center">
-                        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600 dark:text-sky-400">
+                            What it coaches
+                        </p>
+                        <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
                             What Sayzo coaches you on.
                         </h2>
                         <p className="mt-4 text-base leading-relaxed text-muted-foreground">
@@ -225,7 +250,7 @@ export function LandingContent() {
             {/* Privacy strip */}
             <section className="mx-auto w-full max-w-5xl px-6 py-20">
                 <div className="grid items-start gap-6 rounded-2xl border border-border/70 bg-card p-8 shadow-sm sm:grid-cols-[auto_1fr] sm:gap-10">
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted">
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
                         <Shield className="size-5" />
                     </div>
                     <div>
@@ -254,7 +279,7 @@ export function LandingContent() {
                         </div>
                         <Link
                             href="/privacy"
-                            className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline"
+                            className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-sky-700 hover:underline dark:text-sky-300"
                         >
                             Read the privacy policy
                             <ArrowRight className="size-3.5" />
@@ -266,7 +291,10 @@ export function LandingContent() {
             {/* How Sayzo is different */}
             <section className="mx-auto w-full max-w-5xl px-6 pb-24">
                 <div className="mx-auto max-w-2xl text-center">
-                    <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600 dark:text-sky-400">
+                        Why Sayzo
+                    </p>
+                    <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
                         Not another phrase app.
                     </h2>
                     <p className="mt-4 text-base leading-relaxed text-muted-foreground">
@@ -313,19 +341,23 @@ export function LandingContent() {
             </section>
 
             {/* Final CTA */}
-            <section className="mx-auto w-full max-w-3xl px-6 pb-24 text-center">
-                <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                    Get coaching from your next conversation.
-                </h2>
-                <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                    Install Sayzo today. In a few weeks, hear the difference in
-                    your next standup, your next demo, your next interview.
-                </p>
-                <div className="mt-8 flex flex-col items-center gap-3">
-                    {cta}
-                    <p className="text-xs text-muted-foreground">
-                        Free to start. No credit card.
+            <section className="mx-auto w-full max-w-5xl px-6 pb-24">
+                <div className="relative isolate overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 via-background to-indigo-50/50 px-6 py-16 text-center shadow-sm ring-1 ring-black/5 dark:border-sky-900/40 dark:from-sky-950/30 dark:via-background dark:to-indigo-950/20">
+                    <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle,rgba(2,132,199,0.06)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(70%_70%_at_50%_50%,black,transparent)]" />
+                    <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+                        Get coaching from your next conversation.
+                    </h2>
+                    <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
+                        Install Sayzo today. In a few weeks, hear the difference
+                        in your next standup, your next demo, your next
+                        interview.
                     </p>
+                    <div className="mt-8 flex flex-col items-center gap-3">
+                        {cta}
+                        <p className="text-xs text-muted-foreground">
+                            Free to start. No credit card.
+                        </p>
+                    </div>
                 </div>
             </section>
 
@@ -368,12 +400,12 @@ function StepCard({
     body: string;
 }) {
     return (
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+        <div className="group rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200/80 hover:shadow-md dark:hover:border-sky-800/60">
             <div className="flex items-center justify-between">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-sky-100 text-sky-700 transition-colors group-hover:bg-sky-200 dark:bg-sky-500/15 dark:text-sky-300">
                     {icon}
                 </div>
-                <span className="font-mono text-xs tracking-widest text-muted-foreground">
+                <span className="font-mono text-xs tracking-widest text-sky-600/70 dark:text-sky-400/60">
                     {step}
                 </span>
             </div>
@@ -397,8 +429,8 @@ function CoachingCard({
     body: string;
 }) {
     return (
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-foreground">
+        <div className="group rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200/80 hover:shadow-md dark:hover:border-sky-800/60">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-sky-100 text-sky-700 transition-colors group-hover:bg-sky-200 dark:bg-sky-500/15 dark:text-sky-300">
                 {icon}
             </div>
             <h3 className="mt-3 text-sm font-semibold tracking-tight">
@@ -411,15 +443,9 @@ function CoachingCard({
     );
 }
 
-function FaqItem({
-    question,
-    answer,
-}: {
-    question: string;
-    answer: string;
-}) {
+function FaqItem({ question, answer }: { question: string; answer: string }) {
     return (
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+        <div className="group rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200/80 hover:shadow-md dark:hover:border-sky-800/60">
             <h3 className="text-sm font-semibold tracking-tight">{question}</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {answer}
@@ -438,8 +464,8 @@ function CompareCard({
     body: string;
 }) {
     return (
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+        <div className="group rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200/80 hover:shadow-md dark:hover:border-sky-800/60">
+            <p className="text-xs font-medium uppercase tracking-widest text-sky-600/90 dark:text-sky-400/80">
                 {versus}
             </p>
             <h3 className="mt-2 text-base font-semibold tracking-tight">
