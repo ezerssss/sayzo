@@ -68,13 +68,29 @@ export function OverviewView() {
                 </StaggerItem>
             ) : (
                 <>
-                    {/* Featured latest conversation — the one gradient hero. */}
+                    {/* Featured latest conversation — the whole header is a
+                        click target into the conversation (see the stretched
+                        overlay link below). */}
                     <StaggerItem order={1}>
-                        <HeroPanel>
+                        <HeroPanel className="group relative">
+                            {/* Stretched overlay — makes the entire panel
+                                clickable. aria-hidden + tabIndex=-1 because the
+                                visible "Open conversation" button is the real,
+                                keyboard-focusable link; this is a mouse
+                                convenience only. It sits ABOVE the static header
+                                content (z-0 over in-flow) but BELOW the meeting
+                                notes block (raised to z-10) so the notes toggle,
+                                checkboxes and copy button still work. */}
+                            <Link
+                                href={`/app/conversations/${latest.id}`}
+                                aria-hidden
+                                tabIndex={-1}
+                                className="absolute inset-0 z-0"
+                            />
                             <Eyebrow>Latest conversation</Eyebrow>
                             <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0 flex-1">
-                                    <h2 className="text-lg font-semibold tracking-tight">
+                                    <h2 className="text-lg font-semibold tracking-tight underline-offset-4 transition-colors group-hover:underline">
                                         {latest.serverTitle ?? latest.title}
                                     </h2>
                                     <p className="mt-1 text-sm text-muted-foreground">
@@ -94,7 +110,7 @@ export function OverviewView() {
                                     href={`/app/conversations/${latest.id}`}
                                     className={cn(
                                         buttonVariants({ size: "sm" }),
-                                        "shrink-0",
+                                        "relative z-10 shrink-0",
                                     )}
                                 >
                                     <ArrowRight className="size-4" />
@@ -107,7 +123,7 @@ export function OverviewView() {
                                 so the notes read identically. Falls back to the
                                 plain server summary for legacy captures. */}
                             {latest.id && latest.meetingSummary ? (
-                                <div className="mt-4">
+                                <div className="relative z-10 mt-4">
                                     <MeetingSummaryHero
                                         captureId={latest.id}
                                         summary={latest.meetingSummary}
