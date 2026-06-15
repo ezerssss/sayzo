@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronDown, Play, Sparkles } from "lucide-react";
+import { ChevronDown, Play, Sparkles, Wrench } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
+import { Eyebrow } from "@/components/app/eyebrow";
 import { Kicker, StaggerItem } from "@/components/coaching/briefing";
 import {
     TurnRewriteCard,
@@ -58,7 +59,10 @@ function applyCorrectionsToAnalysis(
     const byIdx = groupCorrectionsByIdx(corrections);
     const correctMoment = (m: TeachableMoment): TeachableMoment => ({
         ...m,
-        anchor: applyCorrectionsToText(m.anchor, byIdx.get(m.transcriptIdx) ?? []),
+        anchor: applyCorrectionsToText(
+            m.anchor,
+            byIdx.get(m.transcriptIdx) ?? [],
+        ),
     });
     return {
         ...analysis,
@@ -159,7 +163,9 @@ function rewritesToText(analysis: ItemAnalysis): string {
     }
     if ((analysis.structuralObservations ?? []).length > 0) {
         parts.push(
-            `**Structural observations:**\n${(analysis.structuralObservations ?? [])
+            `**Structural observations:**\n${(
+                analysis.structuralObservations ?? []
+            )
                 .map(
                     (o) =>
                         `- ${o.observation}\n  - ${o.explanation}\n  - Turns: ${o.affectedTurnIdxs.join(", ")}`,
@@ -167,7 +173,7 @@ function rewritesToText(analysis: ItemAnalysis): string {
                 .join("\n")}`,
         );
     }
-    const stitched = stitchTurnRewrites((analysis.turnRewrites ?? [])).trim();
+    const stitched = stitchTurnRewrites(analysis.turnRewrites ?? []).trim();
     if (stitched) {
         parts.push(`**Full rewrite (stitched):**\n${stitched}`);
     }
@@ -194,10 +200,10 @@ function CollapsibleCard({
     const [open, setOpen] = useState(defaultOpen);
 
     return (
-        <div className="rounded-2xl border border-border/70 bg-background">
+        <div>
             <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 p-5 text-left"
+                className="flex w-full items-center justify-between gap-3 text-left"
                 onClick={() => setOpen((v) => !v)}
             >
                 <span className="text-sm font-semibold tracking-tight">
@@ -217,11 +223,7 @@ function CollapsibleCard({
                     />
                 </span>
             </button>
-            {open && (
-                <div className="space-y-4 border-t border-border/50 p-5">
-                    {children}
-                </div>
-            )}
+            {open && <div className="mt-3 space-y-4">{children}</div>}
         </div>
     );
 }
@@ -313,7 +315,7 @@ function stripWrappingQuotes(input: string): string {
 function TryInsteadBox({ text }: { text: string }) {
     if (!text.trim()) return null;
     return (
-        <div className="rounded-lg bg-sky-50/60 p-3 dark:bg-sky-950/20">
+        <div className="border-l-2 border-sky-300 pl-3">
             <Kicker>Try instead</Kicker>
             <div className="mt-1">
                 <InlineMarkdown text={text} tone="body" />
@@ -327,7 +329,7 @@ function CoachingMomentCard({ moment }: { moment: CoachingMoment }) {
     const why = resolveWhyThisMatters(moment);
     const hasWhy = Boolean(why);
     return (
-        <div className="space-y-3 rounded-lg border border-border/50 bg-background/50 p-3">
+        <div className="space-y-3">
             <AnchorQuote text={moment.anchor} compact />
             {moment.betterOption ? (
                 <TryInsteadBox text={moment.betterOption} />
@@ -382,9 +384,11 @@ function DimensionalCard({
                 {dimension.assessment}
             </p>
             {dimension.findings.length > 0 && (
-                <div className="space-y-2">
+                <div className="divide-y divide-border/50">
                     {dimension.findings.map((finding, i) => (
-                        <CoachingMomentCard key={i} moment={finding} />
+                        <div key={i} className="py-4 first:pt-0">
+                            <CoachingMomentCard moment={finding} />
+                        </div>
                     ))}
                 </div>
             )}
@@ -402,35 +406,34 @@ function TopFixesCard({
 }) {
     const [open, setOpen] = useState(true);
     return (
-        <div className="rounded-2xl border border-sky-100 bg-background shadow-sm dark:border-sky-900/40">
+        <div>
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
-                className="flex w-full items-center justify-between gap-3 p-5"
+                className="flex w-full items-center gap-2"
             >
-                <span className="text-sm font-semibold tracking-tight">
+                <Wrench className="size-4 text-foreground/70" />
+                <h3 className="text-sm font-semibold tracking-tight">
                     Fix these first
+                </h3>
+                <span className="ml-auto font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                    {moments.length === 1
+                        ? "1 priority"
+                        : `${moments.length} priorities`}
                 </span>
-                <span className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-                        {moments.length === 1
-                            ? "1 priority"
-                            : `${moments.length} priorities`}
-                    </span>
-                    <ChevronDown
-                        className={cn(
-                            "size-4 text-muted-foreground transition-transform",
-                            open && "rotate-180",
-                        )}
-                    />
-                </span>
+                <ChevronDown
+                    className={cn(
+                        "size-4 text-muted-foreground transition-transform",
+                        open && "rotate-180",
+                    )}
+                />
             </button>
             {open ? (
-                <ol className="space-y-4 border-t border-sky-100/70 p-5 dark:border-sky-900/40">
+                <ol className="mt-3 divide-y divide-border/50">
                     {moments.map((moment, index) => (
                         <li
                             key={`${moment.timestamp}-${moment.transcriptIdx}-${index}`}
-                            className="rounded-xl border border-sky-100/70 bg-background p-4 dark:border-sky-900/30"
+                            className="py-4 first:pt-0"
                         >
                             <TopFixContent
                                 index={index + 1}
@@ -469,9 +472,7 @@ function TopFixContent({
             {moment.betterOption ? (
                 <TryInsteadBox text={moment.betterOption} />
             ) : null}
-            {why ? (
-                <InlineMarkdown text={why} tone="small-muted" />
-            ) : null}
+            {why ? <InlineMarkdown text={why} tone="small-muted" /> : null}
         </div>
     );
 }
@@ -484,21 +485,20 @@ function MomentsList({
     onSeek?: (seconds: number) => void;
 }) {
     return (
-        <div className="rounded-2xl border border-border/70 bg-background p-5">
+        <div>
             <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-sm font-semibold tracking-tight">
-                    More moments
-                </h3>
+                <Eyebrow tone="muted">More moments</Eyebrow>
                 <span className="text-xs text-muted-foreground">
                     {moments.length === 1
                         ? "1 moment"
                         : `${moments.length} moments`}
                 </span>
             </div>
-            <ul className="mt-4 space-y-3">
+            <ul className="mt-3 divide-y divide-border/50">
                 {moments.map((moment, idx) => (
                     <li
                         key={`${moment.timestamp}-${moment.transcriptIdx}-${idx}`}
+                        className="py-4 first:pt-0"
                     >
                         <MoreMomentRow moment={moment} onSeek={onSeek} />
                     </li>
@@ -520,7 +520,7 @@ function MoreMomentRow({
     const hasWhy = Boolean(why);
 
     return (
-        <div className="rounded-xl border border-border/60 bg-background p-4">
+        <div>
             <div className="flex flex-wrap items-center gap-2">
                 <TimestampChip seconds={moment.timestamp} onSeek={onSeek} />
                 <TypeChip type={moment.type} />
@@ -585,11 +585,11 @@ function BigPicturePanel({
     if (visible.length === 0) return null;
 
     return (
-        <div className="rounded-2xl border border-border/70 bg-background">
+        <div>
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
-                className="flex w-full items-center justify-between gap-3 p-5"
+                className="flex w-full items-center justify-between gap-3"
             >
                 <span className="text-sm font-semibold tracking-tight">
                     Big picture
@@ -602,18 +602,19 @@ function BigPicturePanel({
                 />
             </button>
             {open ? (
-                <div className="space-y-3 border-t border-border/50 p-5">
+                <div className="mt-3 divide-y divide-border/50">
                     {visible.map((d) => (
-                        <DimensionalCard
-                            key={d.key}
-                            title={d.title}
-                            dimension={d.dim}
-                            chat={renderChat(
-                                d.key,
-                                d.title,
-                                dimensionalToText(d.dim),
-                            )}
-                        />
+                        <div key={d.key} className="py-4 first:pt-0">
+                            <DimensionalCard
+                                title={d.title}
+                                dimension={d.dim}
+                                chat={renderChat(
+                                    d.key,
+                                    d.title,
+                                    dimensionalToText(d.dim),
+                                )}
+                            />
+                        </div>
                     ))}
                 </div>
             ) : null}
@@ -682,11 +683,11 @@ function StructuralNotesPanel({
     onSeekToSecond?: (seconds: number) => void;
 }) {
     return (
-        <div className="rounded-xl border border-sky-100 bg-background p-4 shadow-sm dark:border-sky-900/40">
+        <div className="border-l-2 border-sky-300 pl-4">
             <Kicker>Structural notes</Kicker>
-            <ol className="mt-3 space-y-4">
+            <ol className="mt-3 divide-y divide-border/50">
                 {observations.map((obs, i) => (
-                    <li key={i} className="space-y-2">
+                    <li key={i} className="space-y-2 py-3 first:pt-0">
                         <p className="text-sm font-medium text-foreground">
                             {obs.observation}
                         </p>
@@ -762,12 +763,12 @@ function RewritesSection({
 
     if (!hasRewrites && !hasStructural) {
         return (
-            <div className="rounded-xl border border-border/70 p-4">
+            <div>
                 <div className="flex items-center gap-2 text-sm font-medium">
-                    <Sparkles className="size-4" />
+                    <Sparkles className="size-4 text-sky-600" />
                     Improved version
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
                     No improved version was generated for this conversation.
                     This usually means your delivery was already strong.
                 </p>
@@ -775,8 +776,8 @@ function RewritesSection({
         );
     }
 
-    const groups = groupTurnRewrites((analysis.turnRewrites ?? []));
-    const stitched = stitchTurnRewrites((analysis.turnRewrites ?? []));
+    const groups = groupTurnRewrites(analysis.turnRewrites ?? []);
+    const stitched = stitchTurnRewrites(analysis.turnRewrites ?? []);
     const rewriteContent = rewritesToText(analysis);
 
     const toggleRun = (runKey: number) => {
@@ -795,17 +796,11 @@ function RewritesSection({
 
     return (
         <div className="space-y-4">
-            {/* Header */}
-            <StaggerItem
-                order={0}
-                className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/60 via-white to-indigo-50/30 p-5 shadow-sm dark:border-sky-900/40 dark:from-sky-950/20 dark:via-transparent dark:to-indigo-950/10"
-            >
-                <div
-                    aria-hidden
-                    className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-gradient-to-br from-sky-100/60 to-indigo-100/40 blur-3xl"
-                />
-                <div className="relative flex items-start gap-3">
-                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-200/60 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+            {/* Header — plain Eyebrow/Kicker, not a second gradient panel (the
+                conversation page already earns one HeroPanel above the tabs). */}
+            <StaggerItem order={0}>
+                <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-200/60 text-sky-700">
                         <Sparkles className="size-4" />
                     </span>
                     <div>
@@ -825,7 +820,7 @@ function RewritesSection({
             {/* View toggle */}
             {hasRewrites && (
                 <StaggerItem order={1}>
-                    <div className="inline-flex rounded-lg border border-sky-100 bg-background p-0.5 text-xs dark:border-sky-900/40">
+                    <div className="inline-flex rounded-lg border border-border/60 bg-background p-0.5 text-xs">
                         <button
                             type="button"
                             onClick={() => setView("turns")}
@@ -857,132 +852,137 @@ function RewritesSection({
             {/* Turn-by-turn view */}
             {hasRewrites && view === "turns" && (
                 <StaggerItem order={2}>
-                    <ol className="space-y-3">
-                    {groups.map((group, gIdx) => {
-                        if (group.kind === "run") {
-                            const isOpen = expandedRuns.has(gIdx);
-                            const isNonEnglishRun =
-                                group.verdict === "non_english";
+                    <ol className="divide-y divide-border/50">
+                        {groups.map((group, gIdx) => {
+                            if (group.kind === "run") {
+                                const isOpen = expandedRuns.has(gIdx);
+                                const isNonEnglishRun =
+                                    group.verdict === "non_english";
+                                return (
+                                    <li
+                                        key={`run-${gIdx}`}
+                                        className="py-4 first:pt-0"
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleRun(gIdx)}
+                                            className="flex w-full items-center justify-between gap-3 text-left"
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <VerdictPill
+                                                    verdict={group.verdict}
+                                                />
+                                                <span className="text-xs text-muted-foreground">
+                                                    {group.turns.length} turns{" "}
+                                                    {isNonEnglishRun
+                                                        ? "Sayzo couldn't make out"
+                                                        : "already strong"}
+                                                </span>
+                                            </span>
+                                            <ChevronDown
+                                                className={cn(
+                                                    "size-4 text-muted-foreground transition-transform",
+                                                    isOpen && "rotate-180",
+                                                )}
+                                            />
+                                        </button>
+                                        {isOpen && (
+                                            <ol className="mt-3 divide-y divide-border/50 border-l-2 border-border/50 pl-3">
+                                                {group.turns.map((t) => {
+                                                    const turnNo =
+                                                        userTurnNumber(
+                                                            analysis.turnRewrites ??
+                                                                [],
+                                                            t.transcriptIdx,
+                                                        );
+                                                    const line =
+                                                        transcript?.[
+                                                            t.transcriptIdx
+                                                        ];
+                                                    return (
+                                                        <li
+                                                            key={
+                                                                t.transcriptIdx
+                                                            }
+                                                            className="flex items-start gap-3 py-2.5 first:pt-0"
+                                                        >
+                                                            {line &&
+                                                            onSeekToSecond ? (
+                                                                <TimestampChip
+                                                                    seconds={
+                                                                        line.start
+                                                                    }
+                                                                    onSeek={
+                                                                        onSeekToSecond
+                                                                    }
+                                                                />
+                                                            ) : null}
+                                                            <div className="flex-1 space-y-1">
+                                                                {turnNo && (
+                                                                    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                                                        Turn{" "}
+                                                                        {turnNo}
+                                                                    </p>
+                                                                )}
+                                                                <p
+                                                                    className={cn(
+                                                                        "text-xs leading-relaxed",
+                                                                        isNonEnglishRun
+                                                                            ? "text-muted-foreground/70 italic"
+                                                                            : "text-foreground",
+                                                                    )}
+                                                                >
+                                                                    {t.original}
+                                                                </p>
+                                                                {t.note && (
+                                                                    <p className="text-[11px] italic leading-relaxed text-muted-foreground">
+                                                                        {t.note}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ol>
+                                        )}
+                                    </li>
+                                );
+                            }
+
+                            const turn = group.turn;
+                            const turnNo = userTurnNumber(
+                                analysis.turnRewrites ?? [],
+                                turn.transcriptIdx,
+                            );
+                            const line = transcript?.[turn.transcriptIdx];
                             return (
                                 <li
-                                    key={`run-${gIdx}`}
-                                    className="rounded-xl border border-sky-100/70 bg-background dark:border-sky-900/30"
+                                    key={turn.transcriptIdx}
+                                    className="py-4 first:pt-0"
                                 >
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleRun(gIdx)}
-                                        className="flex w-full items-center justify-between gap-3 p-3 text-left"
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            <VerdictPill
-                                                verdict={group.verdict}
+                                    <div className="flex items-center gap-2">
+                                        {line && onSeekToSecond ? (
+                                            <TimestampChip
+                                                seconds={line.start}
+                                                onSeek={onSeekToSecond}
                                             />
-                                            <span className="text-xs text-muted-foreground">
-                                                {group.turns.length} turns{" "}
-                                                {isNonEnglishRun
-                                                    ? "Sayzo couldn't make out"
-                                                    : "already strong"}
+                                        ) : null}
+                                        {turnNo && (
+                                            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                                Turn {turnNo}
                                             </span>
-                                        </span>
-                                        <ChevronDown
-                                            className={cn(
-                                                "size-4 text-muted-foreground transition-transform",
-                                                isOpen && "rotate-180",
-                                            )}
+                                        )}
+                                    </div>
+                                    <div className="mt-3">
+                                        <TurnRewriteCard
+                                            rewrite={turn}
+                                            variant="standalone"
+                                            onSuggestedIdxClick={seekToTurn}
                                         />
-                                    </button>
-                                    {isOpen && (
-                                        <ol className="space-y-2 border-t border-border/50 p-3">
-                                            {group.turns.map((t) => {
-                                                const turnNo = userTurnNumber(
-                                                    (analysis.turnRewrites ?? []),
-                                                    t.transcriptIdx,
-                                                );
-                                                const line =
-                                                    transcript?.[
-                                                        t.transcriptIdx
-                                                    ];
-                                                return (
-                                                    <li
-                                                        key={t.transcriptIdx}
-                                                        className="flex items-start gap-3 rounded-lg bg-muted/30 p-2"
-                                                    >
-                                                        {line &&
-                                                        onSeekToSecond ? (
-                                                            <TimestampChip
-                                                                seconds={
-                                                                    line.start
-                                                                }
-                                                                onSeek={
-                                                                    onSeekToSecond
-                                                                }
-                                                            />
-                                                        ) : null}
-                                                        <div className="flex-1 space-y-1">
-                                                            {turnNo && (
-                                                                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                                                                    Turn {turnNo}
-                                                                </p>
-                                                            )}
-                                                            <p
-                                                                className={cn(
-                                                                    "text-xs leading-relaxed",
-                                                                    isNonEnglishRun
-                                                                        ? "text-muted-foreground/70 italic"
-                                                                        : "text-foreground",
-                                                                )}
-                                                            >
-                                                                {t.original}
-                                                            </p>
-                                                            {t.note && (
-                                                                <p className="text-[11px] italic leading-relaxed text-muted-foreground">
-                                                                    {t.note}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ol>
-                                    )}
+                                    </div>
                                 </li>
                             );
-                        }
-
-                        const turn = group.turn;
-                        const turnNo = userTurnNumber(
-                            (analysis.turnRewrites ?? []),
-                            turn.transcriptIdx,
-                        );
-                        const line = transcript?.[turn.transcriptIdx];
-                        return (
-                            <li
-                                key={turn.transcriptIdx}
-                                className="rounded-xl border border-sky-100/70 bg-background p-4 dark:border-sky-900/30"
-                            >
-                                <div className="flex items-center gap-2">
-                                    {line && onSeekToSecond ? (
-                                        <TimestampChip
-                                            seconds={line.start}
-                                            onSeek={onSeekToSecond}
-                                        />
-                                    ) : null}
-                                    {turnNo && (
-                                        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                                            Turn {turnNo}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="mt-3">
-                                    <TurnRewriteCard
-                                        rewrite={turn}
-                                        variant="standalone"
-                                        onSuggestedIdxClick={seekToTurn}
-                                    />
-                                </div>
-                            </li>
-                        );
-                    })}
+                        })}
                     </ol>
                 </StaggerItem>
             )}
@@ -991,7 +991,7 @@ function RewritesSection({
             {hasRewrites && view === "prose" && (
                 <StaggerItem
                     order={2}
-                    className="rounded-xl border border-sky-100 bg-background p-4 shadow-sm dark:border-sky-900/40"
+                    className="border-l-2 border-sky-300 pl-4"
                 >
                     <Kicker>Read straight through</Kicker>
                     <p className="mt-2 text-[11px] text-muted-foreground italic">
@@ -1012,8 +1012,8 @@ function RewritesSection({
             {hasStructural && (
                 <StaggerItem order={3}>
                     <StructuralNotesPanel
-                        observations={(analysis.structuralObservations ?? [])}
-                        turnRewrites={(analysis.turnRewrites ?? [])}
+                        observations={analysis.structuralObservations ?? []}
+                        turnRewrites={analysis.turnRewrites ?? []}
                         transcript={transcript}
                         onSeekToSecond={onSeekToSecond}
                     />
@@ -1151,15 +1151,14 @@ export function AnalysisView(props: Readonly<Props>) {
             topFixes.length > 0 ||
             moreMoments.length > 0 ||
             dimensions.some(
-                (d) =>
-                    d.dim.assessment.trim() || d.dim.findings.length > 0,
+                (d) => d.dim.assessment.trim() || d.dim.findings.length > 0,
             );
 
         if (!hasAnyContent) {
             return (
-                <div className="rounded-xl border border-border/70 p-4">
-                    <p className="text-sm font-medium">Coaching</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
+                <div>
+                    <Eyebrow tone="muted">Coaching</Eyebrow>
+                    <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
                         No coaching findings for this conversation.
                     </p>
                 </div>
@@ -1169,10 +1168,7 @@ export function AnalysisView(props: Readonly<Props>) {
         return (
             <div className="space-y-4">
                 {topFixes.length > 0 ? (
-                    <TopFixesCard
-                        moments={topFixes}
-                        onSeek={onSeekToSecond}
-                    />
+                    <TopFixesCard moments={topFixes} onSeek={onSeekToSecond} />
                 ) : null}
 
                 {moreMoments.length > 0 ? (

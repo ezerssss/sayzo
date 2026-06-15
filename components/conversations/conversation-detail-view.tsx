@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-    ArrowLeft,
-    ArrowRight,
-    Loader2,
-    Lock,
-    Play,
-    Trash2,
-} from "lucide-react";
+import { ArrowRight, Loader2, Lock, Play, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
@@ -21,10 +14,9 @@ import { MeetingSummaryHero } from "@/components/conversations/meeting-summary-v
 import { TranscriptView } from "@/components/conversations/transcript-view";
 import { PageTour } from "@/components/tour/page-tour";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
-import { CreditsBanner } from "@/components/credits/credits-banner";
-import { CreditsIndicator } from "@/components/credits/credits-indicator";
-import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { AudioPlayer } from "@/components/session/audio-player";
+import { Eyebrow } from "@/components/app/eyebrow";
+import { HeroPanel } from "@/components/app/hero-panel";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
     Dialog,
@@ -46,29 +38,6 @@ type Props = {
     captureId: string;
     uid: string;
 };
-
-// Mirrors SessionHomeHeader so the conversation detail page shares the same
-// chrome as the drill page — same back-link treatment, same title weight,
-// same credits indicator placement.
-function ConversationDetailHeader() {
-    return (
-        <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-                <Link
-                    href="/app?tab=captures"
-                    className="mb-1 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    My Conversations
-                </Link>
-                <h1 className="text-2xl font-semibold tracking-tight">
-                    Your conversation
-                </h1>
-            </div>
-            <CreditsIndicator />
-        </div>
-    );
-}
 
 function formatDate(dateStr: string): string {
     try {
@@ -196,27 +165,17 @@ export function ConversationDetailView(props: Readonly<Props>) {
 
     if (loading && !capture) {
         return (
-            <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
-                <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
-                    <ConversationDetailHeader />
-                    <p className="text-sm text-muted-foreground">
-                        Loading conversation…
-                    </p>
-                </div>
-            </section>
+            <p className="text-sm text-muted-foreground">
+                Loading conversation…
+            </p>
         );
     }
 
     if (!capture) {
         return (
-            <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
-                <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
-                    <ConversationDetailHeader />
-                    <p className="text-sm text-destructive" role="alert">
-                        Conversation not found.
-                    </p>
-                </div>
-            </section>
+            <p className="text-sm text-destructive" role="alert">
+                Conversation not found.
+            </p>
         );
     }
 
@@ -278,7 +237,7 @@ export function ConversationDetailView(props: Readonly<Props>) {
             await api.delete(`/api/captures/${captureId}`, {
                 timeout: 30_000,
             });
-            router.push("/app?tab=captures");
+            router.push("/app");
         } catch (err) {
             setPracticeError(
                 await getKyErrorMessage(err, "Could not delete capture."),
@@ -289,262 +248,240 @@ export function ConversationDetailView(props: Readonly<Props>) {
     };
 
     return (
-        <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
-            <MobileBanner page="app" />
-            <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-                <CreditsBanner />
-                <ConversationDetailHeader />
+        <div className="space-y-6">
+            {practiceError && (
+                <p className="text-sm text-destructive" role="alert">
+                    {practiceError}
+                </p>
+            )}
 
-                {practiceError && (
-                    <p className="text-sm text-destructive" role="alert">
-                        {practiceError}
-                    </p>
-                )}
-
-                {/* Title block — uses the sky/indigo hero treatment from
-                    the drill dashboard so the conversation detail reads as
-                    part of the same product, not a plain detail card. */}
-                <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-6 shadow-sm">
-                    <div
-                        aria-hidden
-                        className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
-                    />
-                    <div className="relative flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
-                                Captured
-                                <span className="mx-1.5 text-sky-700/50">
-                                    &middot;
-                                </span>
-                                <span className="font-normal normal-case text-foreground/80">
-                                    {formatDate(capture.startedAt)}
-                                </span>
-                            </p>
-                            <h2 className="mt-2 text-lg font-semibold tracking-tight">
-                                {title}
-                            </h2>
-                            {/* The meeting summary lives here, where the
+            {/* Title hero — the one gradient panel on the page (shared
+                    HeroPanel), so the conversation detail reads as part of the
+                    same polished product. */}
+            <HeroPanel>
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                        <Eyebrow tone="sky">
+                            Captured
+                            <span className="mx-1.5 text-sky-700/50">
+                                &middot;
+                            </span>
+                            <span className="font-normal normal-case text-foreground/80">
+                                {formatDate(capture.startedAt)}
+                            </span>
+                        </Eyebrow>
+                        <h2 className="mt-2 text-xl font-semibold tracking-tight">
+                            {title}
+                        </h2>
+                        {/* The meeting summary lives here, where the
                                 one-line server summary used to be: TL;DR
                                 inline, full notes behind "Read more". Legacy
                                 captures without one fall back to the plain
                                 summary line. */}
-                            {capture.meetingSummary ? (
-                                <MeetingSummaryHero
-                                    captureId={captureId}
-                                    summary={capture.meetingSummary}
-                                />
-                            ) : summary ? (
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {summary}
-                                </p>
-                            ) : null}
-                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                {duration && <span>{duration}</span>}
-                                {duration && (
-                                    <span className="text-muted-foreground/50">
-                                        &middot;
-                                    </span>
-                                )}
-                                <span>
-                                    {speakerCount}{" "}
-                                    {speakerCount === 1
-                                        ? "speaker"
-                                        : "speakers"}
+                        {capture.meetingSummary ? (
+                            <MeetingSummaryHero
+                                captureId={captureId}
+                                summary={capture.meetingSummary}
+                            />
+                        ) : summary ? (
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {summary}
+                            </p>
+                        ) : null}
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {duration && <span>{duration}</span>}
+                            {duration && (
+                                <span className="text-muted-foreground/50">
+                                    &middot;
                                 </span>
-                                <CaptureStatusBadge
-                                    status={capture.status}
-                                    rejectionReason={capture.rejectionReason}
-                                    error={capture.error}
-                                />
-                            </div>
-                        </div>
-                        <div className="relative flex shrink-0 flex-wrap items-center gap-2">
-                            {capture.status === "analyzed" &&
-                                (practiceSession ? (
-                                    <Link
-                                        href={`/app/replays/${practiceSession.id}`}
-                                        data-tour="replay-conversation"
-                                        className={cn(
-                                            buttonVariants({ size: "sm" }),
-                                        )}
-                                    >
-                                        <ArrowRight className="h-4 w-4" />
-                                        {practiceSession.completionStatus ===
-                                        "pending"
-                                            ? "Continue your replay"
-                                            : "View replay results"}
-                                    </Link>
-                                ) : (
-                                    <Button
-                                        size="sm"
-                                        data-tour="replay-conversation"
-                                        onClick={() => void handlePractice()}
-                                        disabled={practicing}
-                                        className={cn(
-                                            creditGate.isExhausted &&
-                                                "opacity-60",
-                                        )}
-                                        title={
-                                            creditGate.isExhausted
-                                                ? "You're out of Sayzo credits"
-                                                : "Redo this conversation yourself and get coached on your new take"
-                                        }
-                                    >
-                                        {practicing ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : creditGate.isExhausted ? (
-                                            <Lock className="h-4 w-4" />
-                                        ) : (
-                                            <Play className="h-4 w-4" />
-                                        )}
-                                        Replay this conversation
-                                    </Button>
-                                ))}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setConfirmDeleteOpen(true)}
-                                disabled={deleting}
-                                className="border-sky-100 bg-white/60 backdrop-blur-sm hover:border-sky-200 hover:bg-white/80"
-                            >
-                                {deleting ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                )}
-                            </Button>
+                            )}
+                            <span>
+                                {speakerCount}{" "}
+                                {speakerCount === 1 ? "speaker" : "speakers"}
+                            </span>
+                            <CaptureStatusBadge
+                                status={capture.status}
+                                rejectionReason={capture.rejectionReason}
+                                error={capture.error}
+                            />
                         </div>
                     </div>
+                    <div className="relative flex shrink-0 flex-wrap items-center gap-2">
+                        {capture.status === "analyzed" &&
+                            (practiceSession ? (
+                                <Link
+                                    href={`/app/replays/${practiceSession.id}`}
+                                    data-tour="replay-conversation"
+                                    className={cn(
+                                        buttonVariants({ size: "sm" }),
+                                    )}
+                                >
+                                    <ArrowRight className="h-4 w-4" />
+                                    {practiceSession.completionStatus ===
+                                    "pending"
+                                        ? "Continue your replay"
+                                        : "View replay results"}
+                                </Link>
+                            ) : (
+                                <Button
+                                    size="sm"
+                                    data-tour="replay-conversation"
+                                    onClick={() => void handlePractice()}
+                                    disabled={practicing}
+                                    className={cn(
+                                        creditGate.isExhausted && "opacity-60",
+                                    )}
+                                    title={
+                                        creditGate.isExhausted
+                                            ? "You're out of Sayzo credits"
+                                            : "Redo this conversation yourself and get coached on your new take"
+                                    }
+                                >
+                                    {practicing ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : creditGate.isExhausted ? (
+                                        <Lock className="h-4 w-4" />
+                                    ) : (
+                                        <Play className="h-4 w-4" />
+                                    )}
+                                    Replay this conversation
+                                </Button>
+                            ))}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setConfirmDeleteOpen(true)}
+                            disabled={deleting}
+                        >
+                            {deleting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Trash2 className="h-4 w-4" />
+                            )}
+                        </Button>
+                    </div>
                 </div>
+            </HeroPanel>
 
-                {/* Top coaching takeaway — the one thing most worth the
+            {/* Top coaching takeaway — the one thing most worth the
                     user's attention, mirrored from the desktop agent's card.
                     Sits above the audio + tabs so the "See full feedback"
                     deep-link lands directly on it. */}
-                {coachingInsight ? (
-                    <CoachingInsightCard insight={coachingInsight} />
-                ) : null}
+            {coachingInsight ? (
+                <CoachingInsightCard insight={coachingInsight} />
+            ) : null}
 
-                {/* Audio player */}
-                {audioLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading audio...
-                    </div>
-                ) : audioUrl ? (
-                    <AudioPlayer src={audioUrl} audioRef={audioRef} />
-                ) : null}
+            {/* Audio player */}
+            {audioLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading audio...
+                </div>
+            ) : audioUrl ? (
+                <AudioPlayer src={audioUrl} audioRef={audioRef} />
+            ) : null}
 
-                {/* Tabbed content — same 2-tab shape as drill feedback. */}
-                {isAnalyzed ? (
-                    <FeedbackTabs
-                        now={
-                            <>
-                                <AnalysisView
-                                    analysis={analysis}
-                                    onSeekToSecond={seekToSecond}
-                                    section="overview"
-                                    captureId={captureId}
-                                    uid={uid}
-                                    corrections={corrections}
-                                />
-                                {transcript.length > 0 && (
-                                    <StaggerItem
-                                        order={2}
-                                        className="rounded-2xl border border-sky-100 bg-background shadow-sm dark:border-sky-900/40"
-                                    >
-                                        <div className="flex items-center justify-between p-4">
-                                            <Kicker>Transcript</Kicker>
-                                        </div>
-                                        <div className="border-t border-sky-100/70 px-4 pb-4 pt-3 dark:border-sky-900/40">
-                                            <TranscriptView
-                                                transcript={transcript}
-                                                teachableMoments={[
-                                                    ...(analysis.fixTheseFirst ??
-                                                        []),
-                                                    ...(analysis.moreMoments ??
-                                                        []),
-                                                ]}
-                                                turnRewrites={
-                                                    analysis.turnRewrites
-                                                }
-                                                onSeekToSecond={seekToSecond}
-                                                captureId={captureId}
-                                                corrections={corrections}
-                                            />
-                                        </div>
-                                    </StaggerItem>
-                                )}
-                            </>
-                        }
-                        improved={
+            {/* Tabbed content — same 2-tab shape as drill feedback. */}
+            {isAnalyzed ? (
+                <FeedbackTabs
+                    now={
+                        <>
                             <AnalysisView
                                 analysis={analysis}
-                                transcript={transcript}
                                 onSeekToSecond={seekToSecond}
-                                section="rewrites"
+                                section="overview"
                                 captureId={captureId}
                                 uid={uid}
                                 corrections={corrections}
                             />
-                        }
-                    />
-                ) : capture.status !== "analyzed" ? (
-                    <div className="rounded-xl border border-dashed border-border/70 p-6 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                            {!capture.status.endsWith("_failed") &&
-                                capture.status !== "rejected" && (
-                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                )}
-                            <p className="text-sm text-muted-foreground">
-                                {friendlyStatus(capture.status)}
-                            </p>
-                        </div>
-                    </div>
-                ) : null}
-
-                {/* Delete confirmation */}
-                <Dialog
-                    open={confirmDeleteOpen}
-                    onOpenChange={(open) => {
-                        if (!open) setConfirmDeleteOpen(false);
-                    }}
-                >
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Delete this capture?</DialogTitle>
-                            <DialogDescription>
-                                This will permanently delete{" "}
-                                <strong>{title}</strong> and its recording. This
-                                action cannot be undone.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                            <Button
-                                variant="destructive"
-                                onClick={() => void handleConfirmDelete()}
-                            >
-                                <Trash2 className="h-4 w-4" />
-                                Delete
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={() => setConfirmDeleteOpen(false)}
-                            >
-                                Cancel
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-
-                {/* One-time page guide — arms only once the analysis (and
-                    its tour targets) are on screen. */}
-                <PageTour
-                    page="conversation"
-                    uid={uid}
-                    ready={Boolean(isAnalyzed)}
+                            {transcript.length > 0 && (
+                                <StaggerItem order={2}>
+                                    <Kicker>Transcript</Kicker>
+                                    <div className="mt-3 border-t border-border/50 pt-3">
+                                        <TranscriptView
+                                            transcript={transcript}
+                                            teachableMoments={[
+                                                ...(analysis.fixTheseFirst ??
+                                                    []),
+                                                ...(analysis.moreMoments ?? []),
+                                            ]}
+                                            turnRewrites={analysis.turnRewrites}
+                                            onSeekToSecond={seekToSecond}
+                                            captureId={captureId}
+                                            corrections={corrections}
+                                        />
+                                    </div>
+                                </StaggerItem>
+                            )}
+                        </>
+                    }
+                    improved={
+                        <AnalysisView
+                            analysis={analysis}
+                            transcript={transcript}
+                            onSeekToSecond={seekToSecond}
+                            section="rewrites"
+                            captureId={captureId}
+                            uid={uid}
+                            corrections={corrections}
+                        />
+                    }
                 />
-            </div>
-        </section>
+            ) : capture.status !== "analyzed" ? (
+                <div className="rounded-xl border border-dashed border-border/70 p-6 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                        {!capture.status.endsWith("_failed") &&
+                            capture.status !== "rejected" && (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            )}
+                        <p className="text-sm text-muted-foreground">
+                            {friendlyStatus(capture.status)}
+                        </p>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* Delete confirmation */}
+            <Dialog
+                open={confirmDeleteOpen}
+                onOpenChange={(open) => {
+                    if (!open) setConfirmDeleteOpen(false);
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete this capture?</DialogTitle>
+                        <DialogDescription>
+                            This will permanently delete{" "}
+                            <strong>{title}</strong> and its recording. This
+                            action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="destructive"
+                            onClick={() => void handleConfirmDelete()}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setConfirmDeleteOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* One-time page guide — arms only once the analysis (and
+                    its tour targets) are on screen. */}
+            <PageTour
+                page="conversation"
+                uid={uid}
+                ready={Boolean(isAnalyzed)}
+            />
+        </div>
     );
 }

@@ -2,15 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import {
-    MessageCircle,
-    Mic,
-    Square,
-    Send,
-    X,
-    Loader2,
-    Keyboard,
-} from "lucide-react";
+import { MessageCircle, Mic, Square, Send, X, Loader2 } from "lucide-react";
 import {
     useRef,
     useEffect,
@@ -162,7 +154,6 @@ export function FeedbackChat({
 }: FeedbackChatProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [input, setInput] = useState("");
-    const [showTextInput, setShowTextInput] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [voiceError, setVoiceError] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -211,12 +202,6 @@ export function FeedbackChat({
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
-
-    useEffect(() => {
-        if (isOpen && showTextInput && inputRef.current) {
-            inputRef.current.focus();
-        }
-    }, [isOpen, showTextInput]);
 
     const handleSendText = () => {
         const text = input.trim();
@@ -306,11 +291,12 @@ export function FeedbackChat({
     }
 
     return (
-        <div className="mt-3 rounded-lg border border-border/50 bg-muted/30">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
-                <span className="text-xs font-medium text-muted-foreground">
-                    Discuss: {sectionTitle}
-                </span>
+        <div className="mt-3 overflow-hidden rounded-2xl border border-border/60 bg-card">
+            <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3.5 py-2.5">
+                <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <MessageCircle className="size-3.5 shrink-0 text-sky-600" />
+                    <span className="truncate">Discuss: {sectionTitle}</span>
+                </div>
                 <Button
                     variant="ghost"
                     size="icon-xs"
@@ -321,18 +307,18 @@ export function FeedbackChat({
                         setIsOpen(false);
                     }}
                 >
-                    <X className="size-3" />
+                    <X className="size-3.5" />
                 </Button>
             </div>
 
             <div
                 ref={scrollRef}
-                className="max-h-64 overflow-y-auto px-3 py-2 space-y-3"
+                className="max-h-72 space-y-4 overflow-y-auto px-3.5 py-3"
             >
                 {messages.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-2">
-                        Tap the mic and ask about this feedback — challenge it,
-                        ask for examples, or dig deeper.
+                    <p className="py-1 text-sm leading-relaxed text-muted-foreground">
+                        Ask about this feedback — challenge it, ask for
+                        examples, or dig deeper.
                     </p>
                 ) : null}
 
@@ -348,15 +334,15 @@ export function FeedbackChat({
                     >
                         <span
                             className={cn(
-                                "text-[10px] font-medium uppercase tracking-wide",
+                                "font-mono text-[10px] font-medium uppercase tracking-[0.14em]",
                                 message.role === "user"
-                                    ? "text-foreground/60"
-                                    : "text-muted-foreground/60",
+                                    ? "text-foreground/50"
+                                    : "text-sky-700/70",
                             )}
                         >
                             {message.role === "user" ? "You" : "Coach"}
                         </span>
-                        <div className="mt-0.5 leading-relaxed">
+                        <div className="mt-1 leading-relaxed">
                             {message.parts.map((part, i) => {
                                 if (part.type === "text") {
                                     return (
@@ -374,102 +360,86 @@ export function FeedbackChat({
                     </div>
                 ))}
 
-                {isTranscribing ? (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Loader2 className="size-3 animate-spin" />
-                        Transcribing your message...
-                    </div>
-                ) : null}
-
                 {isLoading &&
                 messages[messages.length - 1]?.role !== "assistant" ? (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Loader2 className="size-3 animate-spin" />
-                        Thinking...
+                        Thinking…
                     </div>
                 ) : null}
             </div>
 
-            {(voiceError || recorder.error) ? (
-                <p className="px-3 pb-1 text-xs text-destructive">
+            {voiceError || recorder.error ? (
+                <p className="px-3.5 pb-1 text-xs text-destructive">
                     {voiceError || recorder.error}
                 </p>
             ) : null}
 
-            <div className="border-t border-border/50 px-3 py-2">
+            {/* One unified input bar: text is always available, and the trailing
+                control is Mic when empty / Send when typing — no mode toggle.
+                Recording morphs the bar into a live waveform + stop. */}
+            <div className="border-t border-border/50 p-2.5">
                 {recorder.isRecording ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 rounded-2xl border border-sky-300 bg-background py-1.5 pl-3.5 pr-1.5">
                         <LiveWaveform
                             stream={recorder.stream}
                             active
-                            className="flex-1"
+                            className="h-8 flex-1"
                         />
                         <Button
-                            variant="secondary"
-                            size="sm"
+                            size="icon-sm"
                             onClick={() => void handleVoiceToggle()}
+                            className="rounded-full"
+                            title="Stop & send"
                         >
-                            <Square className="size-3" />
-                            Done
+                            <Square className="size-3.5 fill-current" />
                         </Button>
                     </div>
-                ) : showTextInput ? (
+                ) : isTranscribing ? (
+                    <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-background px-3.5 py-3 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" />
+                        Transcribing…
+                    </div>
+                ) : (
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
                             handleSendText();
                         }}
-                        className="flex items-end gap-2"
+                        className="flex items-end gap-1.5 rounded-2xl border border-border/60 bg-background py-1.5 pl-3.5 pr-1.5 transition-colors focus-within:border-sky-300"
                     >
                         <textarea
                             ref={inputRef}
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={onKeyDown}
-                            placeholder="Type your question..."
+                            placeholder="Ask about this feedback…"
                             rows={1}
-                            className="flex-1 resize-none bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none min-h-[32px] max-h-[80px] py-1.5"
+                            className="max-h-[88px] min-h-[28px] flex-1 resize-none bg-transparent py-1 text-sm placeholder:text-muted-foreground focus:outline-none"
                         />
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={() => setShowTextInput(false)}
-                            title="Switch to voice"
-                        >
-                            <Mic className="size-3.5" />
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="ghost"
-                            size="icon-xs"
-                            disabled={!input.trim() || isBusy}
-                        >
-                            <Send className="size-3.5" />
-                        </Button>
+                        {input.trim() ? (
+                            <Button
+                                type="submit"
+                                size="icon-sm"
+                                disabled={isBusy}
+                                className="rounded-full"
+                                title="Send"
+                            >
+                                <Send className="size-3.5" />
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                disabled={isBusy}
+                                onClick={() => void handleVoiceToggle()}
+                                className="rounded-full"
+                                title="Speak"
+                            >
+                                <Mic className="size-4" />
+                            </Button>
+                        )}
                     </form>
-                ) : (
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="default"
-                            size="sm"
-                            disabled={isBusy}
-                            onClick={() => void handleVoiceToggle()}
-                            className="flex-1"
-                        >
-                            <Mic className="size-3.5" />
-                            {isBusy ? "Processing..." : "Tap to speak"}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={() => setShowTextInput(true)}
-                            disabled={isBusy}
-                            title="Type instead"
-                        >
-                            <Keyboard className="size-3.5" />
-                        </Button>
-                    </div>
                 )}
             </div>
         </div>

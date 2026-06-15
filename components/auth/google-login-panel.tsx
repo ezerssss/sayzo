@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
-import { LogIn } from "lucide-react";
+import Link from "next/link";
 
+import { AuthLogoBadge, AuthScreen } from "@/components/auth/auth-screen";
 import { Button } from "@/components/ui/button";
 
 interface PropsInterface {
@@ -13,54 +13,81 @@ interface PropsInterface {
     disabled?: boolean;
 }
 
+/** The multicolor Google "G" — keeps the sign-in button reading as the real
+ *  Google flow it is. */
+function GoogleGIcon({ className }: Readonly<{ className?: string }>) {
+    return (
+        <svg viewBox="0 0 48 48" className={className} aria-hidden>
+            <path
+                fill="#FFC107"
+                d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+            />
+            <path
+                fill="#FF3D00"
+                d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
+            />
+            <path
+                fill="#4CAF50"
+                d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
+            />
+            <path
+                fill="#1976D2"
+                d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
+            />
+        </svg>
+    );
+}
+
 export function GoogleLoginPanel(props: Readonly<PropsInterface>) {
     const { loading, authError, onSignInWithGoogle, buttonLabel, disabled } =
         props;
 
     return (
-        <section className="w-full max-w-md rounded-2xl border border-border/70 bg-card px-6 py-10 shadow-sm sm:px-8 sm:py-12">
-            <div className="space-y-6">
-                <div className="flex justify-center">
-                    <Image
-                        src="/sayzo-logo.png"
-                        alt="Sayzo logo"
-                        width={96}
-                        height={96}
-                        priority
-                        className="rounded-xl"
-                    />
-                </div>
-                <div className="space-y-3 text-center text-sm leading-relaxed text-muted-foreground">
-                    <p>Your English coach — tuned to how you actually speak.</p>
-                    <p>
-                        Sign in to start practicing. Short drills, real
-                        feedback, built for the situations in your week.
-                    </p>
-                </div>
-            </div>
-
-            <div className="mt-8 flex flex-col gap-3">
-                <Button
-                    disabled={disabled ?? loading}
-                    onClick={onSignInWithGoogle}
-                >
-                    <LogIn />
-                    {buttonLabel ??
-                        (loading
-                            ? "Checking session..."
-                            : "Continue with Google")}
-                </Button>
-                <p className="text-center text-xs text-muted-foreground">
-                    By continuing you agree to our privacy-first handling of
-                    your speaking data.
+        <AuthScreen>
+            <div className="flex flex-col items-center text-center">
+                <AuthLogoBadge />
+                <h1 className="mt-7 text-3xl font-semibold tracking-tight text-foreground">
+                    Sign in to Sayzo
+                </h1>
+                <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                    Coaching from your real work conversations — see your
+                    feedback and replay the moments that matter.
                 </p>
 
-                {authError ? (
-                    <p className="text-xs text-destructive" role="alert">
-                        {authError}
+                <div className="mt-8 w-full max-w-xs space-y-3">
+                    <Button
+                        size="lg"
+                        className="h-11 w-full gap-2.5 text-sm"
+                        disabled={disabled ?? loading}
+                        onClick={onSignInWithGoogle}
+                    >
+                        <GoogleGIcon className="size-4" />
+                        {buttonLabel ??
+                            (loading
+                                ? "Checking session..."
+                                : "Continue with Google")}
+                    </Button>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                        By continuing you agree to our{" "}
+                        <Link
+                            href="/privacy"
+                            className="font-medium text-foreground/70 underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                        >
+                            privacy-first handling
+                        </Link>{" "}
+                        of your speaking data.
                     </p>
-                ) : null}
+
+                    {authError ? (
+                        <p
+                            className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-center text-xs text-destructive"
+                            role="alert"
+                        >
+                            {authError}
+                        </p>
+                    ) : null}
+                </div>
             </div>
-        </section>
+        </AuthScreen>
     );
 }

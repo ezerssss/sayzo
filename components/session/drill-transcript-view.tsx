@@ -3,6 +3,8 @@
 import { ChevronDown, Flag, Play } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { Eyebrow } from "@/components/app/eyebrow";
+import { Kicker } from "@/components/coaching/briefing";
 import { InlineMarkdown } from "@/components/session/inline-markdown";
 import { cn } from "@/lib/utils";
 import type { CaptureTranscriptLine, TeachableMoment } from "@/schemas";
@@ -126,13 +128,13 @@ export function DrillTranscriptView(props: Readonly<Props>) {
 
     const hasContent = Boolean(
         (structuredLines && structuredLines.length > 0) ||
-            (legacyLines && legacyLines.length > 0),
+        (legacyLines && legacyLines.length > 0),
     );
 
     if (!hasContent) {
         return (
-            <div className="rounded-xl border border-border/70 p-4">
-                <p className="text-sm font-medium">{heading}</p>
+            <div>
+                <Eyebrow tone="muted">{heading}</Eyebrow>
                 <p className="mt-2 text-sm text-muted-foreground">
                     No transcript available.
                 </p>
@@ -141,11 +143,11 @@ export function DrillTranscriptView(props: Readonly<Props>) {
     }
 
     return (
-        <div className="rounded-xl border border-border/70">
+        <div>
             <button
                 type="button"
                 onClick={() => setIsOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between p-4"
+                className="flex w-full items-center justify-between"
             >
                 <span className="text-sm font-medium">{heading}</span>
                 <ChevronDown
@@ -156,7 +158,7 @@ export function DrillTranscriptView(props: Readonly<Props>) {
                 />
             </button>
             {isOpen ? (
-                <div className="space-y-1 border-t border-border/50 px-4 pb-4 pt-3">
+                <div className="mt-3 divide-y divide-border/50 border-t border-border/50 pt-3">
                     {structuredLines
                         ? structuredLines.map((line, idx) => {
                               const moments = momentsByLineIdx.get(idx) ?? [];
@@ -199,7 +201,7 @@ function StructuredLineRow({
     onSeekToSecond?: (seconds: number) => void;
 }) {
     return (
-        <div className="rounded-lg border-l-2 border-primary/30 bg-primary/5 px-3 py-2">
+        <div className="py-3 first:pt-0">
             <div className="flex items-start gap-2">
                 {onSeekToSecond ? (
                     <button
@@ -255,24 +257,23 @@ function StructuredLineRow({
 
 function MomentDetailCard({ moment }: { moment: TeachableMoment }) {
     return (
-        <div className="rounded-xl border border-border/60 bg-background p-4">
-            <div className="mt-1">
-                <blockquote className="border-l-2 border-border/70 pl-3 text-sm leading-relaxed text-foreground/90">
-                    {moment.anchor}
-                </blockquote>
-            </div>
+        <div className="space-y-3">
+            <blockquote className="border-l-2 border-border/70 pl-3 text-sm leading-relaxed text-foreground/90">
+                {moment.anchor}
+            </blockquote>
             {moment.betterOption && (
-                <div className="mt-3 rounded-lg bg-muted/50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Try instead
-                    </p>
+                <div className="border-l-2 border-sky-300 pl-3">
+                    <Kicker>Try instead</Kicker>
                     <div className="mt-1">
-                        <InlineMarkdown text={moment.betterOption} tone="body" />
+                        <InlineMarkdown
+                            text={moment.betterOption}
+                            tone="body"
+                        />
                     </div>
                 </div>
             )}
             {moment.whyThisMatters && (
-                <div className="mt-3">
+                <div>
                     <InlineMarkdown
                         text={moment.whyThisMatters}
                         tone="small-muted"
@@ -295,7 +296,7 @@ function LegacyLineRow({
         line.timestampSeconds != null &&
         onSeekToSecond != null;
     return (
-        <div className="rounded-lg border-l-2 border-primary/30 bg-primary/5 px-3 py-2">
+        <div className="py-3 first:pt-0">
             <div className="flex items-start gap-2">
                 {canSeek ? (
                     <button

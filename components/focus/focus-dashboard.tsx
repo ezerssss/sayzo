@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { CheckCircle2, Loader2, RefreshCcw, Target } from "lucide-react";
+import { useState } from "react";
 
-import { buttonVariants } from "@/components/ui/button";
+import { Eyebrow } from "@/components/app/eyebrow";
+import { HeroPanel } from "@/components/app/hero-panel";
+import { StaggerItem } from "@/components/coaching/briefing";
 import { Button } from "@/components/ui/button";
 import { useFocusInsights } from "@/hooks/use-focus-insights";
 import { cn } from "@/lib/utils";
@@ -31,11 +34,16 @@ function formatRelativeTime(iso: string): string {
     }
 }
 
-export function FocusDashboard({
-    uid,
-}: {
-    uid: string | undefined;
-}) {
+/**
+ * The /app/focus screen — built on the same shell language as the overview and
+ * conversation pages: an Eyebrow + text-2xl header, a staggered one-time
+ * entrance, and exactly ONE HeroPanel (the big picture) so the gradient earns
+ * its attention. Everything else is card-LESS: themes + wins read as a divided
+ * briefing list (no boxes), and the first-run / insufficient / loading states
+ * are left-aligned prose matching CapturesEmptyState. Pure presentation — the
+ * data shape and useFocusInsights hook are unchanged.
+ */
+export function FocusDashboard({ uid }: { uid: string | undefined }) {
     const { insights, loading, refreshing, error, refresh } =
         useFocusInsights(uid);
 
@@ -43,34 +51,39 @@ export function FocusDashboard({
     const isEmpty = insights?.insufficientData === true;
     const themes = insights?.themes ?? [];
     const wins = insights?.wins ?? [];
+    const [showAllThemes, setShowAllThemes] = useState(false);
+    const [bigPictureOpen, setBigPictureOpen] = useState(false);
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h2 className="text-lg font-semibold tracking-tight">
-                        Focus
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                        Where to put your attention, built from every
-                        conversation and replay so far.
-                    </p>
+        <div className="space-y-8">
+            <StaggerItem order={0}>
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <Eyebrow>Focus</Eyebrow>
+                        <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+                            Where to put your attention
+                        </h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            The patterns costing you the most, and what&apos;s
+                            already improving.
+                        </p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void refresh()}
+                        disabled={refreshing || !uid}
+                        title="Rebuild from your latest conversations and replays"
+                    >
+                        {refreshing ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                            <RefreshCcw className="h-3.5 w-3.5" />
+                        )}
+                        Refresh
+                    </Button>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void refresh()}
-                    disabled={refreshing || !uid}
-                    title="Rebuild from your latest conversations and replays"
-                >
-                    {refreshing ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                        <RefreshCcw className="h-3.5 w-3.5" />
-                    )}
-                    Refresh
-                </Button>
-            </div>
+            </StaggerItem>
 
             {error ? (
                 <p className="text-sm text-destructive" role="alert">
@@ -86,48 +99,88 @@ export function FocusDashboard({
                 <InsufficientDataState />
             ) : (
                 <>
+                    {/* The one gradient panel on the page (shared HeroPanel) —
+                        a plain-language read on where things stand. */}
                     {insights?.overview?.trim() ? (
-                        <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-6 shadow-sm">
-                            <div className="flex items-start gap-3">
-                                <div className="shrink-0 rounded-lg bg-white/80 p-2 ring-1 ring-sky-100">
-                                    <Target className="h-4 w-4 text-sky-600" />
+                        <StaggerItem order={1}>
+                            <HeroPanel>
+                                <Eyebrow tone="sky">The big picture</Eyebrow>
+                                <div className="mt-2 flex items-start gap-3">
+                                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sky-200/60 text-sky-700">
+                                        <Target className="size-4" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p
+                                            className={cn(
+                                                "max-w-3xl text-sm leading-relaxed text-foreground/90",
+                                                !bigPictureOpen &&
+                                                    "line-clamp-2",
+                                            )}
+                                        >
+                                            {insights.overview}
+                                        </p>
+                                        {insights.overview.length > 160 ? (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setBigPictureOpen((v) => !v)
+                                                }
+                                                className="mt-1 text-xs font-medium text-sky-700 transition-colors hover:text-sky-800"
+                                            >
+                                                {bigPictureOpen
+                                                    ? "Show less"
+                                                    : "Read more"}
+                                            </button>
+                                        ) : null}
+                                    </div>
                                 </div>
-                                <p className="text-sm leading-relaxed text-foreground/90 sm:text-base">
-                                    {insights?.overview}
-                                </p>
-                            </div>
-                        </div>
+                            </HeroPanel>
+                        </StaggerItem>
                     ) : null}
 
                     {themes.length > 0 ? (
-                        <section className="space-y-3">
-                            <h3 className="text-sm font-medium text-muted-foreground">
-                                What to work on ({themes.length})
-                            </h3>
-                            <div className="space-y-3">
-                                {themes.map((theme) => (
+                        <StaggerItem order={2} className="space-y-3">
+                            <Eyebrow tone="muted">What to work on</Eyebrow>
+                            <div className="divide-y divide-border/50">
+                                {(showAllThemes
+                                    ? themes
+                                    : themes.slice(0, 3)
+                                ).map((theme) => (
                                     <FocusThemeCard
                                         key={theme.id}
                                         theme={theme}
                                     />
                                 ))}
                             </div>
-                        </section>
+                            {themes.length > 3 ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAllThemes((v) => !v)}
+                                    className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                                >
+                                    {showAllThemes
+                                        ? "Show less"
+                                        : `Show ${themes.length - 3} more`}
+                                </button>
+                            ) : null}
+                        </StaggerItem>
                     ) : null}
 
                     {wins.length > 0 ? (
-                        <section className="space-y-3">
-                            <h3 className="text-sm font-medium text-muted-foreground">
+                        <StaggerItem order={3} className="space-y-3">
+                            <Eyebrow tone="muted">
                                 What&apos;s changing ({wins.length})
-                            </h3>
-                            <ul className="space-y-2">
+                            </Eyebrow>
+                            <ul className="divide-y divide-border/50">
                                 {wins.map((win, idx) => (
                                     <li
                                         key={idx}
-                                        className="flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3"
+                                        className="flex items-start gap-3 py-4 first:pt-0"
                                     >
-                                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                                        <div className="min-w-0">
+                                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                                            <CheckCircle2 className="size-4" />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-sm text-foreground/90">
                                                 {win.statement}
                                             </p>
@@ -161,19 +214,21 @@ export function FocusDashboard({
                                     </li>
                                 ))}
                             </ul>
-                        </section>
+                        </StaggerItem>
                     ) : null}
 
                     {insights ? (
-                        <p className="pt-2 text-center text-xs text-muted-foreground/80">
-                            Built from {insights.sessionsConsidered} replay
-                            {insights.sessionsConsidered === 1
-                                ? ""
-                                : "s"} and {insights.capturesConsidered}{" "}
-                            conversation
-                            {insights.capturesConsidered === 1 ? "" : "s"} ·
-                            Updated {formatRelativeTime(insights.updatedAt)}
-                        </p>
+                        <StaggerItem order={4}>
+                            <p className="pt-2 text-center text-xs text-muted-foreground/80">
+                                Built from {insights.sessionsConsidered} replay
+                                {insights.sessionsConsidered === 1
+                                    ? ""
+                                    : "s"}{" "}
+                                and {insights.capturesConsidered} conversation
+                                {insights.capturesConsidered === 1 ? "" : "s"} ·
+                                Updated {formatRelativeTime(insights.updatedAt)}
+                            </p>
+                        </StaggerItem>
                     ) : null}
                 </>
             )}
@@ -183,30 +238,41 @@ export function FocusDashboard({
 
 function LoadingSkeleton() {
     return (
-        <div className="space-y-3">
-            <div className="h-24 animate-pulse rounded-2xl border border-border/40 bg-muted/40" />
-            <div className="h-40 animate-pulse rounded-2xl border border-border/40 bg-muted/40" />
-            <div className="h-40 animate-pulse rounded-2xl border border-border/40 bg-muted/40" />
+        <div className="space-y-6">
+            {/* Echoes the editorial big-picture header (label + lines + rule),
+                then quiet line pulses for the divided briefing list below it. */}
+            <div className="space-y-3 border-b border-border/60 pb-6">
+                <div className="h-3 w-28 animate-pulse rounded bg-muted" />
+                <div className="h-4 w-full animate-pulse rounded bg-muted/60" />
+                <div className="h-4 w-2/3 animate-pulse rounded bg-muted/60" />
+            </div>
+            <div className="space-y-4">
+                <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+                <div className="h-16 animate-pulse rounded-lg bg-muted/50" />
+                <div className="h-16 animate-pulse rounded-lg bg-muted/50" />
+            </div>
         </div>
     );
 }
 
+/**
+ * Shown before the first synthesis lands. Card-less left-aligned prose matching
+ * CapturesEmptyState; an inline spinner sits by the heading while the
+ * background refresh is in flight.
+ */
 function FirstRunState({ refreshing }: { refreshing: boolean }) {
     return (
-        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 p-8 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border/60">
+        <div>
+            <Eyebrow tone="sky">Getting ready</Eyebrow>
+            <h2 className="mt-2 flex items-center gap-2 text-xl font-semibold tracking-tight">
                 {refreshing ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                ) : (
-                    <Target className="h-4 w-4 text-muted-foreground" />
-                )}
-            </div>
-            <p className="mt-4 text-sm font-medium">
+                    <Loader2 className="size-4 shrink-0 animate-spin text-sky-600" />
+                ) : null}
                 {refreshing
                     ? "Pulling your patterns together…"
                     : "Preparing your focus view"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            </h2>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
                 {refreshing
                     ? "This can take up to a minute the first time."
                     : "Give it a moment. This rebuilds from your conversations and replays."}
@@ -215,27 +281,18 @@ function FirstRunState({ refreshing }: { refreshing: boolean }) {
     );
 }
 
+/** Shown when there's real data but too little to surface patterns yet. */
 function InsufficientDataState() {
     return (
-        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 p-8 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border/60">
-                <Target className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="mt-4 text-sm font-medium">Not enough to go on yet</p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+        <div>
+            <Eyebrow tone="sky">Getting started</Eyebrow>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight">
+                Not enough to go on yet
+            </h2>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
                 A few more conversations and we&apos;ll surface the patterns
                 that are actually costing you, plus what&apos;s improving.
             </p>
-            <div className="mt-4 flex items-center justify-center gap-2">
-                <Link
-                    href="/install"
-                    className={cn(
-                        buttonVariants({ variant: "outline", size: "sm" }),
-                    )}
-                >
-                    Install the companion
-                </Link>
-            </div>
         </div>
     );
 }

@@ -3,6 +3,7 @@
 import { ChevronDown, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { Eyebrow } from "@/components/app/eyebrow";
 import { Kicker } from "@/components/coaching/briefing";
 import { InlineMarkdown } from "@/components/session/inline-markdown";
 import { cn } from "@/lib/utils";
@@ -24,8 +25,8 @@ export function ImprovedVersionView({ content }: ImprovedVersionViewProps) {
 
     if (blocks.length === 0) {
         return (
-            <div className="rounded-xl border border-border/70 p-4">
-                <p className="text-sm font-medium">Improved Version</p>
+            <div>
+                <Eyebrow tone="muted">Improved Version</Eyebrow>
                 <p className="mt-2 text-sm text-muted-foreground">
                     No improved version is available for this replay yet.
                 </p>
@@ -34,17 +35,17 @@ export function ImprovedVersionView({ content }: ImprovedVersionViewProps) {
     }
 
     return (
-        <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/60 via-white to-indigo-50/30 shadow-sm dark:border-sky-900/40 dark:from-sky-950/20 dark:via-transparent dark:to-indigo-950/10">
+        <div>
             <button
                 type="button"
                 onClick={() => setIsOpen((v) => !v)}
-                className="flex w-full items-center gap-3 p-5"
+                className="flex w-full items-center gap-3"
             >
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-200/60 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-200/60 text-sky-700">
                     <Sparkles className="size-4" />
                 </span>
                 <span className="flex flex-col items-start text-left">
-                    <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-sky-700/80 dark:text-sky-300/80">
+                    <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-sky-700/80">
                         Improved version
                     </span>
                     <span className="mt-0.5 text-sm font-semibold tracking-tight">
@@ -59,17 +60,14 @@ export function ImprovedVersionView({ content }: ImprovedVersionViewProps) {
                 />
             </button>
             {isOpen ? (
-                <div className="space-y-4 border-t border-sky-100/70 p-5 dark:border-sky-900/40">
+                <div className="mt-3 space-y-4 border-t border-border/50 pt-3">
                     <p className="text-sm text-muted-foreground">
                         Your message, rewritten the way a confident speaker
                         would deliver it. Each note shows what changed and why.
                     </p>
-                    <ol className="space-y-3">
+                    <ol className="divide-y divide-border/50">
                         {blocks.map((block, index) => (
-                            <li
-                                key={block.id}
-                                className="rounded-xl border border-sky-100/70 bg-background p-4 dark:border-sky-900/30"
-                            >
+                            <li key={block.id} className="py-4 first:pt-0">
                                 <div className="flex gap-3">
                                     <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
                                         {index + 1}
@@ -79,7 +77,7 @@ export function ImprovedVersionView({ content }: ImprovedVersionViewProps) {
                                             {block.paragraph}
                                         </p>
                                         {block.note ? (
-                                            <div className="rounded-lg bg-sky-50/60 p-3 dark:bg-sky-950/20">
+                                            <div className="border-l-2 border-sky-300 pl-3">
                                                 <Kicker>What changed</Kicker>
                                                 <div className="mt-1">
                                                     <InlineMarkdown

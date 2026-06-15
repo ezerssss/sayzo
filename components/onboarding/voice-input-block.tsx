@@ -29,14 +29,8 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
         minRows = 3,
     } = props;
 
-    const {
-        isRecording,
-        stream,
-        error,
-        start,
-        stop,
-        clearError,
-    } = useVoiceRecorder();
+    const { isRecording, stream, error, start, stop, clearError } =
+        useVoiceRecorder();
     const [transcribeError, setTranscribeError] = useState<string | null>(null);
     const [isTranscribing, setIsTranscribing] = useState(false);
 
@@ -56,10 +50,10 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
                         timeout: 180_000,
                     })
                     .json<{
-                    text?: string;
-                    error?: string;
-                    detail?: string;
-                }>();
+                        text?: string;
+                        error?: string;
+                        detail?: string;
+                    }>();
                 const nextText = data.text?.trim();
                 if (nextText) {
                     onChange(nextText);
@@ -129,7 +123,10 @@ export function VoiceInputBlock(props: Readonly<PropsInterface>) {
                 </Button>
             </div>
             {(error || transcribeError) && (
-                <p className="text-center text-xs text-destructive" role="alert">
+                <p
+                    className="text-center text-xs text-destructive"
+                    role="alert"
+                >
                     {error ?? transcribeError}
                 </p>
             )}

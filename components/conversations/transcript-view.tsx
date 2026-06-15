@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronDown, Flag, Pencil, Play, Sparkles } from "lucide-react";
+import { ChevronDown, Pencil, Play } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { Kicker } from "@/components/coaching/briefing";
 import { TranscriptCorrectionEditor } from "@/components/conversations/transcript-correction-editor";
 import { TurnRewriteCard } from "@/components/conversations/turn-rewrite-card";
 import { InlineMarkdown } from "@/components/session/inline-markdown";
@@ -137,6 +138,22 @@ function speakerLabel(speaker: string): string {
     return speaker;
 }
 
+const TRANSCRIPT_VIEWS = [
+    { key: "all", label: "All", title: "Every line" },
+    {
+        key: "coaching",
+        label: "Coaching",
+        title: "Only turns with a coaching moment or an improvement",
+    },
+    {
+        key: "read",
+        label: "Read",
+        title: "Just the conversation, no coaching markers",
+    },
+] as const;
+
+type TranscriptViewMode = (typeof TRANSCRIPT_VIEWS)[number]["key"];
+
 export function TranscriptView(props: Readonly<Props>) {
     const {
         transcript,
@@ -175,6 +192,22 @@ export function TranscriptView(props: Readonly<Props>) {
         }
         return map;
     }, [turnRewrites]);
+
+    const [view, setView] = useState<TranscriptViewMode>("all");
+    // A turn is "coachable" if it has a coaching moment or an actionable
+    // improvement (not a keep/non-English verdict) — the Coaching view filter.
+    const coachableCount = useMemo(
+        () =>
+            transcript.reduce((n, _line, idx) => {
+                const m = teachableByIdx.get(idx);
+                const r = rewriteByIdx.get(idx);
+                const coachable =
+                    (m && m.length > 0) ||
+                    (r && r.verdict !== "keep" && r.verdict !== "non_english");
+                return coachable ? n + 1 : n;
+            }, 0),
+        [transcript, teachableByIdx, rewriteByIdx],
+    );
 
     const seekToTurn = (transcriptIdx: number) => {
         const line = transcript[transcriptIdx];
@@ -215,17 +248,57 @@ export function TranscriptView(props: Readonly<Props>) {
     }
 
     return (
-        <div className="space-y-1">
-            {correctionsEnabled && (
-                <p
-                    data-tour="transcript-fix"
-                    className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/50 px-3 py-1.5 text-[11px] font-medium text-muted-foreground"
+        <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-3">
+                <div
+                    data-tour="transcript-views"
+                    className="inline-flex rounded-lg border border-border/60 bg-background p-0.5 text-xs"
                 >
-                    <Pencil className="size-3 shrink-0 text-sky-500" />
-                    Misheard a name or word? Click it in the transcript to fix
-                    it.
+                    {TRANSCRIPT_VIEWS.map((v) => (
+                        <button
+                            key={v.key}
+                            type="button"
+                            onClick={() => setView(v.key)}
+                            title={v.title}
+                            className={cn(
+                                "inline-flex items-center rounded-md px-3 py-1.5 font-medium transition-colors",
+                                view === v.key
+                                    ? "bg-sky-600 text-white"
+                                    : "text-muted-foreground hover:text-foreground",
+                            )}
+                        >
+                            {v.label}
+                            {v.key === "coaching" && coachableCount > 0 ? (
+                                <span
+                                    className={cn(
+                                        "ml-1.5 rounded-full px-1.5 text-[10px] font-semibold",
+                                        view === "coaching"
+                                            ? "bg-white/20 text-white"
+                                            : "bg-muted text-muted-foreground",
+                                    )}
+                                >
+                                    {coachableCount}
+                                </span>
+                            ) : null}
+                        </button>
+                    ))}
+                </div>
+                {correctionsEnabled && (
+                    <p
+                        data-tour="transcript-fix"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/50 px-3 py-1.5 text-[11px] font-medium text-muted-foreground"
+                    >
+                        <Pencil className="size-3 shrink-0 text-sky-500" />
+                        Misheard a name or word? Click it in the transcript to
+                        fix it.
+                    </p>
+                )}
+            </div>
+            {view === "coaching" && coachableCount === 0 ? (
+                <p className="text-sm text-muted-foreground italic">
+                    No coaching moments here — every turn landed well.
                 </p>
-            )}
+            ) : null}
             {transcript.map((line, idx) => {
                 const isUser = line.speaker === "user";
                 const moments = teachableByIdx.get(idx);
@@ -237,120 +310,130 @@ export function TranscriptView(props: Readonly<Props>) {
                 const hasRewrite = Boolean(rewrite) && !isNonEnglish;
                 const isMomentExpanded = expandedMoments.has(idx);
                 const isRewriteExpanded = expandedRewrites.has(idx);
+                const coachable =
+                    Boolean(hasMoments) ||
+                    (hasRewrite && rewrite!.verdict !== "keep");
+                // Coaching view shows only actionable turns; Read view hides
+                // the coaching markers for a clean conversation read.
+                if (view === "coaching" && !coachable) return null;
+                const showCoaching = view !== "read";
 
                 return (
                     <div
                         key={idx}
                         className={cn(
-                            "group/line rounded-lg px-3 py-2",
-                            isUser &&
-                                "border-l-2 border-primary/30 bg-primary/5",
+                            // Quiet left-accent on your turns (no fill/box); the
+                            // transparent border keeps every line's text aligned.
+                            "group/line border-l-2 border-transparent px-3",
+                            isUser && "border-sky-300",
                         )}
                     >
-                        <div className="flex items-start gap-2">
+                        {/* Speaker · time — one quiet header line. */}
+                        <div className="flex items-baseline gap-2">
+                            <span
+                                className={cn(
+                                    "text-xs font-semibold",
+                                    isUser
+                                        ? "text-sky-700"
+                                        : "text-foreground/60",
+                                )}
+                            >
+                                {speakerLabel(line.speaker)}
+                            </span>
+                            <span
+                                aria-hidden
+                                className="text-muted-foreground/40"
+                            >
+                                &middot;
+                            </span>
                             {onSeekToSecond ? (
                                 <button
                                     type="button"
                                     onClick={() => onSeekToSecond(line.start)}
-                                    className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground hover:bg-muted/80"
+                                    className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                                     title={`Seek to ${formatTimestamp(line.start)}`}
                                 >
-                                    <Play className="size-3" />
+                                    <Play className="size-2.5" />
                                     {formatTimestamp(line.start)}
                                 </button>
                             ) : (
-                                <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
+                                <span className="font-mono text-[11px] text-muted-foreground">
                                     {formatTimestamp(line.start)}
                                 </span>
                             )}
-                            <div className="min-w-0 flex-1">
-                                <span
-                                    className={cn(
-                                        "text-[11px] font-semibold uppercase tracking-wider",
-                                        isUser
-                                            ? "text-primary"
-                                            : "text-muted-foreground",
-                                    )}
-                                >
-                                    {speakerLabel(line.speaker)}
-                                </span>
-                                <CorrectedLineText
-                                    text={line.text}
-                                    corrections={
-                                        correctionsByIdx.get(idx) ?? []
-                                    }
-                                    dimmed={isNonEnglish}
-                                    onWordClick={
-                                        correctionsEnabled
-                                            ? (charStart) =>
-                                                  setEditing({
-                                                      lineIdx: idx,
-                                                      clickedStart: charStart,
-                                                  })
-                                            : undefined
-                                    }
+                        </div>
+                        <CorrectedLineText
+                            text={line.text}
+                            corrections={correctionsByIdx.get(idx) ?? []}
+                            dimmed={isNonEnglish}
+                            onWordClick={
+                                correctionsEnabled
+                                    ? (charStart) =>
+                                          setEditing({
+                                              lineIdx: idx,
+                                              clickedStart: charStart,
+                                          })
+                                    : undefined
+                            }
+                        />
+                        {captureId !== undefined &&
+                            editing?.lineIdx === idx && (
+                                <TranscriptCorrectionEditor
+                                    key={`${editing.lineIdx}-${editing.clickedStart}`}
+                                    captureId={captureId}
+                                    transcript={transcript}
+                                    transcriptIdx={idx}
+                                    corrections={corrections}
+                                    clickedStart={editing.clickedStart}
+                                    onClose={() => setEditing(null)}
                                 />
-                                {captureId !== undefined &&
-                                    editing?.lineIdx === idx && (
-                                        <TranscriptCorrectionEditor
-                                            key={`${editing.lineIdx}-${editing.clickedStart}`}
-                                            captureId={captureId}
-                                            transcript={transcript}
-                                            transcriptIdx={idx}
-                                            corrections={corrections}
-                                            clickedStart={editing.clickedStart}
-                                            onClose={() => setEditing(null)}
-                                        />
-                                    )}
+                            )}
 
-                                {/* Inline badges for teachable moments and rewrites */}
-                                {(hasMoments || hasRewrite || isNonEnglish) && (
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {isNonEnglish && (
-                                            <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                                                Couldn&apos;t make this out
-                                                clearly
-                                            </span>
-                                        )}
-                                        {hasMoments && (
-                                            <button
-                                                type="button"
-                                                className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50/60 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
-                                                onClick={() =>
-                                                    toggleMoment(idx)
-                                                }
-                                            >
-                                                <Flag className="size-3" />
-                                                {moments.length} coaching{" "}
-                                                {moments.length === 1
-                                                    ? "moment"
-                                                    : "moments"}
-                                                <ChevronDown
-                                                    className={cn(
-                                                        "size-3 transition-transform",
-                                                        isMomentExpanded &&
-                                                            "rotate-180",
-                                                    )}
-                                                />
-                                            </button>
-                                        )}
-                                        {hasRewrite && (
-                                            <button
-                                                type="button"
+                        {/* Inline affordances as quiet tinted pills — visible
+                            enough not to be missed, tone-coded (amber coaching,
+                            sky improvement, emerald already-strong), but no
+                            border/icon so they don't shout. Hidden in Read view. */}
+                        {showCoaching &&
+                            (hasMoments || hasRewrite || isNonEnglish) && (
+                                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                    {isNonEnglish && (
+                                        <span className="italic text-muted-foreground">
+                                            Couldn&apos;t make this out clearly
+                                        </span>
+                                    )}
+                                    {hasMoments && (
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 font-medium text-amber-700 transition-colors hover:bg-amber-200/70"
+                                            onClick={() => toggleMoment(idx)}
+                                        >
+                                            {moments.length} coaching{" "}
+                                            {moments.length === 1
+                                                ? "moment"
+                                                : "moments"}
+                                            <ChevronDown
                                                 className={cn(
-                                                    "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-muted/80",
-                                                    rewrite!.verdict === "keep"
-                                                        ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
-                                                        : "border-border/60 bg-muted/50 text-foreground/80",
+                                                    "size-3 transition-transform",
+                                                    isMomentExpanded &&
+                                                        "rotate-180",
                                                 )}
+                                            />
+                                        </button>
+                                    )}
+                                    {hasRewrite &&
+                                        (rewrite!.verdict === "keep" ? (
+                                            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 font-medium text-emerald-700">
+                                                Already strong
+                                            </span>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 font-medium text-sky-700 transition-colors hover:bg-sky-200/70"
                                                 onClick={() =>
                                                     toggleRewrite(idx)
                                                 }
                                             >
-                                                <Sparkles className="size-3" />
-                                                {rewrite!.verdict === "keep"
-                                                    ? "Already strong"
-                                                    : "See improvement"}
+                                                See improvement
                                                 <ChevronDown
                                                     className={cn(
                                                         "size-3 transition-transform",
@@ -359,102 +442,95 @@ export function TranscriptView(props: Readonly<Props>) {
                                                     )}
                                                 />
                                             </button>
-                                        )}
-                                    </div>
-                                )}
+                                        ))}
+                                </div>
+                            )}
 
-                                {/* Expanded teachable moments */}
-                                {isMomentExpanded && moments && (
-                                    <div className="mt-2 space-y-2">
-                                        {moments.map((m, mIdx) => {
-                                            const severityClass =
-                                                m.severity === "major"
-                                                    ? "bg-red-100 text-red-700"
-                                                    : m.severity === "moderate"
-                                                      ? "bg-amber-100 text-amber-700"
-                                                      : "bg-muted text-muted-foreground";
-                                            return (
-                                                <div
-                                                    key={mIdx}
-                                                    className="rounded-xl border border-border/60 bg-background p-4"
-                                                >
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <span className="inline-flex items-center rounded-full border border-border/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                                            {m.type}
-                                                        </span>
-                                                        <span
-                                                            className={cn(
-                                                                "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
-                                                                severityClass,
-                                                            )}
-                                                        >
-                                                            {m.severity}
-                                                        </span>
-                                                    </div>
-                                                    <div className="mt-3">
-                                                        <blockquote className="border-l-2 border-border/70 pl-3 text-sm leading-relaxed text-foreground/90">
-                                                            {applyCorrectionsToText(
-                                                                m.anchor,
-                                                                correctionsByIdx.get(
-                                                                    m.transcriptIdx,
-                                                                ) ?? [],
-                                                            )}
-                                                        </blockquote>
-                                                    </div>
-                                                    {m.betterOption && (
-                                                        <div className="mt-3 rounded-lg bg-muted/50 p-3">
-                                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                                Try instead
-                                                            </p>
-                                                            <div className="mt-1">
-                                                                <InlineMarkdown
-                                                                    text={
-                                                                        m.betterOption
-                                                                    }
-                                                                    tone="body"
-                                                                />
-                                                            </div>
-                                                        </div>
+                        {/* Expanded teachable moments */}
+                        {showCoaching && isMomentExpanded && moments && (
+                            <div className="mt-3 divide-y divide-border/50">
+                                {moments.map((m, mIdx) => {
+                                    const severityClass =
+                                        m.severity === "major"
+                                            ? "bg-red-100 text-red-700"
+                                            : m.severity === "moderate"
+                                              ? "bg-amber-100 text-amber-700"
+                                              : "bg-muted text-muted-foreground";
+                                    return (
+                                        <div
+                                            key={mIdx}
+                                            className="space-y-3 py-4 first:pt-0"
+                                        >
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center rounded-full border border-border/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                                    {m.type}
+                                                </span>
+                                                <span
+                                                    className={cn(
+                                                        "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+                                                        severityClass,
                                                     )}
-                                                    {(() => {
-                                                        const why =
-                                                            m.whyThisMatters?.trim() ||
-                                                            "";
-                                                        return why ? (
-                                                            <div className="mt-3">
-                                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                                    Why this
-                                                                    matters
-                                                                </p>
-                                                                <div className="mt-1">
-                                                                    <InlineMarkdown
-                                                                        text={
-                                                                            why
-                                                                        }
-                                                                        tone="small-muted"
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        ) : null;
-                                                    })()}
+                                                >
+                                                    {m.severity}
+                                                </span>
+                                            </div>
+                                            <blockquote className="border-l-2 border-border/70 pl-3 text-sm leading-relaxed text-foreground/90">
+                                                {applyCorrectionsToText(
+                                                    m.anchor,
+                                                    correctionsByIdx.get(
+                                                        m.transcriptIdx,
+                                                    ) ?? [],
+                                                )}
+                                            </blockquote>
+                                            {m.betterOption && (
+                                                <div className="border-l-2 border-sky-300 pl-3">
+                                                    <Kicker tone="sky">
+                                                        Try instead
+                                                    </Kicker>
+                                                    <div className="mt-1">
+                                                        <InlineMarkdown
+                                                            text={
+                                                                m.betterOption
+                                                            }
+                                                            tone="body"
+                                                        />
+                                                    </div>
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                {/* Expanded turn rewrite */}
-                                {isRewriteExpanded && rewrite && (
-                                    <div className="mt-2">
-                                        <TurnRewriteCard
-                                            rewrite={rewrite}
-                                            variant="embedded"
-                                            onSuggestedIdxClick={seekToTurn}
-                                        />
-                                    </div>
-                                )}
+                                            )}
+                                            {(() => {
+                                                const why =
+                                                    m.whyThisMatters?.trim() ||
+                                                    "";
+                                                return why ? (
+                                                    <div>
+                                                        <Kicker tone="muted">
+                                                            Why this matters
+                                                        </Kicker>
+                                                        <div className="mt-1">
+                                                            <InlineMarkdown
+                                                                text={why}
+                                                                tone="small-muted"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        </div>
+                        )}
+
+                        {/* Expanded turn rewrite */}
+                        {showCoaching && isRewriteExpanded && rewrite && (
+                            <div className="mt-2">
+                                <TurnRewriteCard
+                                    rewrite={rewrite}
+                                    variant="embedded"
+                                    onSuggestedIdxClick={seekToTurn}
+                                />
+                            </div>
+                        )}
                     </div>
                 );
             })}

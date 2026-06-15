@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
-const BAR_COUNT = 24;
+const BAR_COUNT = 40;
+const IDLE_BAR =
+    "w-[3px] rounded-full bg-sky-200/70 transition-[height] duration-100";
+const idleHeight = (i: number) => `${14 + ((i * 13) % 16)}%`;
 
 interface PropsInterface {
     stream: MediaStream | null;
@@ -12,6 +15,11 @@ interface PropsInterface {
     className?: string;
 }
 
+/**
+ * Live mic waveform — a centered equalizer of thin rounded bars (sky at rest,
+ * blue while speaking), styled to match the desktop agent's HUD waveform. No
+ * boxy container; the bars sit cleanly on whatever surface holds them.
+ */
 export function LiveWaveform(props: Readonly<PropsInterface>) {
     const { stream, active, className } = props;
     const barRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -20,19 +28,14 @@ export function LiveWaveform(props: Readonly<PropsInterface>) {
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
     useEffect(() => {
+        // Reset to the calm resting state whenever we stop.
         barRefs.current.forEach((el, i) => {
-            if (!el) {
-                return;
-            }
-            el.style.height = `${12 + ((i * 17) % 20)}%`;
-            el.className = cn(
-                "w-1 rounded-full bg-foreground/25 transition-[height] duration-75",
-            );
+            if (!el) return;
+            el.style.height = idleHeight(i);
+            el.className = IDLE_BAR;
         });
 
-        if (!stream || !active) {
-            return;
-        }
+        if (!stream || !active) return;
 
         const audioContext = new AudioContext();
         const analyser = audioContext.createAnalyser();
@@ -48,26 +51,21 @@ export function LiveWaveform(props: Readonly<PropsInterface>) {
         const data = new Uint8Array(analyser.frequencyBinCount);
 
         const tick = () => {
-            if (!analyserRef.current) {
-                return;
-            }
+            if (!analyserRef.current) return;
             analyserRef.current.getByteFrequencyData(data);
             for (let i = 0; i < BAR_COUNT; i++) {
                 const el = barRefs.current[i];
-                if (!el) {
-                    continue;
-                }
+                if (!el) continue;
                 const bin = Math.min(
                     data.length - 1,
                     Math.floor((i / BAR_COUNT) * data.length),
                 );
                 const v = data[bin] ?? 0;
                 const norm = v / 255;
-                const heightPct = 14 + norm * 78;
-                el.style.height = `${heightPct}%`;
+                el.style.height = `${14 + norm * 82}%`;
                 el.className = cn(
-                    "w-1 rounded-full transition-[height] duration-75",
-                    norm > 0.08 ? "bg-primary/85" : "bg-foreground/30",
+                    "w-[3px] rounded-full transition-[height] duration-100",
+                    norm > 0.08 ? "bg-blue-600" : "bg-sky-200/70",
                 );
             }
             rafRef.current = requestAnimationFrame(tick);
@@ -87,7 +85,7 @@ export function LiveWaveform(props: Readonly<PropsInterface>) {
     return (
         <div
             className={cn(
-                "flex h-12 items-end justify-center gap-0.5 rounded-xl border border-border/80 bg-muted/40 px-3 py-2 sm:h-14",
+                "flex h-12 items-center justify-between gap-px",
                 className,
             )}
             aria-hidden
@@ -98,8 +96,8 @@ export function LiveWaveform(props: Readonly<PropsInterface>) {
                     ref={(el) => {
                         barRefs.current[i] = el;
                     }}
-                    className="w-1 rounded-full bg-foreground/25 transition-[height] duration-75"
-                    style={{ height: `${12 + ((i * 17) % 20)}%` }}
+                    className={IDLE_BAR}
+                    style={{ height: idleHeight(i) }}
                 />
             ))}
         </div>

@@ -166,14 +166,17 @@ export function TranscriptCorrectionEditor(props: Readonly<Props>) {
             </div>
 
             {error && (
-                <p role="alert" className="text-xs leading-relaxed text-red-600">
+                <p
+                    role="alert"
+                    className="text-xs leading-relaxed text-red-600"
+                >
                     {error}
                 </p>
             )}
 
             <p className="text-[11px] text-muted-foreground">
-                Fixes what Sayzo misheard — it won&apos;t tidy grammar or
-                remove ums and uhs. {corrections.length} of{" "}
+                Fixes what Sayzo misheard — it won&apos;t tidy grammar or remove
+                ums and uhs. {corrections.length} of{" "}
                 {MAX_CORRECTIONS_PER_CAPTURE} fixes used.
             </p>
         </div>

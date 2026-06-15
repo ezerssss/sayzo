@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 
+import { Kicker } from "@/components/coaching/briefing";
 import { cn } from "@/lib/utils";
 import type { RewriteVerdict, TurnRewrite } from "@/schemas";
 
@@ -40,8 +41,8 @@ export function VerdictPill({ verdict }: { verdict: RewriteVerdict }) {
 
 function WhatChangedBox({ note }: { note: string }) {
     return (
-        <div className="rounded-lg bg-muted/40 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="border-l-2 border-sky-300 pl-3">
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-sky-700/80">
                 What changed
             </p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -70,8 +71,13 @@ export function TurnRewriteCard({
     variant,
     onSuggestedIdxClick,
 }: Readonly<Props>) {
-    const { verdict, original, rewrite: improved, note, suggestedBeforeIdx } =
-        rewrite;
+    const {
+        verdict,
+        original,
+        rewrite: improved,
+        note,
+        suggestedBeforeIdx,
+    } = rewrite;
 
     const rewriteDiffers = improved.trim() !== original.trim();
     const showRewrite =
@@ -84,7 +90,7 @@ export function TurnRewriteCard({
             <div
                 className={cn(
                     variant === "embedded" &&
-                        "rounded-xl border border-border/60 bg-background p-4",
+                        "border-l-2 border-border/50 pl-3",
                     variant === "standalone" && "space-y-3",
                 )}
             >
@@ -97,7 +103,7 @@ export function TurnRewriteCard({
                 <p
                     className={cn(
                         "text-xs leading-relaxed text-muted-foreground italic",
-                        variant === "embedded" && "mt-3",
+                        variant === "embedded" && "mt-2",
                     )}
                 >
                     {NON_ENGLISH_EXPLAINER}
@@ -107,24 +113,31 @@ export function TurnRewriteCard({
     }
 
     if (variant === "embedded") {
+        // A thin top rule (not a box, not a nested accent) separates "what you
+        // said ↑" from "improved ↓" — the expansion already sits inside the
+        // turn's own left-accent, so a second accent here read as box-in-box.
         return (
-            <div className="rounded-xl border border-border/60 bg-background p-4">
-                <div className="flex items-center gap-2">
-                    <Sparkles className="size-3.5 text-foreground" />
-                    <VerdictPill verdict={verdict} />
+            <div className="space-y-2 border-t border-border/40 pt-3">
+                <div className="flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-sky-600" />
+                    <Kicker tone="sky">
+                        {showRewrite
+                            ? VERDICT_LABELS[verdict]
+                            : "Already clear"}
+                    </Kicker>
                 </div>
                 {showRewrite ? (
-                    <p className="mt-3 text-sm leading-relaxed text-foreground">
+                    <p className="text-sm leading-relaxed text-foreground">
                         {improved}
                     </p>
                 ) : (
-                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground italic">
+                    <p className="text-xs leading-relaxed text-muted-foreground italic">
                         This turn already works — no change needed.
                     </p>
                 )}
                 {verdict === "reorder" &&
                     typeof suggestedBeforeIdx === "number" && (
-                        <p className="mt-2 text-[11px] text-muted-foreground">
+                        <p className="text-[11px] text-muted-foreground">
                             Would have fit better before turn{" "}
                             <button
                                 type="button"
@@ -139,9 +152,12 @@ export function TurnRewriteCard({
                         </p>
                     )}
                 {note && (
-                    <div className="mt-3">
-                        <WhatChangedBox note={note} />
-                    </div>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                        <span className="font-medium text-foreground/70">
+                            What changed:{" "}
+                        </span>
+                        {note}
+                    </p>
                 )}
             </div>
         );

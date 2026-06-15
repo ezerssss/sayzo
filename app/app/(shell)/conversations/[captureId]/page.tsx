@@ -11,5 +11,7 @@ export default function ConversationDetailPage() {
 
     if (!user) return null;
 
-    return <ConversationDetailView captureId={params.captureId} uid={user.uid} />;
+    return (
+        <ConversationDetailView captureId={params.captureId} uid={user.uid} />
+    );
 }

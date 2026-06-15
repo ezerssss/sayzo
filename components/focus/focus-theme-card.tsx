@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import {
+    ChevronDown,
+    ChevronUp,
+    Minus,
+    Plus,
+    TrendingDown,
+    TrendingUp,
+    type LucideIcon,
+} from "lucide-react";
 import { useState } from "react";
 
+import { Kicker } from "@/components/coaching/briefing";
 import { cn } from "@/lib/utils";
-import type {
-    FocusEvidence,
-    FocusTheme,
-    FocusThemeTrend,
-} from "@/schemas";
+import type { FocusEvidence, FocusTheme, FocusThemeTrend } from "@/schemas";
 
 function formatRelativeDate(iso: string): string {
     try {
@@ -31,123 +36,130 @@ function evidenceHref(evidence: FocusEvidence): string {
     return `/app/conversations/${evidence.sourceId}`;
 }
 
+// Trend is a small colored text+icon signal, not a filled pill — four filled
+// pills down the list were their own noise. Hues stay semantic (improving =
+// emerald, regressing = rose, new = amber, consistent = slate).
 const TREND_STYLES: Record<
     FocusThemeTrend,
-    { label: string; className: string }
+    { label: string; color: string; Icon: LucideIcon }
 > = {
-    new: {
-        label: "New",
-        className: "bg-amber-50 text-amber-700 ring-1 ring-amber-200/70",
-    },
+    new: { label: "New", color: "text-amber-600", Icon: Plus },
     regressing: {
         label: "Regressing",
-        className: "bg-rose-50 text-rose-700 ring-1 ring-rose-200/70",
+        color: "text-rose-600",
+        Icon: TrendingDown,
     },
-    stable: {
-        label: "Consistent",
-        className: "bg-slate-50 text-slate-600 ring-1 ring-slate-200/70",
-    },
+    stable: { label: "Consistent", color: "text-slate-500", Icon: Minus },
     improving: {
         label: "Improving",
-        className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70",
+        color: "text-emerald-600",
+        Icon: TrendingUp,
     },
 };
 
+/**
+ * One focus theme, deliberately lean: the pattern (title) + a quiet trend, and
+ * the fix (nudge) — that's all that shows by default. The "why it's costing
+ * you" and the supporting moments live behind a single toggle, so the focus
+ * page reads as a scannable pattern→fix list instead of a wall of text.
+ */
 export function FocusThemeCard({ theme }: { theme: FocusTheme }) {
     const [expanded, setExpanded] = useState(false);
     const trend = TREND_STYLES[theme.trend];
+    const TrendIcon = trend.Icon;
     const hasEvidence = theme.evidence.length > 0;
+    const momentsLabel = `${theme.evidence.length} moment${
+        theme.evidence.length === 1 ? "" : "s"
+    }`;
 
     return (
-        <div className="group rounded-2xl border border-border/60 bg-card/60 p-5 transition-colors hover:border-border">
+        <div className="py-6 first:pt-0">
             <div className="flex items-start justify-between gap-3">
-                <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
                     {theme.title}
                 </h3>
-                <div className="flex shrink-0 items-center gap-1.5">
-                    <span
-                        className={cn(
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
-                            trend.className,
-                        )}
-                    >
-                        {trend.label}
-                    </span>
-                    {theme.isEmergent ? (
-                        <span
-                            className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-indigo-200/70"
-                            title="A pattern we noticed specifically in your sessions"
-                        >
-                            <Sparkles className="h-3 w-3" />
-                            Specific to you
-                        </span>
-                    ) : null}
-                </div>
+                <span
+                    className={cn(
+                        "inline-flex shrink-0 items-center gap-1 text-xs font-medium",
+                        trend.color,
+                    )}
+                >
+                    <TrendIcon className="size-3.5" />
+                    {trend.label}
+                </span>
             </div>
 
-            <p className="mt-2 text-sm text-muted-foreground">{theme.cost}</p>
-
-            <div className="mt-4 rounded-lg bg-muted/40 px-3.5 py-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Try next time
-                </p>
+            {/* The fix — the value of the page, always visible. */}
+            <div className="mt-3 border-l-2 border-sky-300 pl-3.5">
+                <Kicker>Try next time</Kicker>
                 <p className="mt-1 text-sm text-foreground">{theme.nudge}</p>
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground">
-                    {theme.frequencySummary}
-                </span>
-                {hasEvidence ? (
-                    <button
-                        type="button"
-                        onClick={() => setExpanded((v) => !v)}
-                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                        {expanded ? (
-                            <ChevronUp className="h-3.5 w-3.5" />
-                        ) : (
-                            <ChevronDown className="h-3.5 w-3.5" />
-                        )}
-                        {expanded ? "Hide moments" : `Show ${theme.evidence.length} moment${theme.evidence.length === 1 ? "" : "s"}`}
-                    </button>
-                ) : null}
-            </div>
+            {/* One toggle for the why + the proof, so the default stays lean. */}
+            <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+                {expanded ? (
+                    <ChevronUp className="size-3.5" />
+                ) : (
+                    <ChevronDown className="size-3.5" />
+                )}
+                {expanded
+                    ? "Hide details"
+                    : hasEvidence
+                      ? `Why this matters · ${momentsLabel}`
+                      : "Why this matters"}
+            </button>
 
-            {hasEvidence && expanded ? (
-                <ul className="mt-3 space-y-3 border-l-2 border-border/60 pl-4">
-                    {theme.evidence.map((evidence, idx) => (
-                        <li key={`${evidence.source}-${evidence.sourceId}-${idx}`}>
-                            <Link
-                                href={evidenceHref(evidence)}
-                                className="group/item block space-y-1"
-                            >
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase">
-                                        {evidence.source === "session" ? "Replay" : "Conversation"}
-                                    </span>
-                                    <span className="truncate font-medium text-foreground/70 group-hover/item:text-foreground">
-                                        {evidence.sourceTitle}
-                                    </span>
-                                    <span className="shrink-0">·</span>
-                                    <span className="shrink-0">
-                                        {formatRelativeDate(evidence.createdAt)}
-                                    </span>
-                                </div>
-                                {evidence.quote ? (
-                                    <p className="text-sm italic text-foreground/80">
-                                        &ldquo;{evidence.quote}&rdquo;
-                                    </p>
-                                ) : null}
-                                {evidence.note ? (
-                                    <p className="text-xs text-muted-foreground">
-                                        {evidence.note}
-                                    </p>
-                                ) : null}
-                            </Link>
-                        </li>
-                    ))}
-                </ul>
+            {expanded ? (
+                <div className="mt-3 space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                        {theme.cost}
+                    </p>
+                    {hasEvidence ? (
+                        <ul className="space-y-3 border-l-2 border-border/60 pl-4">
+                            {theme.evidence.map((evidence, idx) => (
+                                <li
+                                    key={`${evidence.source}-${evidence.sourceId}-${idx}`}
+                                >
+                                    <Link
+                                        href={evidenceHref(evidence)}
+                                        className="group/item block space-y-1"
+                                    >
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase">
+                                                {evidence.source === "session"
+                                                    ? "Replay"
+                                                    : "Conversation"}
+                                            </span>
+                                            <span className="truncate font-medium text-foreground/70 group-hover/item:text-foreground">
+                                                {evidence.sourceTitle}
+                                            </span>
+                                            <span className="shrink-0">·</span>
+                                            <span className="shrink-0">
+                                                {formatRelativeDate(
+                                                    evidence.createdAt,
+                                                )}
+                                            </span>
+                                        </div>
+                                        {evidence.quote ? (
+                                            <p className="text-sm italic text-foreground/80">
+                                                &ldquo;{evidence.quote}&rdquo;
+                                            </p>
+                                        ) : null}
+                                        {evidence.note ? (
+                                            <p className="text-xs text-muted-foreground">
+                                                {evidence.note}
+                                            </p>
+                                        ) : null}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </div>
             ) : null}
         </div>
     );

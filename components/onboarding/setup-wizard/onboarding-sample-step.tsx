@@ -1,14 +1,6 @@
 "use client";
 
-import {
-    ArrowLeft,
-    CheckCircle2,
-    Loader2,
-    Mic,
-    RotateCcw,
-    Square,
-    X,
-} from "lucide-react";
+import { CheckCircle2, Loader2, Mic, RotateCcw, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LiveWaveform } from "@/components/onboarding/live-waveform";
@@ -17,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
+import { cn } from "@/lib/utils";
 
 export type OnboardingSampleResult = {
     transcript: string;
@@ -27,6 +20,11 @@ export type OnboardingSampleResult = {
 
 const CONFIRM_SECONDS = 3;
 
+// Countdown-ring geometry (SVG viewBox 100×100, drawn at -90° so it depletes
+// from the top as the timer runs out).
+const RING_R = 46;
+const RING_C = 2 * Math.PI * RING_R;
+
 function extensionForMime(mime: string): string {
     if (mime.includes("webm")) return "webm";
     if (mime.includes("mp4") || mime.includes("m4a")) return "m4a";
@@ -35,16 +33,12 @@ function extensionForMime(mime: string): string {
 
 interface PropsInterface {
     sample: OnboardingSampleConfig;
-    sampleIndex: number;
-    onBack: () => void;
     onNext: (result: OnboardingSampleResult) => void;
     onSkip: () => void;
-    /** For the last sample, show "finish" wording on the skip button */
-    isLast?: boolean;
 }
 
 export function OnboardingSampleStep(props: Readonly<PropsInterface>) {
-    const { sample, sampleIndex, onBack, onNext, onSkip, isLast } = props;
+    const { sample, onNext, onSkip } = props;
     const { isRecording, stream, start, stop } = useVoiceRecorder();
     const [secondsLeft, setSecondsLeft] = useState(sample.maxSeconds);
     const [isTranscribing, setIsTranscribing] = useState(false);
@@ -179,34 +173,43 @@ export function OnboardingSampleStep(props: Readonly<PropsInterface>) {
     const timerDisplay = `${minutes}:${secs.toString().padStart(2, "0")}`;
 
     const isConfirming = pendingResult !== null;
+    const ringOffset =
+        RING_C * (1 - (isRecording ? secondsLeft / sample.maxSeconds : 1));
 
     return (
-        <div className="space-y-5">
-            <div className="space-y-1">
-                <h2 className="text-lg font-semibold tracking-tight">
+        <div className="flex flex-col items-center text-center">
+            <div className="space-y-2">
+                <h2 className="text-3xl font-semibold tracking-tight">
                     {sample.title}
                 </h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                    {sample.prompt}
+                <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
+                    {sample.subtitle}
+                </p>
+                <p className="mx-auto max-w-sm text-sm text-muted-foreground/70">
+                    {sample.hints.join("  ·  ")}
                 </p>
             </div>
 
             {isConfirming ? (
                 <div
-                    className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 py-8"
+                    className="mt-9 flex flex-col items-center gap-3"
                     role="status"
                     aria-live="polite"
                 >
-                    <div className="flex items-center gap-2 text-emerald-700">
-                        <CheckCircle2 className="size-5" />
-                        <p className="text-base font-semibold">Got it</p>
+                    <span className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                        <CheckCircle2 className="size-8" />
+                    </span>
+                    <div>
+                        <p className="text-base font-semibold text-foreground">
+                            Got it
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {confirmCountdown > 0
+                                ? `Finishing up in ${confirmCountdown}…`
+                                : "Finishing up…"}
+                        </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                        {confirmCountdown > 0
-                            ? `Moving on in ${confirmCountdown}…`
-                            : "Moving on…"}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                    <div className="flex items-center gap-2">
                         <Button
                             type="button"
                             variant="ghost"
@@ -215,121 +218,149 @@ export function OnboardingSampleStep(props: Readonly<PropsInterface>) {
                             onClick={() => void handleRedo()}
                         >
                             <RotateCcw className="size-3.5" />
-                            Redo this take
+                            Redo
                         </Button>
                         <Button
                             type="button"
                             variant="secondary"
                             size="sm"
-                            className="gap-1.5"
                             onClick={handleConfirmContinue}
                         >
-                            Continue now
+                            Continue
                         </Button>
                     </div>
                 </div>
             ) : (
                 <>
-                    <p className="text-xs text-muted-foreground">
-                        Sharing more here means a better-tailored plan. You can
-                        skip. Missing details fill in from your conversations
-                        over time.
-                    </p>
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 py-6">
-                        <p
-                            className="font-mono text-3xl font-semibold tabular-nums tracking-tight"
-                            aria-live="polite"
+                    {/* Voice orb — the focal control. Tap to start; tap again
+                        to stop. While recording, a ring depletes as the timer
+                        runs and a soft pulse signals it's live. */}
+                    <div className="relative mt-10 flex size-44 items-center justify-center">
+                        <div
+                            aria-hidden
+                            className={cn(
+                                "absolute inset-3 rounded-full bg-gradient-to-br from-sky-400/30 to-indigo-500/30 blur-2xl",
+                                !isRecording && "motion-safe:animate-pulse",
+                            )}
+                        />
+                        {isRecording ? (
+                            <span
+                                aria-hidden
+                                className="absolute inset-5 rounded-full bg-sky-400/15 motion-safe:animate-ping"
+                            />
+                        ) : null}
+                        {isRecording ? (
+                            <svg
+                                aria-hidden
+                                viewBox="0 0 100 100"
+                                className="absolute inset-0 size-full -rotate-90"
+                            >
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="46"
+                                    fill="none"
+                                    strokeWidth="2"
+                                    className="stroke-sky-100"
+                                />
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="46"
+                                    fill="none"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeDasharray={RING_C}
+                                    strokeDashoffset={ringOffset}
+                                    className="stroke-sky-500 transition-[stroke-dashoffset] duration-1000 ease-linear"
+                                />
+                            </svg>
+                        ) : null}
+                        <button
+                            type="button"
+                            aria-label={
+                                isRecording
+                                    ? "Stop recording"
+                                    : "Start speaking"
+                            }
+                            disabled={isTranscribing}
+                            onClick={() => {
+                                if (isTranscribing) return;
+                                if (isRecording) {
+                                    void handleStop();
+                                } else {
+                                    setSecondsLeft(sample.maxSeconds);
+                                    void start();
+                                }
+                            }}
+                            className="relative flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-xl shadow-sky-600/30 ring-1 ring-inset ring-white/20 transition active:scale-95 disabled:opacity-70"
                         >
-                            {timerDisplay}
-                        </p>
-                        <p className="mt-1 text-center text-xs text-muted-foreground">
-                            {isRecording
-                                ? "Recording… stops automatically at 0:00"
-                                : sample.helper}
-                        </p>
+                            {isTranscribing ? (
+                                <Loader2 className="size-9 animate-spin" />
+                            ) : isRecording ? (
+                                <Square className="size-8 fill-current" />
+                            ) : (
+                                <Mic className="size-9" />
+                            )}
+                        </button>
                     </div>
-                    <LiveWaveform stream={stream} active={isRecording} />
+
+                    <div className="mt-6 flex min-h-[3.25rem] flex-col items-center justify-center gap-2.5">
+                        {isRecording ? (
+                            <>
+                                <LiveWaveform
+                                    stream={stream}
+                                    active
+                                    className="h-8 w-56"
+                                />
+                                <p className="font-mono text-sm tabular-nums text-muted-foreground">
+                                    {timerDisplay}
+                                    <span className="mx-2 text-muted-foreground/40">
+                                        ·
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleCancel()}
+                                        className="font-sans underline-offset-2 hover:text-foreground hover:underline"
+                                    >
+                                        Cancel
+                                    </button>
+                                </p>
+                            </>
+                        ) : isTranscribing ? (
+                            <p className="text-sm text-muted-foreground">
+                                Transcribing your intro…
+                            </p>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">
+                                Tap to start · up to a minute
+                            </p>
+                        )}
+                    </div>
+
                     {transcribeError ? (
                         <p
-                            className="text-center text-sm text-destructive"
+                            className="mt-2 text-sm text-destructive"
                             role="alert"
                         >
                             {transcribeError}
                         </p>
                     ) : null}
-                    <div className="flex items-center justify-center gap-3">
-                        {isRecording ? (
-                            <>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="lg"
-                                    className="gap-2 rounded-full text-muted-foreground"
-                                    onClick={() => void handleCancel()}
-                                >
-                                    <X className="size-4" />
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="lg"
-                                    className="gap-2 rounded-full"
-                                    onClick={() => void handleStop()}
-                                >
-                                    <Square className="size-4 fill-current" />
-                                    Done
-                                </Button>
-                            </>
-                        ) : (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="lg"
-                                className="gap-2 rounded-full"
-                                disabled={isTranscribing}
-                                onClick={async () => {
-                                    setSecondsLeft(sample.maxSeconds);
-                                    await start();
-                                }}
-                            >
-                                {isTranscribing ? (
-                                    <>
-                                        <Loader2 className="size-4 animate-spin" />
-                                        Transcribing…
-                                    </>
-                                ) : (
-                                    <>
-                                        <Mic />
-                                        Start speaking
-                                    </>
-                                )}
-                            </Button>
-                        )}
-                    </div>
+
                     {!isRecording && !isTranscribing ? (
-                        <div className="flex justify-center gap-3">
-                            {sampleIndex > 0 ? (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="gap-1 text-muted-foreground hover:text-foreground"
-                                    onClick={onBack}
-                                >
-                                    <ArrowLeft className="size-3.5" />
-                                    Back
-                                </Button>
-                            ) : null}
+                        <div className="mt-8 flex flex-col items-center gap-1">
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="gap-1 text-muted-foreground hover:text-foreground"
+                                className="text-muted-foreground hover:text-foreground"
                                 onClick={onSkip}
                             >
-                                {isLast ? "Skip and finish" : "Skip this sample"}
+                                Skip for now
                             </Button>
+                            <p className="text-xs text-muted-foreground/70">
+                                Sayzo also learns from your real conversations.
+                            </p>
                         </div>
                     ) : null}
                 </>

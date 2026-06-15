@@ -1,20 +1,22 @@
 "use client";
 
 import { doc, onSnapshot } from "firebase/firestore";
-import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { InstallPanel } from "@/components/install/install-panel";
+import { AmbientBackdrop } from "@/components/app/ambient-backdrop";
+import { Eyebrow } from "@/components/app/eyebrow";
+import { StaggerItem } from "@/components/coaching/briefing";
 import { MobileBanner } from "@/components/mobile/mobile-banner";
+import {
+    LOADING_STAGES,
+    OnboardingFinalizing,
+} from "@/components/onboarding/setup-wizard/onboarding-finalizing";
 import {
     OnboardingSampleStep,
     type OnboardingSampleResult,
 } from "@/components/onboarding/setup-wizard/onboarding-sample-step";
-import {
-    ONBOARDING_SAMPLES,
-    SETUP_WIZARD_STEP_ORDER,
-    type SetupWizardStep,
-} from "@/components/onboarding/setup-wizard/steps";
+import { ONBOARDING_SAMPLES } from "@/components/onboarding/setup-wizard/steps";
 import { FirestoreCollections } from "@/schemas";
 import { track } from "@/lib/analytics/client";
 import { api } from "@/lib/api-client";
@@ -27,44 +29,24 @@ import type { OnboardingSampleProgress, UserProfileType } from "@/schemas";
 
 interface PropsInterface {
     uid: string;
-    onBack?: () => void;
-    /** Previously saved voice-sample transcripts from Firestore, used to resume. */
+    /** Previously saved voice-sample transcript from Firestore, used to resume. */
     savedSamples?: OnboardingSampleProgress[];
 }
 
-/**
- * Compute the initial wizard step based on which samples are already saved.
- */
-function computeResumeStep(
-    saved: OnboardingSampleProgress[] | undefined,
-): SetupWizardStep {
-    const completedTypes = new Set(saved?.map((s) => s.sampleType) ?? []);
-    for (const sample of ONBOARDING_SAMPLES) {
-        if (!completedTypes.has(sample.sampleType)) {
-            return sample.step;
-        }
-    }
-    // All samples complete — land on the last one; finish is one click away.
-    const last = ONBOARDING_SAMPLES[ONBOARDING_SAMPLES.length - 1];
-    return last!.step;
-}
+// Onboarding is now a single, optional voice sample.
+const SAMPLE = ONBOARDING_SAMPLES[0]!;
 
 export function SetupWizard(props: Readonly<PropsInterface>) {
-    const { uid, onBack, savedSamples } = props;
-    const [step, setStep] = useState<SetupWizardStep>(() =>
-        computeResumeStep(savedSamples),
-    );
-    const sampleResults = useRef<Map<string, OnboardingSampleResult>>(
-        new Map(),
-    );
-    const savedTranscripts = useRef<Map<string, string>>(new Map());
+    const { uid, savedSamples } = props;
+
+    const sampleResult = useRef<OnboardingSampleResult | null>(null);
+    const savedTranscript = useRef<string>("");
 
     useEffect(() => {
-        if (savedSamples) {
-            for (const s of savedSamples) {
-                savedTranscripts.current.set(s.sampleType, s.transcript);
-            }
-        }
+        const saved = savedSamples?.find(
+            (s) => s.sampleType === SAMPLE.sampleType,
+        );
+        if (saved) savedTranscript.current = saved.transcript;
     }, [savedSamples]);
 
     const onboardingStartFiredRef = useRef(false);
@@ -82,59 +64,11 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
     const [createProfileError, setCreateProfileError] = useState<string | null>(
         null,
     );
-    const loadingStages = [
-        "Processing your speaking samples",
-        "Building your professional profile",
-        "Analyzing communication baseline",
-    ] as const;
     const [loadingStageIndex, setLoadingStageIndex] = useState(0);
     const [onboardingStatus, setOnboardingStatus] = useState<
         UserProfileType["onboardingStatus"] | null
     >(null);
     const [onboardingError, setOnboardingError] = useState<string | null>(null);
-
-    const stepIndex = useMemo(
-        () => SETUP_WIZARD_STEP_ORDER.indexOf(step),
-        [step],
-    );
-
-    const goNext = useCallback(() => {
-        const i = SETUP_WIZARD_STEP_ORDER.indexOf(step);
-        if (i >= 0 && i < SETUP_WIZARD_STEP_ORDER.length - 1) {
-            const next = SETUP_WIZARD_STEP_ORDER[i + 1];
-            if (next) setStep(next);
-        }
-    }, [step]);
-
-    const goPrev = useCallback(() => {
-        const i = SETUP_WIZARD_STEP_ORDER.indexOf(step);
-        if (i > 0) {
-            const prev = SETUP_WIZARD_STEP_ORDER[i - 1];
-            if (prev) setStep(prev);
-        } else if (i === 0 && onBack) {
-            onBack();
-        }
-    }, [step, onBack]);
-
-    const getTranscript = useCallback((sampleType: string): string => {
-        const result = sampleResults.current.get(sampleType);
-        if (result) return result.transcript.trim();
-        return savedTranscripts.current.get(sampleType)?.trim() ?? "";
-    }, []);
-
-    const saveSampleToServer = useCallback(
-        async (sampleType: string, transcript: string) => {
-            try {
-                await api.post("/api/onboarding/save-sample", {
-                    json: { sampleType, transcript },
-                    timeout: 15_000,
-                });
-            } catch {
-                console.warn(`Failed to persist sample ${sampleType}`);
-            }
-        },
-        [],
-    );
 
     const finish = useCallback(async () => {
         setCreateProfileError(null);
@@ -142,22 +76,26 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         setIsCreatingProfile(true);
 
         try {
-            const fd = new FormData();
+            const transcript = (
+                sampleResult.current?.transcript ?? savedTranscript.current
+            ).trim();
 
             // The /complete route + profile builder still speak the internal
             // "drills" wire shape; map our sampleType onto it at the boundary.
-            const drills = ONBOARDING_SAMPLES.map((sample) => ({
-                drillType: sample.sampleType,
-                transcript: getTranscript(sample.sampleType),
-            }));
+            // An empty transcript is a first-class "skip" — the route creates a
+            // baseline profile and releases the onboarding gate.
+            const fd = new FormData();
+            fd.append(
+                "payload",
+                JSON.stringify({
+                    drills: [{ drillType: SAMPLE.sampleType, transcript }],
+                }),
+            );
 
-            fd.append("payload", JSON.stringify({ drills }));
-
-            for (const sample of ONBOARDING_SAMPLES) {
-                const result = sampleResults.current.get(sample.sampleType);
-                if (!result) continue;
+            const result = sampleResult.current;
+            if (result) {
                 fd.append(
-                    `audio_${sample.sampleType}`,
+                    `audio_${SAMPLE.sampleType}`,
                     new File([result.audio.slice()], result.filename, {
                         type: result.mimeType,
                     }),
@@ -170,16 +108,13 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             });
             if (!onboardingCompletedFiredRef.current) {
                 onboardingCompletedFiredRef.current = true;
-                const sampleCount = drills.filter((d) =>
-                    d.transcript.trim(),
-                ).length;
                 const startedAt = onboardingStartedAtRef.current;
                 const totalDurationSec =
                     startedAt === null
                         ? null
                         : Math.round((Date.now() - startedAt) / 1000);
                 track("onboarding_completed", {
-                    drill_count: sampleCount,
+                    drill_count: transcript ? 1 : 0,
                     total_duration_sec: totalDurationSec,
                 });
             }
@@ -193,51 +128,40 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
             setCreateProfileError(
                 await getKyErrorMessage(
                     error,
-                    "Could not create your profile right now.",
+                    "Could not finish setting up your account.",
                 ),
             );
             setIsCreatingProfile(false);
         }
-    }, [getTranscript]);
+    }, []);
 
-    const handleSampleComplete = useCallback(
-        (
-            sampleType: string,
-            result: OnboardingSampleResult,
-            isLastSample: boolean,
-        ) => {
-            sampleResults.current.set(sampleType, result);
-            savedTranscripts.current.set(sampleType, result.transcript);
-            void saveSampleToServer(sampleType, result.transcript);
-
-            const sampleIndex = ONBOARDING_SAMPLES.findIndex(
-                (s) => s.sampleType === sampleType,
-            );
-            track("onboarding_drill_submitted", {
-                drill_index: sampleIndex >= 0 ? sampleIndex + 1 : 0,
-            });
-
-            if (isLastSample) {
-                void finish();
-            } else {
-                goNext();
-            }
+    const handleComplete = useCallback(
+        (result: OnboardingSampleResult) => {
+            sampleResult.current = result;
+            savedTranscript.current = result.transcript;
+            // Persist the transcript (best-effort) before building the profile.
+            void api
+                .post("/api/onboarding/save-sample", {
+                    json: {
+                        sampleType: SAMPLE.sampleType,
+                        transcript: result.transcript,
+                    },
+                    timeout: 15_000,
+                })
+                .catch(() => {
+                    console.warn("Failed to persist onboarding sample");
+                });
+            track("onboarding_drill_submitted", { drill_index: 1 });
+            void finish();
         },
-        [goNext, finish, saveSampleToServer],
+        [finish],
     );
 
-    const handleSampleSkip = useCallback(
-        (isLastSample: boolean) => {
-            if (isLastSample) {
-                void finish();
-            } else {
-                goNext();
-            }
-        },
-        [goNext, finish],
-    );
+    const handleSkip = useCallback(() => {
+        track("onboarding_skipped", {});
+        void finish();
+    }, [finish]);
 
-    const totalSteps = SETUP_WIZARD_STEP_ORDER.length;
     const shouldShowProcessing =
         isCreatingProfile || onboardingStatus === "processing";
 
@@ -245,11 +169,11 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
         if (!isCreatingProfile) return;
         const id = setInterval(() => {
             setLoadingStageIndex((prev) =>
-                prev < loadingStages.length - 1 ? prev + 1 : prev,
+                prev < LOADING_STAGES.length - 1 ? prev + 1 : prev,
             );
         }, 1600);
         return () => clearInterval(id);
-    }, [isCreatingProfile, loadingStages.length]);
+    }, [isCreatingProfile]);
 
     useEffect(() => {
         const ref = doc(db, FirestoreCollections.users.path, uid);
@@ -279,121 +203,49 @@ export function SetupWizard(props: Readonly<PropsInterface>) {
 
     if (shouldShowProcessing) {
         return (
-            <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
-                <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-10 sm:px-8">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Sparkles className="size-4 shrink-0 text-foreground/70" />
-                        <span>Finalizing</span>
-                    </div>
-                    <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-5">
-                        <div className="mb-4 flex items-center gap-2">
-                            <Loader2 className="size-5 animate-spin text-primary" />
-                            <h2 className="text-base font-semibold tracking-tight">
-                                Building your personalized plan
-                            </h2>
-                        </div>
-                        <div className="space-y-2">
-                            {loadingStages.map((stage, i) => {
-                                const done = i < loadingStageIndex;
-                                const active = i === loadingStageIndex;
-                                let statusIcon;
-                                if (done) {
-                                    statusIcon = (
-                                        <CheckCircle2 className="size-4 text-emerald-600" />
-                                    );
-                                } else if (active) {
-                                    statusIcon = (
-                                        <Loader2 className="size-4 animate-spin text-primary" />
-                                    );
-                                } else {
-                                    statusIcon = (
-                                        <div className="size-4 rounded-full border border-border" />
-                                    );
-                                }
-                                return (
-                                    <div
-                                        key={stage}
-                                        className="flex items-center gap-2 text-sm"
-                                    >
-                                        {statusIcon}
-                                        <span
-                                            className={
-                                                active
-                                                    ? "text-foreground"
-                                                    : "text-muted-foreground"
-                                            }
-                                        >
-                                            {stage}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                    {createProfileError || onboardingError ? (
-                        <p
-                            className="text-center text-sm text-destructive"
-                            role="alert"
-                        >
-                            {createProfileError ?? onboardingError}
-                        </p>
-                    ) : null}
-
-                    <InstallPanel
-                        headline="Last step: install Sayzo to start"
-                        subhead="Sayzo runs on your computer and joins your work calls. After each one, you get feedback and can replay the moments worth practicing."
-                        analyticsSource="onboarding"
-                    />
-                </div>
-            </section>
+            <OnboardingFinalizing
+                stageIndex={loadingStageIndex}
+                error={createProfileError ?? onboardingError}
+            />
         );
     }
 
     return (
-        <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
+        <section className="fixed inset-0 overflow-y-auto bg-background">
+            <AmbientBackdrop />
             <MobileBanner page="app" />
-            <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-10 sm:px-8">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-700">
-                    <Sparkles className="size-4 shrink-0" />
-                    <span>
-                        Step {Math.max(1, stepIndex + 1)} of {totalSteps}
-                    </span>
-                </div>
-
-                <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
-                    {ONBOARDING_SAMPLES.map((sample, i) =>
-                        step === sample.step ? (
-                            <OnboardingSampleStep
-                                key={sample.step}
-                                sample={sample}
-                                sampleIndex={i}
-                                onBack={goPrev}
-                                isLast={i === ONBOARDING_SAMPLES.length - 1}
-                                onNext={(result) =>
-                                    handleSampleComplete(
-                                        sample.sampleType,
-                                        result,
-                                        i === ONBOARDING_SAMPLES.length - 1,
-                                    )
-                                }
-                                onSkip={() =>
-                                    handleSampleSkip(
-                                        i === ONBOARDING_SAMPLES.length - 1,
-                                    )
-                                }
-                            />
-                        ) : null,
-                    )}
-                </div>
-
-                {createProfileError ? (
-                    <p
-                        className="text-center text-sm text-destructive"
-                        role="alert"
+            <div className="relative flex min-h-full items-center justify-center p-6">
+                <div className="w-full max-w-lg">
+                    <StaggerItem
+                        order={0}
+                        className="flex items-center justify-center gap-2"
                     >
-                        {createProfileError}
-                    </p>
-                ) : null}
+                        <Eyebrow tone="sky" className="flex items-center gap-2">
+                            <Sparkles className="size-4 shrink-0" />
+                            <span>Quick setup</span>
+                        </Eyebrow>
+                        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                            Optional
+                        </span>
+                    </StaggerItem>
+
+                    <StaggerItem order={1} className="mt-8">
+                        <OnboardingSampleStep
+                            sample={SAMPLE}
+                            onNext={handleComplete}
+                            onSkip={handleSkip}
+                        />
+                    </StaggerItem>
+
+                    {createProfileError ? (
+                        <p
+                            className="mt-4 text-center text-sm text-destructive"
+                            role="alert"
+                        >
+                            {createProfileError}
+                        </p>
+                    ) : null}
+                </div>
             </div>
         </section>
     );

@@ -11,6 +11,7 @@ export const TOUR_STEP_IDS = [
     "meeting-notes",
     "improved-version-tab",
     "discuss-feedback",
+    "transcript-views",
     "transcript-fix",
     "replay-conversation",
     "fix-these-first",

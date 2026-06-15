@@ -31,7 +31,10 @@ export function LoginForm() {
             if (!res.ok) {
                 const data = await res.json();
                 track("sign_in_failed", {
-                    code: typeof data.error === "string" ? data.error : "callback_error",
+                    code:
+                        typeof data.error === "string"
+                            ? data.error
+                            : "callback_error",
                     stage: "callback",
                 });
                 throw new Error(data.error || "Authentication failed");

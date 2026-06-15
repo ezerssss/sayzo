@@ -37,20 +37,34 @@ import {
  * coaching styling. accent #2563eb → blue-600, ink #1a1a1a, ink-muted #6b7280 →
  * gray-500, ink-border #e5e7eb → gray-200. A caption pill above the demo narrates
  * each step in plain words.
+ *
+ * It auto-plays by default. A row of dots below the demo (one per step) lets the
+ * viewer jump around; tapping a dot pauses autoplay (not hover-based, so it works
+ * on touch where there's no hover), then hands autoplay back after a few idle
+ * seconds so one tap doesn't strand the loop. Press-and-hold the graphic itself
+ * holds on a step (lift to resume): the touch-native pause. Plain hover does NOT
+ * pause (deliberate — it kept yanking autoplay on desktop); only an explicit tap
+ * or press stops it.
  */
 
 const STEPS = [
-    { key: "idle", ms: 1500 },
-    { key: "detect", ms: 2700 },
-    { key: "capturing", ms: 1800 },
-    { key: "recording", ms: 2700 },
-    { key: "ended", ms: 2800 },
-    { key: "processing", ms: 1600 },
-    { key: "notify", ms: 2800 },
-    { key: "webapp", ms: 5000 },
+    { key: "idle", ms: 1100 },
+    { key: "detect", ms: 1900 },
+    { key: "capturing", ms: 1900 },
+    { key: "recording", ms: 2400 },
+    { key: "ended", ms: 1900 },
+    { key: "processing", ms: 1800 },
+    { key: "notify", ms: 2000 },
+    { key: "webapp", ms: 2400 },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
+
+// After the viewer takes the wheel (taps a dot), hand autoplay back once they've
+// been idle this long. ~3× a step's duration, so it reads as a deliberate pause
+// and gives the wordy cards (insight / web app) room to be read, but still comes
+// back so a single tap doesn't strand the loop. Press-and-hold extends it.
+const RESUME_AFTER_MS = 6000;
 
 const CAPTION: Record<StepKey, string> = {
     idle: "Sayzo waits quietly on your computer",
@@ -66,19 +80,50 @@ const CAPTION: Record<StepKey, string> = {
 export function HeroDemo() {
     const reduced = usePrefersReducedMotion();
     const [i, setI] = useState(0);
+    // Tapping a dot hands the viewer the wheel (not hover-based, so it sticks on
+    // touch where most landing traffic is). It's not permanent though — autoplay
+    // resumes after they go idle (see the resume effect below).
+    const [userTouched, setUserTouched] = useState(false);
+    // Bumped on every tap so the idle-resume timer restarts on each interaction,
+    // even when `userTouched` is already true (a no-op setState wouldn't re-fire).
+    const [tapNonce, setTapNonce] = useState(0);
+    // Press-and-hold the graphic to hold on a step (the touch-native version of
+    // "rest on it to read" — finger down pauses, lift resumes). Pointer-based, so
+    // a click-hold does the same on desktop, but a plain hover does NOT pause.
+    const [holding, setHolding] = useState(false);
+
+    const autoplay = !reduced && !userTouched && !holding;
 
     useEffect(() => {
-        if (reduced) return;
+        if (!autoplay) return;
         const id = setTimeout(
             () => setI((n) => (n + 1) % STEPS.length),
             STEPS[i].ms,
         );
         return () => clearTimeout(id);
-    }, [i, reduced]);
+    }, [i, autoplay]);
 
-    // Reduced motion: hold on the payoff (web app open with coaching).
-    const step = reduced ? STEPS[STEPS.length - 1] : STEPS[i];
+    // Idle-resume: a while after the last tap, give autoplay back. Restarts on
+    // each tap (via tapNonce). If they're press-and-holding when this fires,
+    // `holding` keeps it paused until they lift — so the hold naturally extends.
+    useEffect(() => {
+        if (!userTouched) return;
+        const id = setTimeout(() => setUserTouched(false), RESUME_AFTER_MS);
+        return () => clearTimeout(id);
+    }, [userTouched, tapNonce]);
+
+    // The index actually on screen. Reduced motion holds on the payoff (web app
+    // open with coaching) until the viewer steps in; after that it follows `i`.
+    const active = reduced && !userTouched ? STEPS.length - 1 : i;
+    const step = STEPS[active];
     const secs = step.ms / 1000;
+
+    // Tapping a dot jumps to that step and pauses autoplay until they go idle.
+    const goTo = (idx: number) => {
+        setUserTouched(true);
+        setTapNonce((n) => n + 1);
+        setI(idx);
+    };
     // The call window opens at "detect" (you jump on a call) and closes at
     // "ended" (the call wrapped up) — so the desktop starts empty, the window
     // animates in, and it animates out before the end-of-call check-in.
@@ -95,7 +140,7 @@ export function HeroDemo() {
             <div className="mb-4 flex justify-center">
                 <span
                     key={step.key}
-                    className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3.5 py-1.5 text-[13px] font-medium text-foreground shadow-sm duration-300 animate-in fade-in-0 slide-in-from-bottom-1"
+                    className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3.5 py-1.5 text-[13px] font-medium text-foreground shadow-sm duration-700 animate-in fade-in-0 slide-in-from-bottom-1"
                 >
                     <span className="relative flex size-2">
                         <span className="absolute inline-flex h-full w-full rounded-full bg-blue-500/60 motion-safe:animate-ping" />
@@ -105,7 +150,13 @@ export function HeroDemo() {
                 </span>
             </div>
 
-            <div className="relative isolate min-h-[340px] overflow-hidden rounded-3xl border border-black/10 shadow-2xl ring-1 ring-black/5 sm:min-h-0 sm:aspect-video">
+            <div
+                className="relative isolate min-h-[340px] overflow-hidden rounded-3xl border border-black/10 shadow-2xl ring-1 ring-black/5 sm:min-h-0 sm:aspect-video"
+                onPointerDown={() => setHolding(true)}
+                onPointerUp={() => setHolding(false)}
+                onPointerLeave={() => setHolding(false)}
+                onPointerCancel={() => setHolding(false)}
+            >
                 {/* Desktop wallpaper + menu bar */}
                 <div className="absolute inset-0 bg-[radial-gradient(140%_140%_at_25%_0%,#1e3a8a_0%,#0f172a_58%)]">
                     <div className="flex h-7 items-center justify-between px-3 text-[10px] font-medium text-white/55">
@@ -141,7 +192,7 @@ export function HeroDemo() {
                                     noLabel="Not now"
                                     yesLabel="Start coaching"
                                     secs={secs}
-                                    animate={!reduced}
+                                    animate={autoplay}
                                     clicking={!reduced}
                                 />
                             )}
@@ -150,7 +201,7 @@ export function HeroDemo() {
                                     title="Sayzo is capturing"
                                     body="Press Ctrl + Alt + L anytime to stop."
                                     secs={secs}
-                                    animate={!reduced}
+                                    animate={autoplay}
                                 />
                             )}
                             {step.key === "recording" && <Pill />}
@@ -161,7 +212,7 @@ export function HeroDemo() {
                                     noLabel="Not yet"
                                     yesLabel="Yes, done"
                                     secs={secs}
-                                    animate={!reduced}
+                                    animate={autoplay}
                                     clicking={!reduced}
                                 />
                             )}
@@ -170,19 +221,52 @@ export function HeroDemo() {
                                     title="Got it"
                                     body="Processing your capture. You'll see a notification when it's ready."
                                     secs={secs}
-                                    animate={!reduced}
+                                    animate={autoplay}
                                 />
                             )}
                             {step.key === "notify" && (
                                 <Insight
                                     secs={secs}
-                                    animate={!reduced}
+                                    animate={autoplay}
                                     clicking={!reduced}
                                 />
                             )}
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Step dots — one per narration step, so people can jump around
+                instead of only watching. Tapping a dot hands over the wheel
+                (autoplay stops, sticky so it sticks on touch too, where there's
+                no hover). Dots map 1:1 to STEPS/CAPTION, so they stay in lockstep
+                with the caption pill above. */}
+            <div
+                className="mt-5 flex items-center justify-center gap-0.5"
+                role="group"
+                aria-label="Demo steps"
+            >
+                {STEPS.map((s, idx) => {
+                    const isActive = idx === active;
+                    return (
+                        <button
+                            key={s.key}
+                            type="button"
+                            onClick={() => goTo(idx)}
+                            aria-label={`Step ${idx + 1}: ${CAPTION[s.key]}`}
+                            aria-current={isActive ? "step" : undefined}
+                            className="flex h-7 items-center justify-center rounded-full px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                        >
+                            <span
+                                className={`rounded-full transition-all duration-300 ${
+                                    isActive
+                                        ? "h-2 w-5 bg-blue-600"
+                                        : "size-2 bg-border hover:bg-muted-foreground/50"
+                                }`}
+                            />
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );

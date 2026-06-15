@@ -3,10 +3,10 @@
 import { ChevronDown, Mic, RotateCcw, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { CreditsBanner } from "@/components/credits/credits-banner";
 import { useCreditGate } from "@/components/credits/credit-gate-provider";
-import { MobileBanner } from "@/components/mobile/mobile-banner";
 import { AudioPlayer } from "@/components/session/audio-player";
+import { Eyebrow } from "@/components/app/eyebrow";
+import { HeroPanel } from "@/components/app/hero-panel";
 import { PageTour } from "@/components/tour/page-tour";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/use-session";
@@ -19,6 +19,7 @@ import {
     isKyHttpStatus,
     isKyTimeoutLikeError,
 } from "@/lib/ky-error-message";
+import { cn } from "@/lib/utils";
 import type { SessionFeedbackType } from "@/schemas";
 
 import {
@@ -28,7 +29,6 @@ import {
 } from "./constants";
 import { DrillBriefCard } from "./drill-brief-card";
 import { SessionFeedbackSection } from "./session-feedback-section";
-import { SessionHomeHeader } from "./session-home-header";
 import type { DrillState, SessionHomeProps } from "./types";
 
 export type { SessionHomeProps } from "./types";
@@ -352,86 +352,125 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
     };
 
     return (
-        <section className="fixed inset-0 flex flex-col overflow-y-auto bg-background">
-            <MobileBanner page="app" />
-            <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-                <CreditsBanner />
-                <SessionHomeHeader />
-
-                {session ? (
-                    <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-indigo-50/40 p-6 shadow-sm">
-                        <div
-                            aria-hidden
-                            className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-gradient-to-br from-sky-200/40 to-indigo-200/30 blur-3xl"
-                        />
-                        <div className="relative flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
-                                    {isSkipped
-                                        ? "Skipped replay"
-                                        : shouldShowResults
-                                          ? "Replay feedback"
-                                          : "Replay"}
-                                    {session.createdAt ? (
-                                        <>
-                                            <span className="mx-1.5 text-sky-700/50">
-                                                &middot;
-                                            </span>
-                                            <span className="font-normal normal-case text-foreground/80">
-                                                {formatReviewDate(
-                                                    session.createdAt,
-                                                )}
-                                            </span>
-                                        </>
-                                    ) : null}
-                                </p>
-                                <h2 className="mt-2 text-lg font-semibold tracking-tight">
-                                    {currentPlan.scenario.title}
-                                </h2>
-                            </div>
-                            {shouldShowResults &&
-                            !isSkipped &&
-                            session.completionStatus === "passed" ? (
-                                <div className="relative flex shrink-0 flex-wrap items-center gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        data-tour="retry-replay"
-                                        onClick={() =>
-                                            void requestVoluntaryRetry()
-                                        }
-                                        disabled={loadingSession || isRetrying}
-                                    >
-                                        <RotateCcw />
-                                        {isRetrying
-                                            ? "Setting up retry…"
-                                            : "Retry this replay"}
-                                    </Button>
-                                </div>
-                            ) : null}
+        <div className="space-y-8">
+            {session ? (
+                <HeroPanel>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                            <Eyebrow tone="sky">
+                                {isSkipped
+                                    ? "Skipped replay"
+                                    : shouldShowResults
+                                      ? "Replay feedback"
+                                      : "Replay"}
+                                {session.createdAt ? (
+                                    <>
+                                        <span className="mx-1.5 text-sky-700/50">
+                                            &middot;
+                                        </span>
+                                        <span className="font-normal normal-case text-foreground/80">
+                                            {formatReviewDate(
+                                                session.createdAt,
+                                            )}
+                                        </span>
+                                    </>
+                                ) : null}
+                            </Eyebrow>
+                            <h2 className="mt-2 text-xl font-semibold tracking-tight">
+                                {currentPlan.scenario.title}
+                            </h2>
                         </div>
+                        {shouldShowResults &&
+                        !isSkipped &&
+                        session.completionStatus === "passed" ? (
+                            <div className="relative flex shrink-0 flex-wrap items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    data-tour="retry-replay"
+                                    onClick={() => void requestVoluntaryRetry()}
+                                    disabled={loadingSession || isRetrying}
+                                >
+                                    <RotateCcw />
+                                    {isRetrying
+                                        ? "Setting up retry…"
+                                        : "Retry this replay"}
+                                </Button>
+                            </div>
+                        ) : null}
                     </div>
-                ) : null}
+                </HeroPanel>
+            ) : null}
 
-                {/* Active drill — prompt + record button */}
-                {!shouldShowResults && !isSkipped ? (
-                    <>
-                        <DrillBriefCard plan={currentPlan} />
+            {/* Active drill — prompt + record button */}
+            {!shouldShowResults && !isSkipped ? (
+                <>
+                    <DrillBriefCard plan={currentPlan} />
 
-                        {loadingSession ? (
-                            <p className="text-sm text-muted-foreground">
-                                Syncing your replay…
-                            </p>
+                    {loadingSession ? (
+                        <p className="text-sm text-muted-foreground">
+                            Syncing your replay…
+                        </p>
+                    ) : null}
+                    {drillError ? (
+                        <p className="text-sm text-destructive" role="alert">
+                            {drillError}
+                        </p>
+                    ) : null}
+
+                    <RecordPanel
+                        mm={mm}
+                        ss={ss}
+                        stateLabel={stateLabel}
+                        isRecording={isRecording}
+                        stream={stream}
+                        requiresRetry={requiresRetry}
+                        showRecordAction={showRecordAction}
+                        shouldShowAnalyzingState={shouldShowAnalyzingState}
+                        drillState={drillState}
+                        onStartRecording={() => void startRecording()}
+                        onStopRecording={() => void stopRecording()}
+                    />
+                </>
+            ) : null}
+
+            {/* Completed drill — collapsible prompt + audio + feedback */}
+            {shouldShowResults && !isSkipped ? (
+                <>
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => setPromptOpen((v) => !v)}
+                            className="flex w-full items-center justify-between"
+                        >
+                            <span className="text-sm font-medium">
+                                Replay prompt
+                            </span>
+                            <ChevronDown
+                                className={cn(
+                                    "size-4 text-muted-foreground transition-transform",
+                                    promptOpen && "rotate-180",
+                                )}
+                            />
+                        </button>
+                        {promptOpen ? (
+                            <div className="mt-3 border-t border-border/50 pt-3">
+                                <DrillBriefCard
+                                    plan={currentPlan}
+                                    autoPlay={false}
+                                />
+                            </div>
                         ) : null}
-                        {drillError ? (
-                            <p
-                                className="text-sm text-destructive"
-                                role="alert"
-                            >
-                                {drillError}
-                            </p>
-                        ) : null}
+                    </div>
 
+                    {/* Hidden while live-recording so it doesn't compete with the waveform — otherwise always visible so users in needs_retry can listen back before re-recording. */}
+                    {playbackSrc && !isRecordingNow ? (
+                        <AudioPlayer src={playbackSrc} audioRef={audioRef} />
+                    ) : null}
+
+                    {requiresRetry ||
+                    isRecordingNow ||
+                    drillState === "analyzing" ? (
                         <RecordPanel
                             mm={mm}
                             ss={ss}
@@ -445,84 +484,8 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                             onStartRecording={() => void startRecording()}
                             onStopRecording={() => void stopRecording()}
                         />
-                    </>
-                ) : null}
+                    ) : null}
 
-                {/* Completed drill — collapsible prompt + audio + feedback */}
-                {shouldShowResults && !isSkipped ? (
-                    <>
-                        <div className="rounded-xl border border-border/70">
-                            <button
-                                type="button"
-                                onClick={() => setPromptOpen((v) => !v)}
-                                className="flex w-full items-center justify-between p-4"
-                            >
-                                <span className="text-sm font-medium">
-                                    Replay prompt
-                                </span>
-                                <ChevronDown
-                                    className={`size-4 text-muted-foreground transition-transform ${
-                                        promptOpen ? "rotate-180" : ""
-                                    }`}
-                                />
-                            </button>
-                            {promptOpen ? (
-                                <div className="border-t border-border/50 p-4">
-                                    <DrillBriefCard
-                                        plan={currentPlan}
-                                        autoPlay={false}
-                                    />
-                                </div>
-                            ) : null}
-                        </div>
-
-                        {/* Hidden while live-recording so it doesn't compete with the waveform — otherwise always visible so users in needs_retry can listen back before re-recording. */}
-                        {playbackSrc && !isRecordingNow ? (
-                            <AudioPlayer
-                                src={playbackSrc}
-                                audioRef={audioRef}
-                            />
-                        ) : null}
-
-                        {requiresRetry ||
-                        isRecordingNow ||
-                        drillState === "analyzing" ? (
-                            <RecordPanel
-                                mm={mm}
-                                ss={ss}
-                                stateLabel={stateLabel}
-                                isRecording={isRecording}
-                                stream={stream}
-                                requiresRetry={requiresRetry}
-                                showRecordAction={showRecordAction}
-                                shouldShowAnalyzingState={
-                                    shouldShowAnalyzingState
-                                }
-                                drillState={drillState}
-                                onStartRecording={() => void startRecording()}
-                                onStopRecording={() => void stopRecording()}
-                            />
-                        ) : null}
-
-                        <SessionFeedbackSection
-                            shouldShowResults={shouldShowResults}
-                            isSkipped={isSkipped}
-                            currentTranscript={currentTranscript}
-                            currentServerTranscript={
-                                session?.serverTranscript ?? null
-                            }
-                            currentAnalysis={session?.analysis ?? null}
-                            currentFeedback={currentFeedback}
-                            requiresRetry={requiresRetry}
-                            completionReason={session?.completionReason ?? null}
-                            onSeekToSecond={seekToSecond}
-                            sessionId={session?.id}
-                            uid={uid}
-                        />
-                    </>
-                ) : null}
-
-                {isSkipped ? (
                     <SessionFeedbackSection
                         shouldShowResults={shouldShowResults}
                         isSkipped={isSkipped}
@@ -538,23 +501,39 @@ export function SessionHome(props: Readonly<SessionHomeProps>) {
                         sessionId={session?.id}
                         uid={uid}
                     />
-                ) : null}
+                </>
+            ) : null}
 
-                {authError ? (
-                    <p className="mt-4 text-xs text-destructive" role="alert">
-                        {authError}
-                    </p>
-                ) : null}
-
-                {/* One-time page guide — arms only once feedback results
-                    (and their tour targets) are on screen. */}
-                <PageTour
-                    page="replay"
+            {isSkipped ? (
+                <SessionFeedbackSection
+                    shouldShowResults={shouldShowResults}
+                    isSkipped={isSkipped}
+                    currentTranscript={currentTranscript}
+                    currentServerTranscript={session?.serverTranscript ?? null}
+                    currentAnalysis={session?.analysis ?? null}
+                    currentFeedback={currentFeedback}
+                    requiresRetry={requiresRetry}
+                    completionReason={session?.completionReason ?? null}
+                    onSeekToSecond={seekToSecond}
+                    sessionId={session?.id}
                     uid={uid}
-                    ready={Boolean(shouldShowResults && !isSkipped)}
                 />
-            </div>
-        </section>
+            ) : null}
+
+            {authError ? (
+                <p className="mt-4 text-xs text-destructive" role="alert">
+                    {authError}
+                </p>
+            ) : null}
+
+            {/* One-time page guide — arms only once feedback results
+                    (and their tour targets) are on screen. */}
+            <PageTour
+                page="replay"
+                uid={uid}
+                ready={Boolean(shouldShowResults && !isSkipped)}
+            />
+        </div>
     );
 }
 
@@ -590,7 +569,7 @@ function RecordPanel(props: Readonly<RecordPanelProps>) {
     const isAnalyzing = shouldShowAnalyzingState || drillState === "analyzing";
 
     return (
-        <div className="rounded-2xl border border-border/70 bg-background p-6">
+        <div className="rounded-2xl border border-border/60 bg-background p-6">
             <div className="flex items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground">{stateLabel}</p>
                 {isRecording ? (

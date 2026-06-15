@@ -1,52 +1,36 @@
-export type SetupWizardStep =
-    | "drill-intro"
-    | "drill-workplace"
-    | "drill-challenge";
+export type SetupWizardStep = "drill-intro";
 
-export const SETUP_WIZARD_STEP_ORDER: SetupWizardStep[] = [
-    "drill-intro",
-    "drill-workplace",
-    "drill-challenge",
-];
+export const SETUP_WIZARD_STEP_ORDER: SetupWizardStep[] = ["drill-intro"];
 
 export type OnboardingSampleConfig = {
     step: SetupWizardStep;
     title: string;
-    prompt: string;
+    /** One short line under the title — the "why". */
+    subtitle: string;
+    /** A few short, scannable things to mention (not a paragraph). */
+    hints: string[];
+    /** Tiny helper under the timer. */
     helper: string;
     maxSeconds: number;
     sampleType: "self_introduction" | "workplace_scenario" | "challenge_moment";
 };
 
+// Onboarding is now a single optional voice sample — the intro carries the
+// most signal for personalizing coaching. Kept deliberately light: a short
+// "why" plus a 3-item checklist, not a wall of text. Everything else fills in
+// from real conversations.
 export const ONBOARDING_SAMPLES: OnboardingSampleConfig[] = [
     {
         step: "drill-intro",
         title: "Introduce yourself",
-        prompt:
-            "Tell us your name, your job title, the company you work for (or the kind of role you're looking for), and why you want to improve your English right now.",
-        helper:
-            "Speak naturally. Mention your role and company, it helps us personalize everything.",
+        subtitle: "A quick intro so your coaching fits you from day one.",
+        hints: [
+            "Your name and what you do",
+            "Where you work — or the role you want",
+            "What you'd like to get better at",
+        ],
+        helper: "Speak naturally — about a minute is plenty.",
         maxSeconds: 60,
         sampleType: "self_introduction",
-    },
-    {
-        step: "drill-workplace",
-        title: "A day at work",
-        prompt:
-            "Describe a recent situation where you used English at work: a meeting, a client call, a presentation, or an interview. Who were you talking to, what were you trying to communicate, and what do you wish you'd done better?",
-        helper:
-            "Be specific. The more detail, the better we can tailor your coaching.",
-        maxSeconds: 90,
-        sampleType: "workplace_scenario",
-    },
-    {
-        step: "drill-challenge",
-        title: "Where you want to grow",
-        prompt:
-            "What specific English communication skills do you most want to improve? Think about situations that feel hard (presenting, speaking up in meetings, job interviews, small talk) and tell us what you'd like to get better at and why it matters to you.",
-        helper:
-            "Be honest. Knowing your goals and struggles is how we build the right coaching plan.",
-        maxSeconds: 90,
-        sampleType: "challenge_moment",
     },
 ];

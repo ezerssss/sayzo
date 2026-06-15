@@ -1,4 +1,6 @@
-import { StaggerItem } from "@/components/coaching/briefing";
+import { AlertTriangle, Info } from "lucide-react";
+
+import { Kicker, StaggerItem } from "@/components/coaching/briefing";
 import { CalloutCard } from "@/components/coaching/callout-card";
 import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
 import { PrincipleCard } from "@/components/coaching/principle-card";
@@ -7,10 +9,7 @@ import { DrillTranscriptView } from "@/components/session/drill-transcript-view"
 import { FeedbackChat } from "@/components/session/feedback-chat";
 import { ImprovedVersionView } from "@/components/session/improved-version-view";
 import type { CaptureTranscriptLine } from "@/schemas";
-import type {
-    ItemAnalysis,
-    SessionFeedbackType,
-} from "@/schemas";
+import type { ItemAnalysis, SessionFeedbackType } from "@/schemas";
 
 /** Matches the sentinel written by app/api/sessions/retry/route.ts. */
 const VOLUNTARY_RETRY_REASON = "voluntary_retry";
@@ -82,10 +81,10 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
 
     if (isSkipped) {
         return (
-            <div className="mt-6 space-y-4 rounded-xl border border-border/70 p-4">
+            <div className="mt-6 space-y-4">
                 <div>
-                    <p className="text-sm font-medium">Skipped replay</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <Kicker tone="muted">Skipped replay</Kicker>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                         No coaching was generated for this one.
                     </p>
                 </div>
@@ -114,21 +113,23 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
     return (
         <div className="mt-6 space-y-4">
             {requiresRetry && completionReason === VOLUNTARY_RETRY_REASON ? (
-                <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 dark:border-sky-900/40 dark:bg-sky-950/20">
-                    <p className="text-sm font-medium">
-                        Re-recording this replay
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                <div className="border-l-2 border-sky-300 pl-4">
+                    <div className="flex items-center gap-1.5">
+                        <Info className="size-3.5 shrink-0 text-sky-600" />
+                        <Kicker tone="sky">Re-recording this replay</Kicker>
+                    </div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                         Listen to your previous take below, then tap Try again
                         when you&apos;re ready.
                     </p>
                 </div>
             ) : requiresRetry && completionReason ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
-                    <p className="text-sm font-medium">
-                        This one needs a retry
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                <div className="border-l-2 border-amber-300 pl-4">
+                    <div className="flex items-center gap-1.5">
+                        <AlertTriangle className="size-3.5 shrink-0 text-amber-600" />
+                        <Kicker tone="amber">This one needs a retry</Kicker>
+                    </div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                         {completionReason}
                     </p>
                 </div>
@@ -154,11 +155,9 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                                 />
                             </StaggerItem>
                         ) : (
-                            <div className="rounded-xl border border-border/70 p-4">
-                                <p className="text-sm font-medium">
-                                    Main issue
-                                </p>
-                                <p className="mt-2 text-sm text-muted-foreground">
+                            <div>
+                                <Kicker tone="muted">Main issue</Kicker>
+                                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                                     Waiting for analysis…
                                 </p>
                             </div>
@@ -202,11 +201,9 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                                 />
                             </StaggerItem>
                         ) : (
-                            <div className="rounded-xl border border-border/70 p-4">
-                                <p className="text-sm font-medium">
-                                    Transcript
-                                </p>
-                                <p className="mt-2 text-sm text-muted-foreground">
+                            <div>
+                                <Kicker tone="muted">Transcript</Kicker>
+                                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                                     Waiting for transcription…
                                 </p>
                             </div>
@@ -217,9 +214,7 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                     <>
                         <StaggerItem order={0}>
                             <ImprovedVersionView
-                                content={
-                                    currentFeedback?.improvedVersion ?? ""
-                                }
+                                content={currentFeedback?.improvedVersion ?? ""}
                             />
                         </StaggerItem>
                         {hasImprovedVersion &&

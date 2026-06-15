@@ -175,7 +175,7 @@ export function AudioPlayer({
     return (
         <div
             className={cn(
-                "flex items-center gap-3 rounded-xl border border-border/70 px-4 py-3",
+                "flex items-center gap-3 rounded-2xl border border-border/60 px-4 py-3",
                 className,
             )}
         >

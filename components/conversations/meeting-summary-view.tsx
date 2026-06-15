@@ -244,187 +244,196 @@ export function MeetingSummaryHero({
 
                     {expanded && (
                         <div className="divide-y divide-sky-100/70 border-t border-sky-100/70">
-                    {summary.whatHappened.length > 0 && (
-                        <Section label="What happened" order={order++}>
-                            <ul className="space-y-2.5">
-                                {summary.whatHappened.map((bullet, i) => (
-                                    <li
-                                        key={i}
-                                        className="flex items-start gap-2.5"
-                                    >
-                                        {bullet.isDecision ? (
-                                            <span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                                                <CircleCheck className="size-3" />
-                                            </span>
-                                        ) : (
-                                            <span
-                                                aria-hidden
-                                                className="mx-[5px] mt-[7px] size-2 shrink-0 rounded-full border-2 border-sky-300"
-                                            />
-                                        )}
-                                        <p className="text-sm leading-relaxed text-foreground">
-                                            {bullet.isDecision ? (
-                                                <span className="mr-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-emerald-700">
-                                                    Decision
-                                                </span>
-                                            ) : null}
-                                            {bullet.text}
-                                        </p>
-                                    </li>
-                                ))}
-                            </ul>
-                        </Section>
-                    )}
-
-                    {todoCount > 0 && (
-                        <Section
-                            label="What you need to do"
-                            count={
-                                doneCount > 0
-                                    ? `${doneCount}/${todoCount}`
-                                    : `${todoCount}`
-                            }
-                            order={order++}
-                        >
-                            <ul className="-mx-2 space-y-0.5">
-                                {summary.yourActionItems.map((item, i) => {
-                                    const done = checked.includes(i);
-                                    return (
-                                        <li key={i}>
-                                            <button
-                                                type="button"
-                                                role="checkbox"
-                                                aria-checked={done}
-                                                onClick={() =>
-                                                    toggleChecked(i)
-                                                }
-                                                className="group flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-sky-50/70 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-500"
-                                            >
-                                                <span
-                                                    aria-hidden
-                                                    className={cn(
-                                                        "mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-md border-2 transition-all duration-200",
-                                                        done
-                                                            ? "border-sky-600 bg-sky-600"
-                                                            : "border-sky-300 bg-white group-hover:border-sky-400",
-                                                    )}
+                            {summary.whatHappened.length > 0 && (
+                                <Section label="What happened" order={order++}>
+                                    <ul className="space-y-2.5">
+                                        {summary.whatHappened.map(
+                                            (bullet, i) => (
+                                                <li
+                                                    key={i}
+                                                    className="flex items-start gap-2.5"
                                                 >
-                                                    <Check
-                                                        className={cn(
-                                                            "size-3 text-white transition-transform duration-200",
-                                                            done
-                                                                ? "scale-100"
-                                                                : "scale-0",
-                                                        )}
-                                                    />
-                                                </span>
-                                                <span
-                                                    className={cn(
-                                                        "flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-1 text-sm leading-relaxed transition-colors",
-                                                        done
-                                                            ? "text-muted-foreground line-through decoration-sky-300"
-                                                            : "text-foreground",
-                                                    )}
-                                                >
-                                                    {item.text}
-                                                    {item.deadline ? (
-                                                        <DeadlineChip
-                                                            deadline={
-                                                                item.deadline
-                                                            }
+                                                    {bullet.isDecision ? (
+                                                        <span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                                                            <CircleCheck className="size-3" />
+                                                        </span>
+                                                    ) : (
+                                                        <span
+                                                            aria-hidden
+                                                            className="mx-[5px] mt-[7px] size-2 shrink-0 rounded-full border-2 border-sky-300"
                                                         />
-                                                    ) : null}
-                                                </span>
-                                            </button>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </Section>
-                    )}
+                                                    )}
+                                                    <p className="text-sm leading-relaxed text-foreground">
+                                                        {bullet.isDecision ? (
+                                                            <span className="mr-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-emerald-700">
+                                                                Decision
+                                                            </span>
+                                                        ) : null}
+                                                        {bullet.text}
+                                                    </p>
+                                                </li>
+                                            ),
+                                        )}
+                                    </ul>
+                                </Section>
+                            )}
 
-                    {summary.othersActionItems.length > 0 && (
-                        <Section
-                            label="What others are doing"
-                            count={`${summary.othersActionItems.length}`}
-                            order={order++}
-                        >
-                            <ul className="space-y-2.5">
-                                {summary.othersActionItems.map((item, i) => (
-                                    <li
-                                        key={i}
-                                        className="flex items-start gap-2.5"
-                                    >
-                                        {/* Dashed open circle: someone else's
+                            {todoCount > 0 && (
+                                <Section
+                                    label="What you need to do"
+                                    count={
+                                        doneCount > 0
+                                            ? `${doneCount}/${todoCount}`
+                                            : `${todoCount}`
+                                    }
+                                    order={order++}
+                                >
+                                    <ul className="-mx-2 space-y-0.5">
+                                        {summary.yourActionItems.map(
+                                            (item, i) => {
+                                                const done =
+                                                    checked.includes(i);
+                                                return (
+                                                    <li key={i}>
+                                                        <button
+                                                            type="button"
+                                                            role="checkbox"
+                                                            aria-checked={done}
+                                                            onClick={() =>
+                                                                toggleChecked(i)
+                                                            }
+                                                            className="group flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-sky-50/70 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-500"
+                                                        >
+                                                            <span
+                                                                aria-hidden
+                                                                className={cn(
+                                                                    "mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-md border-2 transition-all duration-200",
+                                                                    done
+                                                                        ? "border-sky-600 bg-sky-600"
+                                                                        : "border-sky-300 bg-white group-hover:border-sky-400",
+                                                                )}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "size-3 text-white transition-transform duration-200",
+                                                                        done
+                                                                            ? "scale-100"
+                                                                            : "scale-0",
+                                                                    )}
+                                                                />
+                                                            </span>
+                                                            <span
+                                                                className={cn(
+                                                                    "flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-1 text-sm leading-relaxed transition-colors",
+                                                                    done
+                                                                        ? "text-muted-foreground line-through decoration-sky-300"
+                                                                        : "text-foreground",
+                                                                )}
+                                                            >
+                                                                {item.text}
+                                                                {item.deadline ? (
+                                                                    <DeadlineChip
+                                                                        deadline={
+                                                                            item.deadline
+                                                                        }
+                                                                    />
+                                                                ) : null}
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                );
+                                            },
+                                        )}
+                                    </ul>
+                                </Section>
+                            )}
+
+                            {summary.othersActionItems.length > 0 && (
+                                <Section
+                                    label="What others are doing"
+                                    count={`${summary.othersActionItems.length}`}
+                                    order={order++}
+                                >
+                                    <ul className="space-y-2.5">
+                                        {summary.othersActionItems.map(
+                                            (item, i) => (
+                                                <li
+                                                    key={i}
+                                                    className="flex items-start gap-2.5"
+                                                >
+                                                    {/* Dashed open circle: someone else's
                                             work, pending — not the user's to
                                             check off. */}
-                                        <span
-                                            aria-hidden
-                                            className="mx-px mt-[3px] size-4 shrink-0 rounded-full border-2 border-dashed border-slate-300"
-                                        />
-                                        <span className="flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-1 text-sm leading-relaxed text-foreground">
-                                            {item.text}
-                                            {item.deadline ? (
-                                                <DeadlineChip
-                                                    deadline={item.deadline}
-                                                />
-                                            ) : null}
+                                                    <span
+                                                        aria-hidden
+                                                        className="mx-px mt-[3px] size-4 shrink-0 rounded-full border-2 border-dashed border-slate-300"
+                                                    />
+                                                    <span className="flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-1 text-sm leading-relaxed text-foreground">
+                                                        {item.text}
+                                                        {item.deadline ? (
+                                                            <DeadlineChip
+                                                                deadline={
+                                                                    item.deadline
+                                                                }
+                                                            />
+                                                        ) : null}
+                                                    </span>
+                                                </li>
+                                            ),
+                                        )}
+                                    </ul>
+                                </Section>
+                            )}
+
+                            {summary.comingUp && (
+                                <div
+                                    className={cn(
+                                        "px-4 py-3.5 sm:px-5",
+                                        staggerEnter(order).className,
+                                    )}
+                                    style={staggerEnter(order++).style}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                                            <CalendarClock className="size-3.5" />
                                         </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </Section>
-                    )}
-
-                    {summary.comingUp && (
-                        <div
-                            className={cn(
-                                "bg-gradient-to-r from-sky-50/70 to-indigo-50/40 px-4 py-3.5 sm:px-5",
-                                staggerEnter(order).className,
-                            )}
-                            style={staggerEnter(order++).style}
-                        >
-                            <div className="flex items-start gap-3">
-                                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
-                                    <CalendarClock className="size-3.5" />
-                                </span>
-                                <div className="min-w-0">
-                                    <Kicker>Coming up</Kicker>
-                                    <p className="mt-1 text-sm leading-relaxed text-foreground">
-                                        {summary.comingUp}
-                                    </p>
+                                        <div className="min-w-0">
+                                            <Kicker>Coming up</Kicker>
+                                            <p className="mt-1 text-sm leading-relaxed text-foreground">
+                                                {summary.comingUp}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Sheet footer: the copy action lives with the notes it
-                        copies, keeping the header bar a pure toggle. */}
-                    <div
-                        className={cn(
-                            "flex justify-end px-3 py-1.5",
-                            staggerEnter(order).className,
-                        )}
-                        style={staggerEnter(order++).style}
-                    >
-                        <button
-                            type="button"
-                            onClick={handleCopy}
-                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-sky-50 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
-                        >
-                            {copied ? (
-                                <>
-                                    <Check className="size-3 text-emerald-600" />
-                                    Copied
-                                </>
-                            ) : (
-                                <>
-                                    <Copy className="size-3" />
-                                    Copy notes
-                                </>
                             )}
-                        </button>
-                    </div>
+
+                            {/* Sheet footer: the copy action lives with the notes it
+                        copies, keeping the header bar a pure toggle. */}
+                            <div
+                                className={cn(
+                                    "flex justify-end px-3 py-1.5",
+                                    staggerEnter(order).className,
+                                )}
+                                style={staggerEnter(order++).style}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={handleCopy}
+                                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-sky-50 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+                                >
+                                    {copied ? (
+                                        <>
+                                            <Check className="size-3 text-emerald-600" />
+                                            Copied
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="size-3" />
+                                            Copy notes
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

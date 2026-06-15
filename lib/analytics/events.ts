@@ -53,6 +53,7 @@ export type AnalyticsEventParams = {
         drill_count: number;
         total_duration_sec: number | null;
     };
+    onboarding_skipped: Record<string, never>;
 
     // Core engagement — drills
     drill_started: {

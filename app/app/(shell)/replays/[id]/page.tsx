@@ -8,7 +8,6 @@ import { useAuthUser } from "@/hooks/use-auth-user";
 export default function ReplayPage() {
     const { user, authError } = useAuthUser();
     const params = useParams<{ id: string }>();
-    const sessionId = params.id;
 
     if (!user) return null;
 
@@ -16,7 +15,7 @@ export default function ReplayPage() {
         <SessionHome
             uid={user.uid}
             authError={authError}
-            sessionId={sessionId}
+            sessionId={params.id}
         />
     );
 }

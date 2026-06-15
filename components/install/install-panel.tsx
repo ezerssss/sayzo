@@ -19,10 +19,6 @@ import { DownloadCta } from "./download-cta";
 import { detectOS, type OS, otherOS, PLATFORMS } from "./platforms";
 import { TerminalInstall } from "./terminal-install";
 
-// Platform constants/utilities moved to ./platforms — re-exported here so
-// existing imports (e.g. sessions-dashboard) keep working unchanged.
-export { detectOS, type OS, otherOS, PLATFORMS } from "./platforms";
-
 type Props = {
     showViewAllLink?: boolean;
     headline?: string;

@@ -32,10 +32,7 @@ function readAutoplayPref(): boolean {
 function writeAutoplayPref(value: boolean) {
     if (typeof window === "undefined") return;
     try {
-        window.localStorage.setItem(
-            AUTOPLAY_STORAGE_KEY,
-            value ? "on" : "off",
-        );
+        window.localStorage.setItem(AUTOPLAY_STORAGE_KEY, value ? "on" : "off");
     } catch {
         // Ignore storage failures (private mode, etc.).
     }
@@ -293,7 +290,7 @@ export function DrillBriefCard(props: Readonly<Props>) {
             ) : null}
 
             {promptBody ? (
-                <div className="mt-4 rounded-lg border-2 border-foreground/20 bg-background p-5">
+                <div className="mt-4 border-l-2 border-border/70 pl-4">
                     <p className="text-xl font-semibold leading-relaxed">
                         &ldquo;{promptBody}&rdquo;
                     </p>

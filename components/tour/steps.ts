@@ -45,6 +45,11 @@ export const TOUR_STEPS: Record<TourPage, TourStepDef[]> = {
         SHARED_STEPS.improvedVersion,
         SHARED_STEPS.discussFeedback,
         {
+            id: "transcript-views",
+            title: "Focus the transcript",
+            body: "Filter to just the coachable turns, or switch to a clean read with the coaching markers hidden.",
+        },
+        {
             id: "transcript-fix",
             title: "Fix misheard words",
             body: "If Sayzo got a name or word wrong, click it in the transcript to set it straight.",
