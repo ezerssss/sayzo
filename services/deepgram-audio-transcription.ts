@@ -1,5 +1,9 @@
 import "server-only";
 
+import { deepgramCostUsd } from "@/constants/llm-pricing";
+import { classifyError } from "@/lib/llm/error-class";
+import { recordLlmEvent } from "@/lib/llm/instrument";
+
 const DEEPGRAM_URL = "https://api.deepgram.com/v1/listen";
 
 // Minimal redaction set — credentials + payment + government ID only.
@@ -33,6 +37,8 @@ export async function transcribeAudioFileWithUtterances(
     file: File,
     /** Per-user vocabulary sent as Nova-3 keyterm hints. */
     keyterms: string[] = [],
+    /** Telemetry refs so the ASR event links back to the session. */
+    refs?: { uid?: string | null; sessionId?: string | null },
 ): Promise<{ text: string; utterances: TranscribedUtterance[] }> {
     const apiKey = process.env.DEEPGRAM_API_KEY?.trim();
     if (!apiKey) {
@@ -55,16 +61,44 @@ export async function transcribeAudioFileWithUtterances(
 
     const audioBytes = await file.arrayBuffer();
 
-    const res = await fetch(`${DEEPGRAM_URL}?${params.toString()}`, {
-        method: "POST",
-        headers: {
-            Authorization: `Token ${apiKey}`,
-            "Content-Type": file.type || "application/octet-stream",
-        },
-        body: audioBytes,
-    });
+    const eventRefs = {
+        uid: refs?.uid ?? null,
+        sessionId: refs?.sessionId ?? null,
+    };
+    const start = Date.now();
+    let res: Response;
+    try {
+        res = await fetch(`${DEEPGRAM_URL}?${params.toString()}`, {
+            method: "POST",
+            headers: {
+                Authorization: `Token ${apiKey}`,
+                "Content-Type": file.type || "application/octet-stream",
+            },
+            body: audioBytes,
+        });
+    } catch (err) {
+        recordLlmEvent({
+            promptKey: "asr.deepgram",
+            model: "nova-3",
+            provider: "deepgram",
+            refs: eventRefs,
+            latencyMs: Date.now() - start,
+            success: false,
+            errorClass: classifyError(err),
+        });
+        throw err;
+    }
 
     if (!res.ok) {
+        recordLlmEvent({
+            promptKey: "asr.deepgram",
+            model: "nova-3",
+            provider: "deepgram",
+            refs: eventRefs,
+            latencyMs: Date.now() - start,
+            success: false,
+            errorClass: res.status >= 500 ? "provider_5xx" : "provider_4xx",
+        });
         const detail = await res.text();
         throw new Error(
             `Transcription failed (${res.status}): ${detail.slice(0, 500)}`,
@@ -72,6 +106,7 @@ export async function transcribeAudioFileWithUtterances(
     }
 
     const body = (await res.json()) as {
+        metadata?: { duration?: number };
         results?: {
             channels?: Array<{
                 alternatives?: Array<{ transcript?: string }>;
@@ -83,6 +118,16 @@ export async function transcribeAudioFileWithUtterances(
             }>;
         };
     };
+
+    recordLlmEvent({
+        promptKey: "asr.deepgram",
+        model: "nova-3",
+        provider: "deepgram",
+        refs: eventRefs,
+        latencyMs: Date.now() - start,
+        success: true,
+        costOverrideUsd: deepgramCostUsd(body.metadata?.duration ?? 0),
+    });
 
     const text = (
         body.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? ""

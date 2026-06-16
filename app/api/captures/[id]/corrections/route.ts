@@ -132,8 +132,10 @@ export async function POST(
         // Layer 1: deterministic guards. Guard-passing candidates accumulate
         // into `passedGuards` so in-batch overlaps are caught.
         const results: SubmitResult[] = [];
-        const passedGuards: { index: number; candidate: CorrectionCandidate }[] =
-            [];
+        const passedGuards: {
+            index: number;
+            candidate: CorrectionCandidate;
+        }[] = [];
         for (let i = 0; i < candidates.length; i++) {
             const guardRejection = checkCorrectionGuards(
                 candidates[i],
@@ -160,6 +162,7 @@ export async function POST(
                 original: candidate.original,
                 replacement: candidate.replacement,
             })),
+            { uid, captureId },
         );
 
         const accepted: TranscriptCorrection[] = [];
@@ -238,7 +241,9 @@ export async function POST(
             error,
         );
         return NextResponse.json(
-            { error: "Sayzo couldn't check this fix just now. Please try again." },
+            {
+                error: "Sayzo couldn't check this fix just now. Please try again.",
+            },
             { status: 502 },
         );
     }

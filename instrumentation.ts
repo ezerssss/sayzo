@@ -93,4 +93,41 @@ export async function register() {
     console.log(
         `[diagnostics/cron] Retention sweep registered — every ${PRUNE_INTERVAL_MS / 1000 / 3600}h`,
     );
+
+    // Metrics rollup + alert evaluation — rolls llm_events into metric_rollups
+    // and raises/resolves admin_alerts. Idempotent (writes by deterministic doc
+    // id + reconciles), so duplicate ticks across restarts/workers are safe.
+    const ROLLUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+    const ROLLUP_STARTUP_DELAY_MS = 5 * 60 * 1000; // 5 min after boot
+
+    async function rollup() {
+        try {
+            const res = await fetch(
+                `http://localhost:${port}/api/metrics/rollup`,
+                {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${cronSecret}` },
+                },
+            );
+            const data = (await res.json()) as {
+                rollup?: { rollupsWritten?: number };
+                alerts?: { raised?: number; resolved?: number };
+                error?: string;
+            };
+            if (data.rollup || data.alerts) {
+                console.log(
+                    `[metrics/cron] Rolled ${data.rollup?.rollupsWritten ?? 0} bucket(s); alerts +${data.alerts?.raised ?? 0}/-${data.alerts?.resolved ?? 0}`,
+                );
+            }
+        } catch {
+            // Server may not be ready yet — retry on the next interval.
+        }
+    }
+
+    setTimeout(() => void rollup(), ROLLUP_STARTUP_DELAY_MS);
+    setInterval(() => void rollup(), ROLLUP_INTERVAL_MS);
+
+    console.log(
+        `[metrics/cron] Rollup + alerts registered — every ${ROLLUP_INTERVAL_MS / 1000 / 3600}h`,
+    );
 }

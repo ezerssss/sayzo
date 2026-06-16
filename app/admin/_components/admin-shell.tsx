@@ -7,9 +7,11 @@ import { useEffect } from "react";
 import {
     AlertCircle,
     BadgeCheck,
+    Gauge,
     History,
     LayoutDashboard,
     LifeBuoy,
+    LineChart,
     Loader2,
     LogOut,
     Users,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { GoogleLoginPanel } from "@/components/auth/google-login-panel";
+import { AlertsBanner } from "@/app/admin/_components/alerts-banner";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -25,9 +28,19 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS: Array<{ href: string; label: string; Icon: typeof Users }> = [
     { href: "/admin", label: "Overview", Icon: LayoutDashboard },
     { href: "/admin/users", label: "Users", Icon: Users },
-    { href: "/admin/access-requests", label: "Access requests", Icon: BadgeCheck },
-    { href: "/admin/support-reports", label: "Support reports", Icon: LifeBuoy },
+    {
+        href: "/admin/access-requests",
+        label: "Access requests",
+        Icon: BadgeCheck,
+    },
+    {
+        href: "/admin/support-reports",
+        label: "Support reports",
+        Icon: LifeBuoy,
+    },
     { href: "/admin/jobs", label: "Failed jobs", Icon: AlertCircle },
+    { href: "/admin/prompts", label: "Prompt health", Icon: LineChart },
+    { href: "/admin/metrics", label: "Metrics", Icon: Gauge },
     { href: "/admin/maintenance", label: "Maintenance", Icon: Wrench },
     { href: "/admin/audit", label: "Audit log", Icon: History },
 ];
@@ -137,7 +150,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
                         {user.email}
                     </span>
                 </header>
-                <div className="flex flex-1 flex-col p-6">{children}</div>
+                <div className="flex flex-1 flex-col p-6">
+                    <AlertsBanner />
+                    {children}
+                </div>
             </div>
         </div>
     );

@@ -17,6 +17,7 @@ import type {
 } from "@/schemas";
 import type { DifferentialContext } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
+import type { LlmQualityOutcome } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 import {
     coachingInsightTypeSchema,
@@ -36,6 +37,7 @@ import {
     resolveAnchorIdx,
 } from "@/lib/transcripts/anchor-resolver";
 import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { loadModelPromptParts } from "@/lib/openai/prompt";
 import { modelTuningOptions } from "@/lib/openai/reasoning";
 import { sanitizeSpokenFields } from "@/lib/text/despeechify";
@@ -130,6 +132,16 @@ export type CaptureAnalyzerInput = {
     >;
     /** History slice that makes feedback differential (tracked habits + recent headlines). */
     differential: DifferentialContext;
+    /**
+     * Telemetry context. `record: false` (the admin reanalyze-insight preview)
+     * skips writing an `llm_events` doc so prompt-iteration runs never pollute
+     * production metrics. Omitted → recorded with the given refs.
+     */
+    telemetry?: {
+        uid?: string | null;
+        captureId?: string | null;
+        record?: boolean;
+    };
 };
 
 function readPrompt(): string {
@@ -281,6 +293,17 @@ function extractQuotedSpans(text: string): string[] {
  * `analyzed` (failure isolation). `null` is also the correct output when
  * nothing is actionable.
  */
+/**
+ * Result of building the stored insight: the insight (or null) plus the
+ * quality-outcome code for telemetry. `outcome` is null when an insight is
+ * produced, and one of the rejection/null codes otherwise — these are the
+ * signals that used to only hit `console.warn`.
+ */
+type InsightBuildResult = {
+    insight: CoachingInsight | null;
+    outcome: LlmQualityOutcome | null;
+};
+
 function buildCoachingInsight(
     raw: {
         type: string;
@@ -291,14 +314,18 @@ function buildCoachingInsight(
     } | null,
     hasCoachableEnglish: boolean,
     transcript: CaptureTranscriptLine[],
-): CoachingInsight | null {
+): InsightBuildResult {
     try {
-        if (!raw || !hasCoachableEnglish) return null;
+        if (!raw || !hasCoachableEnglish) {
+            return { insight: null, outcome: "INSIGHT_NULL" };
+        }
 
         const headline = (raw.headline ?? "").trim();
         const body = (raw.body ?? "").trim();
         // A card with no headline or no concrete suggestion teaches nothing.
-        if (!headline || !body) return null;
+        if (!headline || !body) {
+            return { insight: null, outcome: "INSIGHT_NULL" };
+        }
 
         // Hard reject the bromides the prompt's Rule #1 lists as INVALID.
         // See GENERIC_INSIGHT_STEMS above for why the same list lives in code.
@@ -306,7 +333,7 @@ function buildCoachingInsight(
             console.warn(
                 "[coaching-insight] rejected as generic — headline/body matched a deny-list stem",
             );
-            return null;
+            return { insight: null, outcome: "GENERIC_INSIGHT" };
         }
 
         const parsedType = coachingInsightTypeSchema.safeParse(raw.type);
@@ -323,7 +350,7 @@ function buildCoachingInsight(
             console.warn(
                 "[coaching-insight] rejected: Try-rewrite body without a verified quote",
             );
-            return null;
+            return { insight: null, outcome: "TRY_REWRITE_NO_QUOTE" };
         }
 
         // Fabrication floor: suggested wording may not contain specifics the
@@ -336,15 +363,15 @@ function buildCoachingInsight(
             console.warn(
                 `[coaching-insight] rejected: body invents a specific not in the transcript ("${fabricated}")`,
             );
-            return null;
+            return { insight: null, outcome: "FABRICATED_INSIGHT_BODY" };
         }
 
         const whyTrimmed = (raw.why ?? "").trim();
         const why = whyTrimmed.length > 0 ? whyTrimmed : null;
 
-        return { type, headline, quote, body, why };
+        return { insight: { type, headline, quote, body, why }, outcome: null };
     } catch {
-        return null;
+        return { insight: null, outcome: "INSIGHT_NULL" };
     }
 }
 
@@ -379,7 +406,8 @@ function logFabricationTelemetry(
         "turnRewrites" | "fixTheseFirst" | "moreMoments"
     >,
     transcript: CaptureTranscriptLine[],
-): void {
+): LlmQualityOutcome[] {
+    const outcomes = new Set<LlmQualityOutcome>();
     try {
         for (const t of analysis.turnRewrites ?? []) {
             // non_english entries are a verbatim passthrough of garbled
@@ -387,6 +415,7 @@ function logFabricationTelemetry(
             if (t.verdict === "non_english") continue;
             const token = findFabricatedToken([t.rewrite], transcript);
             if (token) {
+                outcomes.add("FABRICATED_TURN_REWRITE");
                 console.warn(
                     `[fabrication-telemetry] turnRewrites[${t.transcriptIdx}].rewrite contains "${token}" not found in transcript`,
                 );
@@ -402,6 +431,7 @@ function logFabricationTelemetry(
                 transcript,
             );
             if (token) {
+                outcomes.add("FABRICATED_BETTER_OPTION");
                 console.warn(
                     `[fabrication-telemetry] betterOption (anchor "${m.anchor.slice(0, 40)}") contains "${token}" not found in transcript`,
                 );
@@ -410,6 +440,7 @@ function logFabricationTelemetry(
     } catch {
         // Telemetry must never break analysis.
     }
+    return [...outcomes];
 }
 
 export async function analyzeCaptureDeep(
@@ -485,29 +516,54 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
     // rule recap (late instructions weigh heavier on chat models). See
     // loadModelPromptParts.
     const promptParts = loadModelPromptParts(readPrompt(), modelName);
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(captureAnalysisSchema),
-            name: "CaptureDeepAnalysis",
-            description:
-                "Deep analysis of a captured English conversation for coaching purposes.",
-        }),
-        system: promptParts.system,
-        prompt: promptParts.postTranscriptRecap
-            ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
-            : prompt,
-        ...modelTuningOptions(modelName, {
-            temperature: defaultTemperature(),
-            reasoningEffort: defaultReasoningEffort(),
-            // Per-field length contracts in the prompt ("2-4 sentences")
-            // locally override the low global verbosity.
-            textVerbosity: "low",
-        }),
-    });
+    const runAnalysis = () =>
+        generateText({
+            model: openai(modelName),
+            output: Output.object({
+                schema: zodSchema(captureAnalysisSchema),
+                name: "CaptureDeepAnalysis",
+                description:
+                    "Deep analysis of a captured English conversation for coaching purposes.",
+            }),
+            system: promptParts.system,
+            prompt: promptParts.postTranscriptRecap
+                ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
+                : prompt,
+            ...modelTuningOptions(modelName, {
+                temperature: defaultTemperature(),
+                reasoningEffort: defaultReasoningEffort(),
+                // Per-field length contracts in the prompt ("2-4 sentences")
+                // locally override the low global verbosity.
+                textVerbosity: "low",
+            }),
+        });
 
-    const isUserLine = (line: CaptureTranscriptLine) =>
-        line.speaker === "user";
+    // Skip telemetry for the admin reanalyze-insight preview so prompt-iteration
+    // runs never land in production metrics; finalize() patches the quality
+    // outcomes onto the event once we've computed them below.
+    const record = input.telemetry?.record ?? true;
+    let result: Awaited<ReturnType<typeof runAnalysis>>;
+    let finalizeEvent: (patch: {
+        qualityOutcomes?: LlmQualityOutcome[];
+    }) => void = () => {};
+    if (record) {
+        const instrumented = await runInstrumentedLLM({
+            promptKey: "capture.deep_analysis",
+            model: modelName,
+            promptParts,
+            refs: {
+                uid: input.telemetry?.uid ?? null,
+                captureId: input.telemetry?.captureId ?? null,
+            },
+            call: runAnalysis,
+        });
+        result = instrumented.result;
+        finalizeEvent = instrumented.finalize;
+    } else {
+        result = await runAnalysis();
+    }
+
+    const isUserLine = (line: CaptureTranscriptLine) => line.speaker === "user";
 
     // Coaching moments anchor on user-line text only; resolve verbatim
     // anchors against the transcript and drop hallucinated quotes.
@@ -564,8 +620,9 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
                     if (resolved.confidence === "unresolved") return null;
                     return { transcriptIdx: resolved.idx, text: ex.text };
                 })
-                .filter((ex): ex is { transcriptIdx: number; text: string } =>
-                    ex !== null,
+                .filter(
+                    (ex): ex is { transcriptIdx: number; text: string } =>
+                        ex !== null,
                 );
             return {
                 pattern: gp.pattern,
@@ -593,6 +650,12 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
             ),
         }));
 
+    const insightResult = buildCoachingInsight(
+        result.output.coachingInsight,
+        result.output.hasCoachableEnglish,
+        transcript,
+    );
+
     const analysis: ItemAnalysis = {
         overview: result.output.overview,
         mainIssue: result.output.mainIssue,
@@ -614,24 +677,35 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
         communicationStyle: result.output.communicationStyle,
         turnRewrites,
         structuralObservations,
-        coachingInsight: buildCoachingInsight(
-            result.output.coachingInsight,
-            result.output.hasCoachableEnglish,
-            transcript,
-        ),
+        coachingInsight: insightResult.insight,
     };
 
-    logFabricationTelemetry(analysis, transcript);
+    const fabricationOutcomes = logFabricationTelemetry(analysis, transcript);
+
+    // Floor: strip un-speakable punctuation (dashes everywhere; colons,
+    // semicolons, brackets inside quoted spoken wording) from spoken
+    // sub-fields (turnRewrites.rewrite, coachingInsight.body, every
+    // betterOption). The prompt asks the model to avoid them; this
+    // guarantees it. See lib/text/despeechify.ts.
+    const sanitized = sanitizeSpokenFields(analysis);
+
+    // Layer-2 quality outcomes: the signals that previously only hit
+    // console.warn, recorded as enums on the telemetry event (transcript-free).
+    const outcomes: LlmQualityOutcome[] = [];
+    if (insightResult.outcome) outcomes.push(insightResult.outcome);
+    outcomes.push(...fabricationOutcomes);
+    if (turnRewrites.some((t) => t.verdict === "non_english")) {
+        outcomes.push("NON_ENGLISH_PASSTHROUGH");
+    }
+    if (JSON.stringify(sanitized) !== JSON.stringify(analysis)) {
+        outcomes.push("DESPEECHIFY_APPLIED");
+    }
+    finalizeEvent({ qualityOutcomes: outcomes });
 
     return {
         serverTitle: result.output.serverTitle,
         serverSummary: result.output.serverSummary,
-        // Floor: strip un-speakable punctuation (dashes everywhere; colons,
-        // semicolons, brackets inside quoted spoken wording) from spoken
-        // sub-fields (turnRewrites.rewrite, coachingInsight.body, every
-        // betterOption). The prompt asks the model to avoid them; this
-        // guarantees it. See lib/text/despeechify.ts.
-        analysis: sanitizeSpokenFields(analysis),
+        analysis: sanitized,
     };
 }
 

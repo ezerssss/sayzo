@@ -65,6 +65,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // User reactions (thumbs up/down + optional reason) on coaching output.
+    // Owner identified by `uid` field — owner reads their own to render current
+    // state; admin reads all for monitoring. Server (Admin SDK) is the only
+    // writer, via POST /api/reactions.
+    match /item_reactions/{reactionId} {
+      allow read: if ownsResource() || isAdmin();
+      allow write: if false;
+    }
+
     // ----------------------------------------------------------------
     // Server-only collections — admin can read, no one writes from client
     // ----------------------------------------------------------------
@@ -119,6 +128,28 @@ service cloud.firestore {
     // error logs — PII/content-free, no meeting audio/transcripts). Admin read
     // for the dashboard; the Admin SDK is the only writer.
     match /diagnostic_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Per-call LLM/ASR/TTS telemetry + quality enums + prompt-version hash + id
+    // refs. Content-free (no transcript, no error.message). Admin read; the
+    // Admin SDK is the only writer (fire-and-forget from the analysis pipeline).
+    match /llm_events/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Daily pre-aggregated metric counters over llm_events. Admin read; written
+    // by the rollup cron via the Admin SDK only.
+    match /metric_rollups/{rollupId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // In-app admin alerts (threshold trips). Admin read; written by the rollup
+    // cron / admin ack-resolve routes via the Admin SDK only.
+    match /admin_alerts/{alertId} {
       allow read: if isAdmin();
       allow write: if false;
     }

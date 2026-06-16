@@ -22,6 +22,28 @@ export enum FirestoreCollectionName {
      * no client write). PII/content-free; auto-pruned (see lib/diagnostics/retention.ts).
      */
     DIAGNOSTIC_LOGS = "diagnostic_logs",
+    /**
+     * User reactions (thumbs up/down + optional reason) on coaching output.
+     * Owner-readable (renders current state) + admin read; server is the only
+     * writer via POST /api/reactions. See schemas/feedback/item-reaction.ts.
+     */
+    ITEM_REACTIONS = "item_reactions",
+    /**
+     * Per-call LLM/ASR/TTS telemetry + quality outcomes + prompt-version hash.
+     * Server-only (admin read, no client write). Content-free (no transcript).
+     * See schemas/metrics/llm-event.ts.
+     */
+    LLM_EVENTS = "llm_events",
+    /**
+     * Daily pre-aggregated metric counters over `llm_events`. Server-only
+     * (admin read, no client write). See schemas/metrics/metric-rollup.ts.
+     */
+    METRIC_ROLLUPS = "metric_rollups",
+    /**
+     * In-app admin alerts raised when a monitored rate crosses threshold.
+     * Server-only (admin read, no client write). See schemas/metrics/admin-alert.ts.
+     */
+    ADMIN_ALERTS = "admin_alerts",
 }
 
 export const FirestoreCollections = {
@@ -63,5 +85,17 @@ export const FirestoreCollections = {
     },
     diagnosticLogs: {
         path: FirestoreCollectionName.DIAGNOSTIC_LOGS,
+    },
+    itemReactions: {
+        path: FirestoreCollectionName.ITEM_REACTIONS,
+    },
+    llmEvents: {
+        path: FirestoreCollectionName.LLM_EVENTS,
+    },
+    metricRollups: {
+        path: FirestoreCollectionName.METRIC_ROLLUPS,
+    },
+    adminAlerts: {
+        path: FirestoreCollectionName.ADMIN_ALERTS,
     },
 } as const;

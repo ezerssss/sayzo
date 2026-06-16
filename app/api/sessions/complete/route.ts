@@ -12,16 +12,14 @@ import {
     generateSessionFeedback,
     type ReplayContext,
 } from "@/services/analyzer";
-import type {
-    CaptureTranscriptLine,
-    CaptureType,
-} from "@/schemas";
+import type { CaptureTranscriptLine, CaptureType } from "@/schemas";
 import { reconcileMoments } from "@/lib/transcripts/anchor-resolver";
 import { transcribeAudioFileWithUtterances } from "@/services/deepgram-audio-transcription";
 import { mergeDrillNotesFromSession } from "@/services/learner-context-updater";
 import { refreshSkillMemoryFromLatestSession } from "@/services/skill-memory-updater";
 import { modelTuningOptions } from "@/lib/openai/reasoning";
 import { Output, generateText, zodSchema } from "ai";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { randomUUID } from "node:crypto";
 import {
     getOrHydrateLearnerModel,
@@ -184,8 +182,7 @@ export async function POST(request: NextRequest) {
         // consume a credit when this is the first record attempt for this
         // session (no audio uploaded yet).
         const isFirstRecordAttempt =
-            !session.audioObjectPath?.trim() &&
-            !session.transcript?.trim();
+            !session.audioObjectPath?.trim() && !session.transcript?.trim();
         if (isFirstRecordAttempt) {
             try {
                 await consumeCreditOrThrow(uid);
@@ -273,6 +270,7 @@ export async function POST(request: NextRequest) {
             deepgramResult = await transcribeAudioFileWithUtterances(
                 audio,
                 model.asrVocabulary,
+                { uid, sessionId },
             );
         } catch (transcribeError) {
             console.error(
@@ -309,14 +307,15 @@ export async function POST(request: NextRequest) {
         // feedback-chat all rely on its `[mm:ss] text` format. The structured
         // form powers the drill transcript UI (per-line blue-accented rows +
         // inline coaching-moment badges) and mirrors captures.
-        const serverTranscript: CaptureTranscriptLine[] = deepgramResult.utterances
-            .filter((u) => (u.transcript ?? "").trim().length > 0)
-            .map((u) => ({
-                speaker: "user",
-                start: u.start,
-                end: u.end,
-                text: u.transcript.trim(),
-            }));
+        const serverTranscript: CaptureTranscriptLine[] =
+            deepgramResult.utterances
+                .filter((u) => (u.transcript ?? "").trim().length > 0)
+                .map((u) => ({
+                    speaker: "user",
+                    start: u.start,
+                    end: u.end,
+                    text: u.transcript.trim(),
+                }));
 
         // 2) Upload audio to Firebase Storage + persist URL
         await sessionRef.set(
@@ -374,15 +373,7 @@ export async function POST(request: NextRequest) {
         let skipReason = "";
         const relevanceCheckModel =
             process.env.ANALYZER_MODEL?.trim() || "gpt-4o-mini";
-        const relevanceCheck = await generateText({
-            model: openai(relevanceCheckModel),
-            output: Output.object({
-                schema: zodSchema(attemptCheckSchema),
-                name: "AttemptRelevanceCheck",
-                description:
-                    "Checks whether a spoken response is usable and related to the assigned drill.",
-            }),
-            system: `You are a strict evaluator for spoken drill validity.
+        const relevanceSystem = `You are a strict evaluator for spoken drill validity.
 
 CONTEXT: drills are 60-second bite-sized recordings, hard-capped at 60s. Responses commonly stop mid-sentence at the buzzer — that is BY DESIGN, not a retry signal. A focused 20-50 second answer that ends abruptly is normal and fully coachable.
 
@@ -396,8 +387,23 @@ hasCoachableSignal — true when there is any real attempt to answer the prompt,
 
 Bias toward usable+coachable. The user just hit a 60-second wall — don't punish them for it. Only force a retry when the response truly cannot be analyzed.
 
-Return only the schema fields.`,
-            prompt: `## Drill
+Return only the schema fields.`;
+        const { result: relevanceCheck } = await runInstrumentedLLM({
+            promptKey: "session.relevance",
+            model: relevanceCheckModel,
+            promptParts: { system: relevanceSystem },
+            refs: { uid, sessionId },
+            call: () =>
+                generateText({
+                    model: openai(relevanceCheckModel),
+                    output: Output.object({
+                        schema: zodSchema(attemptCheckSchema),
+                        name: "AttemptRelevanceCheck",
+                        description:
+                            "Checks whether a spoken response is usable and related to the assigned drill.",
+                    }),
+                    system: relevanceSystem,
+                    prompt: `## Drill
 Category: ${session.plan.scenario.category}
 Title: ${session.plan.scenario.title}
 Question: ${session.plan.scenario.question}
@@ -406,11 +412,12 @@ Time cap: ${session.plan.maxDurationSeconds ?? 60} seconds (hard stop — mid-th
 
 ## Transcript
 ${transcript}`,
-            // Three booleans + a sentence — minimal reasoning effort.
-            ...modelTuningOptions(relevanceCheckModel, {
-                temperature: 0,
-                reasoningEffort: "minimal",
-            }),
+                    // Three booleans + a sentence — minimal reasoning effort.
+                    ...modelTuningOptions(relevanceCheckModel, {
+                        temperature: 0,
+                        reasoningEffort: "minimal",
+                    }),
+                }),
         });
 
         const relevanceReason =
@@ -459,10 +466,7 @@ ${transcript}`,
         } else {
             // Load source capture for comparison feedback if this is a replay
             let replayContext: ReplayContext | undefined;
-            if (
-                session.type === "scenario_replay" &&
-                session.sourceCaptureId
-            ) {
+            if (session.type === "scenario_replay" && session.sourceCaptureId) {
                 try {
                     const captureSnap = await db
                         .collection(FirestoreCollections.captures.path)
@@ -474,12 +478,10 @@ ${transcript}`,
                     if (capture?.analysis) {
                         replayContext = {
                             sourceCapture: {
-                                title:
-                                    capture.serverTitle ?? capture.title,
+                                title: capture.serverTitle ?? capture.title,
                                 summary:
                                     capture.serverSummary ?? capture.summary,
-                                transcript:
-                                    capture.serverTranscript ?? [],
+                                transcript: capture.serverTranscript ?? [],
                                 analysis: capture.analysis,
                             },
                         };
@@ -514,32 +516,37 @@ ${transcript}`,
                     })),
             };
 
-            const llmAnalysis = await analyzeSession({
-                userProfile: {
-                    role: userProfile.role,
-                    industry: userProfile.industry,
-                    companyName: userProfile.companyName ?? "",
-                    companyDescription: userProfile.companyDescription ?? "",
-                    workplaceCommunicationContext:
-                        userProfile.workplaceCommunicationContext ?? "",
-                    wantsInterviewPractice:
-                        userProfile.wantsInterviewPractice ?? false,
-                    motivation: userProfile.motivation ?? "",
-                    goals: userProfile.goals,
-                    additionalContext: userProfile.additionalContext,
+            const llmAnalysis = await analyzeSession(
+                {
+                    userProfile: {
+                        role: userProfile.role,
+                        industry: userProfile.industry,
+                        companyName: userProfile.companyName ?? "",
+                        companyDescription:
+                            userProfile.companyDescription ?? "",
+                        workplaceCommunicationContext:
+                            userProfile.workplaceCommunicationContext ?? "",
+                        wantsInterviewPractice:
+                            userProfile.wantsInterviewPractice ?? false,
+                        motivation: userProfile.motivation ?? "",
+                        goals: userProfile.goals,
+                        additionalContext: userProfile.additionalContext,
+                    },
+                    skillMemory: {
+                        strengths: skillMemory.strengths,
+                        weaknesses: skillMemory.weaknesses,
+                        masteredFocus: skillMemory.masteredFocus,
+                        reinforcementFocus: skillMemory.reinforcementFocus,
+                    },
+                    differential,
+                    session: {
+                        plan: session.plan,
+                        transcript,
+                    },
                 },
-                skillMemory: {
-                    strengths: skillMemory.strengths,
-                    weaknesses: skillMemory.weaknesses,
-                    masteredFocus: skillMemory.masteredFocus,
-                    reinforcementFocus: skillMemory.reinforcementFocus,
-                },
-                differential,
-                session: {
-                    plan: session.plan,
-                    transcript,
-                },
-            }, replayContext);
+                replayContext,
+                { uid, sessionId },
+            );
 
             const reconciledFixes = reconcileMoments(
                 llmAnalysis.fixTheseFirst,
@@ -587,6 +594,7 @@ ${transcript}`,
                 },
                 { sessionAnalysis: analysis },
                 replayContext,
+                { uid, sessionId },
             );
             completionStatus = shouldRequireRetry ? "needs_retry" : "passed";
             completionReason = shouldRequireRetry ? skipReason : null;
@@ -641,14 +649,13 @@ ${transcript}`,
             if (!shouldSkipDeepAnalysis && transcript.trim().length >= 120) {
                 const freshModel = await getOrHydrateLearnerModel(db, uid);
                 if (freshModel.lastLearnerContextSessionId !== sessionId) {
-                    const { drillNotes } =
-                        await mergeDrillNotesFromSession({
-                            previousDrillNotes:
-                                freshModel.context.drillNotes.trim(),
-                            plan: session.plan,
-                            transcript,
-                            completionStatus,
-                        });
+                    const { drillNotes } = await mergeDrillNotesFromSession({
+                        previousDrillNotes:
+                            freshModel.context.drillNotes.trim(),
+                        plan: session.plan,
+                        transcript,
+                        completionStatus,
+                    });
                     // Write only `context.drillNotes` (Firestore deep-merges
                     // nested maps, preserving realWorldNotes/deliveryNotes a
                     // concurrent capture writer may have just set). Spreading

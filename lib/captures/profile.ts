@@ -12,14 +12,12 @@ import {
     getOrHydrateLearnerModel,
     learnerModelDoc,
 } from "@/lib/learner-model/store";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { mergeTrackedPatterns } from "@/lib/learner-model/tracked-patterns";
 import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 import { llmTrackedPatternSchema } from "@/schemas";
-import type {
-    ItemAnalysis,
-    CaptureTranscriptLine,
-} from "@/schemas";
+import type { ItemAnalysis, CaptureTranscriptLine } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
@@ -87,9 +85,7 @@ function formatDimension(dim: {
 }
 
 function deduplicateAndCap(items: string[], limit: number): string[] {
-    const normalized = items
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+    const normalized = items.map((s) => s.trim()).filter((s) => s.length > 0);
     return Array.from(new Set(normalized)).slice(0, limit);
 }
 
@@ -149,16 +145,23 @@ export async function updateUserProfileFromCapture(
         : "(none yet)";
 
     const modelName = defaultModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(profileUpdateSchema),
-            name: "CaptureProfileUpdate",
-            description:
-                "Profile updates derived from a real conversation capture (context + delivery, separately).",
-        }),
-        system: loadModelPrompt(readPrompt(), modelName),
-        prompt: `## Current user profile
+    const system = loadModelPrompt(readPrompt(), modelName);
+    const { result } = await runInstrumentedLLM({
+        promptKey: "capture.profile",
+        model: modelName,
+        promptParts: { system },
+        refs: { uid, captureId },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(profileUpdateSchema),
+                    name: "CaptureProfileUpdate",
+                    description:
+                        "Profile updates derived from a real conversation capture (context + delivery, separately).",
+                }),
+                system,
+                prompt: `## Current user profile
 - Role: ${userProfile.role || "(not set)"}
 - Industry: ${userProfile.industry || "(not set)"}
 - Company: ${userProfile.companyName || "(not set)"}
@@ -197,12 +200,12 @@ Summary: ${summary}
 
 ## Quantitative summary
 - Teachable moments: ${(() => {
-    const all = [
-        ...(analysis.fixTheseFirst ?? []),
-        ...(analysis.moreMoments ?? []),
-    ];
-    return `${all.length} (${all.filter((m) => m.severity === "major").length} major)`;
-})()}
+                    const all = [
+                        ...(analysis.fixTheseFirst ?? []),
+                        ...(analysis.moreMoments ?? []),
+                    ];
+                    return `${all.length} (${all.filter((m) => m.severity === "major").length} major)`;
+                })()}
 - Grammar patterns: ${(analysis.grammarPatterns ?? []).map((p) => `${p.pattern} (${p.frequency}x)`).join("; ") || "(none)"}
 - Filler words: ${(analysis.fillerWords?.perMinute ?? 0).toFixed(1)}/min
 - Fluency: ${analysis.fluency?.wordsPerMinute ?? 0} WPM, ${analysis.fluency?.selfCorrections ?? 0} self-corrections, ${analysis.fluency?.avgResponseLatencyMs ?? 0}ms avg response latency
@@ -210,7 +213,8 @@ Summary: ${summary}
 
 ## Transcript
 ${formatTranscript(transcript)}`,
-        ...temperatureOptions(modelName, 0.15),
+                ...temperatureOptions(modelName, 0.15),
+            }),
     });
 
     const {

@@ -18,6 +18,11 @@ const SHARED_STEPS = {
         title: "Talk through any note",
         body: "Disagree with something, or want more detail? Open a quick chat with your coach about that piece of feedback.",
     },
+    rateFeedback: {
+        id: "rate-feedback",
+        title: "Tell Sayzo how it did",
+        body: "A quick thumbs up or down on your coaching helps Sayzo get sharper. Add a note if you want to say more.",
+    },
 } satisfies Record<string, TourStepDef>;
 
 /**
@@ -59,6 +64,7 @@ export const TOUR_STEPS: Record<TourPage, TourStepDef[]> = {
             title: "Practice with a Replay",
             body: "Redo this conversation in your own words, and Sayzo will coach your new take.",
         },
+        SHARED_STEPS.rateFeedback,
     ],
     replay: [
         {
@@ -73,5 +79,6 @@ export const TOUR_STEPS: Record<TourPage, TourStepDef[]> = {
             title: "Try another take",
             body: "Run this Replay again whenever you like — a second take is the fastest way to lock in a fix.",
         },
+        SHARED_STEPS.rateFeedback,
     ],
 };

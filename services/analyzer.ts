@@ -21,9 +21,13 @@ import type { DifferentialContext } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
 import { formatDifferentialBlocks } from "@/lib/learner-model/format-differential";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { loadModelPromptParts } from "@/lib/openai/prompt";
 import { modelTuningOptions } from "@/lib/openai/reasoning";
 import { sanitizeSpokenFields } from "@/lib/text/despeechify";
+
+/** Telemetry refs threaded from the route so events link back to the session. */
+export type AnalyzerRefs = { uid?: string | null; sessionId?: string | null };
 
 /**
  * When the session is a scenario replay of a captured conversation, the
@@ -108,10 +112,7 @@ export type AnalyzerInput = {
     >;
     skillMemory: Pick<
         LearnerModel,
-        | "strengths"
-        | "weaknesses"
-        | "masteredFocus"
-        | "reinforcementFocus"
+        "strengths" | "weaknesses" | "masteredFocus" | "reinforcementFocus"
     >;
     /** History slice that makes feedback differential (tracked habits + recent headlines). */
     differential: DifferentialContext;
@@ -151,10 +152,7 @@ function formatReplayContextBlock(replay: ReplayContext): string {
     // Include only user-spoken lines from the original transcript for comparison
     const userLines = sourceCapture.transcript
         .filter((l) => l.speaker === "user")
-        .map(
-            (l) =>
-                `[${l.start.toFixed(1)}s] ${l.text}`,
-        )
+        .map((l) => `[${l.start.toFixed(1)}s] ${l.text}`)
         .join("\n");
 
     return `
@@ -182,7 +180,10 @@ ${userLines || "(no user turns in original)"}
 - Communication style: directness=${(analysis.communicationStyle?.directness ?? 0).toFixed(2)}, formality=${(analysis.communicationStyle?.formality ?? 0).toFixed(2)}, confidence=${(analysis.communicationStyle?.confidence ?? 0).toFixed(2)}`;
 }
 
-function buildContextUserMessage(input: AnalyzerInput, replay?: ReplayContext): string {
+function buildContextUserMessage(
+    input: AnalyzerInput,
+    replay?: ReplayContext,
+): string {
     const { userProfile, skillMemory, session, differential } = input;
 
     const { trackedBlock, recentIssuesBlock } =
@@ -234,6 +235,7 @@ ${replay ? formatReplayContextBlock(replay) : ""}
 export async function analyzeSession(
     input: AnalyzerInput,
     replay?: ReplayContext,
+    refs?: AnalyzerRefs,
 ): Promise<LlmSessionAnalysis> {
     requireTranscript(input.session.transcript);
 
@@ -242,27 +244,34 @@ export async function analyzeSession(
 
     const modelName = defaultAnalyzerModel();
     const promptParts = loadModelPromptParts(system, modelName);
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(sessionAnalysisSchema),
-            name: "SessionAnalysis",
-            description:
-                "Structured analysis of one 60-second spoken practice session — main issue, ranked coaching moments (0-3), dimensional findings, and an optional what-went-well call-out.",
-        }),
-        system: promptParts.system,
-        // Chat models get a short rule recap AFTER the transcript (late
-        // instructions weigh heavier there); reasoning models get none.
-        prompt: promptParts.postTranscriptRecap
-            ? `${userContent}\n\n${promptParts.postTranscriptRecap}`
-            : userContent,
-        ...modelTuningOptions(modelName, {
-            temperature: 0.2,
-            // Extraction-style analysis over a short transcript — the
-            // documented case for scaling reasoning effort down.
-            reasoningEffort: "low",
-            textVerbosity: "low",
-        }),
+    const { result } = await runInstrumentedLLM({
+        promptKey: "session.analyze",
+        model: modelName,
+        promptParts,
+        refs: { uid: refs?.uid ?? null, sessionId: refs?.sessionId ?? null },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(sessionAnalysisSchema),
+                    name: "SessionAnalysis",
+                    description:
+                        "Structured analysis of one 60-second spoken practice session — main issue, ranked coaching moments (0-3), dimensional findings, and an optional what-went-well call-out.",
+                }),
+                system: promptParts.system,
+                // Chat models get a short rule recap AFTER the transcript (late
+                // instructions weigh heavier there); reasoning models get none.
+                prompt: promptParts.postTranscriptRecap
+                    ? `${userContent}\n\n${promptParts.postTranscriptRecap}`
+                    : userContent,
+                ...modelTuningOptions(modelName, {
+                    temperature: 0.2,
+                    // Extraction-style analysis over a short transcript — the
+                    // documented case for scaling reasoning effort down.
+                    reasoningEffort: "low",
+                    textVerbosity: "low",
+                }),
+            }),
     });
 
     // Floor: strip un-speakable punctuation from every `betterOption` (the
@@ -284,6 +293,7 @@ export async function generateSessionFeedback(
     input: AnalyzerInput,
     options: GenerateSessionFeedbackOptions = {},
     replay?: ReplayContext,
+    refs?: AnalyzerRefs,
 ): Promise<SessionFeedbackType> {
     requireTranscript(input.session.transcript);
 
@@ -297,25 +307,32 @@ export async function generateSessionFeedback(
     const modelName = defaultAnalyzerModel();
     const promptParts = loadModelPromptParts(system, modelName);
     const userContent = `${context}${analysisBlock}`;
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(sessionFeedbackSchema),
-            name: "SessionFeedback",
-            description:
-                "Stronger spoken rewrite of the learner's drill response with per-paragraph change notes.",
-        }),
-        system: promptParts.system,
-        prompt: promptParts.postTranscriptRecap
-            ? `${userContent}\n\n${promptParts.postTranscriptRecap}`
-            : userContent,
-        ...modelTuningOptions(modelName, {
-            temperature: 0.35,
-            reasoningEffort: "low",
-            // The rewrite is length-bound by the "same airtime" rule and the
-            // Note annotations need room — medium, not low.
-            textVerbosity: "medium",
-        }),
+    const { result } = await runInstrumentedLLM({
+        promptKey: "session.feedback",
+        model: modelName,
+        promptParts,
+        refs: { uid: refs?.uid ?? null, sessionId: refs?.sessionId ?? null },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(sessionFeedbackSchema),
+                    name: "SessionFeedback",
+                    description:
+                        "Stronger spoken rewrite of the learner's drill response with per-paragraph change notes.",
+                }),
+                system: promptParts.system,
+                prompt: promptParts.postTranscriptRecap
+                    ? `${userContent}\n\n${promptParts.postTranscriptRecap}`
+                    : userContent,
+                ...modelTuningOptions(modelName, {
+                    temperature: 0.35,
+                    reasoningEffort: "low",
+                    // The rewrite is length-bound by the "same airtime" rule and
+                    // the Note annotations need room — medium, not low.
+                    textVerbosity: "medium",
+                }),
+            }),
     });
 
     // Floor: strip un-speakable punctuation from the spoken rewrite paragraphs

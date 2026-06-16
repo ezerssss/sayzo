@@ -4,8 +4,10 @@ import Link from "next/link";
 import {
     AlertCircle,
     BadgeCheck,
+    Gauge,
     History,
     LifeBuoy,
+    LineChart,
     Users,
 } from "lucide-react";
 
@@ -20,7 +22,8 @@ const TILES: Array<{
     {
         href: "/admin/users",
         label: "Users",
-        description: "Search, view profile + data, edit credits, delete accounts.",
+        description:
+            "Search, view profile + data, edit credits, delete accounts.",
         Icon: Users,
     },
     {
@@ -38,8 +41,23 @@ const TILES: Array<{
     {
         href: "/admin/jobs",
         label: "Failed jobs",
-        description: "Inspect failed sessions + captures and retry their pipelines.",
+        description:
+            "Inspect failed sessions + captures and retry their pipelines.",
         Icon: AlertCircle,
+    },
+    {
+        href: "/admin/prompts",
+        label: "Prompt health",
+        description:
+            "Insight null rates, rejection mix, rewrite verdicts — how prompts land.",
+        Icon: LineChart,
+    },
+    {
+        href: "/admin/metrics",
+        label: "Metrics",
+        description:
+            "Pipeline latency, clustered failures, usage and retention.",
+        Icon: Gauge,
     },
     {
         href: "/admin/audit",
@@ -73,7 +91,9 @@ export default function AdminOverviewPage() {
                     >
                         <div className="flex items-center gap-2 text-foreground">
                             <Icon className="size-4" />
-                            <span className="text-sm font-semibold">{label}</span>
+                            <span className="text-sm font-semibold">
+                                {label}
+                            </span>
                         </div>
                         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                             {description}

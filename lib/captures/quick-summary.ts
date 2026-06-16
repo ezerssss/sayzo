@@ -6,11 +6,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { temperatureOptions } from "@/lib/openai/reasoning";
-import type {
-    CaptureCloseReason,
-    CaptureTranscriptLine,
-} from "@/schemas";
+import type { CaptureCloseReason, CaptureTranscriptLine } from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
@@ -34,6 +32,7 @@ export type QuickSummaryInput = {
     transcript: CaptureTranscriptLine[];
     closeReason: CaptureCloseReason;
     durationSecs: number;
+    refs?: { uid?: string | null; captureId?: string | null };
 };
 
 export type QuickSummaryResult = {
@@ -74,7 +73,7 @@ function formatTranscript(transcript: CaptureTranscriptLine[]): string {
 export async function generateQuickSummary(
     input: QuickSummaryInput,
 ): Promise<QuickSummaryResult> {
-    const { transcript, closeReason, durationSecs } = input;
+    const { transcript, closeReason, durationSecs, refs } = input;
 
     const prompt = `## Capture context
 Duration: ${Math.round(durationSecs)} seconds
@@ -84,18 +83,26 @@ Close reason: ${closeReason}
 ${formatTranscript(transcript)}`;
 
     const modelName = defaultModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(quickSummarySchema),
-            name: "CaptureQuickSummary",
-            description:
-                "Short neutral title (3-7 words) and 1-2 sentence summary for a freshly captured conversation.",
-        }),
-        system: readPrompt(),
-        prompt,
-        ...temperatureOptions(modelName, 0.2),
-        abortSignal: AbortSignal.timeout(QUICK_SUMMARY_TIMEOUT_MS),
+    const system = readPrompt();
+    const { result } = await runInstrumentedLLM({
+        promptKey: "capture.quick_summary",
+        model: modelName,
+        promptParts: { system },
+        refs: { uid: refs?.uid ?? null, captureId: refs?.captureId ?? null },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(quickSummarySchema),
+                    name: "CaptureQuickSummary",
+                    description:
+                        "Short neutral title (3-7 words) and 1-2 sentence summary for a freshly captured conversation.",
+                }),
+                system,
+                prompt,
+                ...temperatureOptions(modelName, 0.2),
+                abortSignal: AbortSignal.timeout(QUICK_SUMMARY_TIMEOUT_MS),
+            }),
     });
 
     return {

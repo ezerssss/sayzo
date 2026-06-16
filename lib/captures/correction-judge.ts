@@ -6,6 +6,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
+
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
 const judgeOutputSchema = z.object({
@@ -71,20 +73,30 @@ function formatItems(items: CorrectionJudgeInput[]): string {
  */
 export async function judgeCorrections(
     items: CorrectionJudgeInput[],
+    refs?: { uid?: string | null; captureId?: string | null },
 ): Promise<JudgedCorrection[]> {
     if (items.length === 0) return [];
 
-    const result = await generateText({
-        model: openai(defaultModel()),
-        output: Output.object({
-            schema: zodSchema(judgeOutputSchema),
-            name: "TranscriptCorrectionJudgement",
-            description:
-                "Judges whether each transcript fix is a plausible mishearing correction.",
-        }),
-        system: readPrompt(),
-        prompt: `## Submitted fixes\n\n${formatItems(items)}`,
-        temperature: 0,
+    const system = readPrompt();
+    const modelName = defaultModel();
+    const { result } = await runInstrumentedLLM({
+        promptKey: "capture.correction_judge",
+        model: modelName,
+        promptParts: { system },
+        refs: { uid: refs?.uid ?? null, captureId: refs?.captureId ?? null },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(judgeOutputSchema),
+                    name: "TranscriptCorrectionJudgement",
+                    description:
+                        "Judges whether each transcript fix is a plausible mishearing correction.",
+                }),
+                system,
+                prompt: `## Submitted fixes\n\n${formatItems(items)}`,
+                temperature: 0,
+            }),
     });
 
     const byIndex = new Map(result.output.items.map((i) => [i.index, i]));

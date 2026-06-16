@@ -6,6 +6,7 @@ import { ArrowRight, Loader2, Lock, Play, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
+import { ReactionBar } from "@/components/coaching/reaction-bar";
 import { AnalysisView } from "@/components/conversations/analysis-view";
 import { CaptureStatusBadge } from "@/components/conversations/capture-status-badge";
 import { Kicker, StaggerItem } from "@/components/coaching/briefing";
@@ -394,6 +395,10 @@ export function ConversationDetailView(props: Readonly<Props>) {
                                 uid={uid}
                                 corrections={corrections}
                             />
+                            {/* "Was this helpful?" sits right after the coaching,
+                                before the transcript — the natural rate-it moment,
+                                not buried at the bottom. */}
+                            <ReactionBar source="capture" itemId={captureId} />
                             {transcript.length > 0 && (
                                 <StaggerItem order={2}>
                                     <Kicker>Transcript</Kicker>

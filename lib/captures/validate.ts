@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import type { CaptureTranscriptLine } from "@/schemas";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
+import type { CaptureTranscriptLine, LlmQualityOutcome } from "@/schemas";
 
 const PROMPTS_DIR = join(process.cwd(), "prompts", "captures");
 
@@ -27,10 +28,7 @@ const NO_COACHABLE_ENGLISH_REJECTION =
     "This conversation didn't have enough English speech from you for Sayzo to coach. Mixed-language conversations are fine — there just need to be a few English turns from you.";
 
 function readPrompt(): string {
-    return readFileSync(
-        join(PROMPTS_DIR, "relevance-validation.md"),
-        "utf-8",
-    );
+    return readFileSync(join(PROMPTS_DIR, "relevance-validation.md"), "utf-8");
 }
 
 /**
@@ -56,18 +54,28 @@ export async function validateCaptureRelevance(
     transcript: CaptureTranscriptLine[],
     title: string,
     summary: string,
+    refs?: { uid?: string | null; captureId?: string | null },
 ): Promise<ValidationResult> {
-    const result = await generateText({
-        model: openai(defaultModel()),
-        output: Output.object({
-            schema: zodSchema(validationSchema),
-            name: "CaptureRelevanceValidation",
-            description:
-                "Validates whether a captured conversation is relevant for English coaching.",
-        }),
-        system: readPrompt(),
-        prompt: `## Title\n${title}\n\n## Summary\n${summary}\n\n## Transcript\n${formatTranscript(transcript)}`,
-        temperature: 0,
+    const system = readPrompt();
+    const modelName = defaultModel();
+    const { result, finalize } = await runInstrumentedLLM({
+        promptKey: "capture.validate",
+        model: modelName,
+        promptParts: { system },
+        refs: { uid: refs?.uid ?? null, captureId: refs?.captureId ?? null },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(validationSchema),
+                    name: "CaptureRelevanceValidation",
+                    description:
+                        "Validates whether a captured conversation is relevant for English coaching.",
+                }),
+                system,
+                prompt: `## Title\n${title}\n\n## Summary\n${summary}\n\n## Transcript\n${formatTranscript(transcript)}`,
+                temperature: 0,
+            }),
     });
 
     const {
@@ -79,6 +87,14 @@ export async function validateCaptureRelevance(
     } = result.output;
     const accepted =
         isRelevant && isOrganic && hasSubstance && hasCoachableEnglish;
+
+    // Layer-2: record which relevance gate(s) failed (enums only, no transcript).
+    const outcomes: LlmQualityOutcome[] = [];
+    if (!isRelevant) outcomes.push("REJECTED_NOT_RELEVANT");
+    if (!isOrganic) outcomes.push("REJECTED_NOT_ORGANIC");
+    if (!hasSubstance) outcomes.push("REJECTED_NO_SUBSTANCE");
+    if (!hasCoachableEnglish) outcomes.push("REJECTED_NO_COACHABLE_ENGLISH");
+    finalize({ qualityOutcomes: outcomes });
 
     if (accepted) {
         return { accepted: true, rejectionReason: null };

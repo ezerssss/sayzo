@@ -35,6 +35,14 @@ export * from "./capture/transcript-correction";
 export * from "./user/user";
 export * from "./user/tour-steps";
 
+// User reactions to coaching output
+export * from "./feedback/item-reaction";
+
+// LLM/ASR telemetry + daily rollups (prompt-performance monitoring)
+export * from "./metrics/llm-event";
+export * from "./metrics/metric-rollup";
+export * from "./metrics/admin-alert";
+
 // Desktop-companion remote diagnostics
 export * from "./diagnostics/diagnostic-log";
 

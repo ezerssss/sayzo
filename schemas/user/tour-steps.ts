@@ -16,6 +16,7 @@ export const TOUR_STEP_IDS = [
     "replay-conversation",
     "fix-these-first",
     "retry-replay",
+    "rate-feedback",
 ] as const;
 
 export type TourStepId = (typeof TOUR_STEP_IDS)[number];

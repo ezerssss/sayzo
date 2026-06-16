@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { UserProfileType } from "@/schemas";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
@@ -27,7 +28,9 @@ const userProfileFieldsSchema = z.object({
         ),
     companyName: z
         .string()
-        .describe("Employer or organization name if provided, else empty string."),
+        .describe(
+            "Employer or organization name if provided, else empty string.",
+        ),
     companyDescription: z
         .string()
         .describe("Short plain-English description of what the company does."),
@@ -225,17 +228,24 @@ export async function buildUserProfileFieldsFromOnboarding(
     requireMinimumInput(input);
 
     const modelName = defaultModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(userProfileFieldsSchema),
-            name: "UserProfileFields",
-            description:
-                "JSON object with keys: role, industry, goals, additionalContext — normalized user profile slice.",
-        }),
-        system: loadModelPrompt(readPrompt(), modelName),
-        prompt: buildUserMessage(input),
-        ...temperatureOptions(modelName, 0.2),
+    const system = loadModelPrompt(readPrompt(), modelName);
+    const { result } = await runInstrumentedLLM({
+        promptKey: "profile.build_context",
+        model: modelName,
+        promptParts: { system },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(userProfileFieldsSchema),
+                    name: "UserProfileFields",
+                    description:
+                        "JSON object with keys: role, industry, goals, additionalContext — normalized user profile slice.",
+                }),
+                system,
+                prompt: buildUserMessage(input),
+                ...temperatureOptions(modelName, 0.2),
+            }),
     });
 
     return result.output;
@@ -248,7 +258,9 @@ export async function buildUserProfileFieldsFromOnboarding(
 export async function buildUserProfileFieldsFromDrills(
     input: DrillBasedProfileInput,
 ): Promise<UserProfileFieldsFromAI> {
-    const hasTranscript = input.drills.some((d) => d.transcript.trim().length > 0);
+    const hasTranscript = input.drills.some(
+        (d) => d.transcript.trim().length > 0,
+    );
     if (!hasTranscript) {
         throw new Error(
             "ProfileContextBuilder requires at least one non-empty drill transcript.",
@@ -256,17 +268,24 @@ export async function buildUserProfileFieldsFromDrills(
     }
 
     const modelName = defaultModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(userProfileFieldsSchema),
-            name: "UserProfileFields",
-            description:
-                "JSON object with user profile fields extracted from onboarding drill transcripts.",
-        }),
-        system: loadModelPrompt(DRILL_BASED_SYSTEM_PROMPT, modelName),
-        prompt: buildDrillBasedUserMessage(input),
-        ...temperatureOptions(modelName, 0.2),
+    const system = loadModelPrompt(DRILL_BASED_SYSTEM_PROMPT, modelName);
+    const { result } = await runInstrumentedLLM({
+        promptKey: "profile.build_context",
+        model: modelName,
+        promptParts: { system },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(userProfileFieldsSchema),
+                    name: "UserProfileFields",
+                    description:
+                        "JSON object with user profile fields extracted from onboarding drill transcripts.",
+                }),
+                system,
+                prompt: buildDrillBasedUserMessage(input),
+                ...temperatureOptions(modelName, 0.2),
+            }),
     });
 
     return result.output;

@@ -16,6 +16,7 @@ import type { LearnerModel, SessionType, TrackedPattern } from "@/schemas";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { learnerModelDoc } from "@/lib/learner-model/store";
 import { mergeTrackedPatterns } from "@/lib/learner-model/tracked-patterns";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
@@ -38,10 +39,7 @@ const skillMemoryPatchSchema = z.object({
 export type SkillMemoryUpdaterInput = {
     skillMemory: Pick<
         LearnerModel,
-        | "strengths"
-        | "weaknesses"
-        | "masteredFocus"
-        | "reinforcementFocus"
+        "strengths" | "weaknesses" | "masteredFocus" | "reinforcementFocus"
     >;
     /** Current durable habits — the LLM reuses these ids to keep tracking them. */
     currentTrackedPatterns: TrackedPattern[];
@@ -129,17 +127,24 @@ export async function updateSkillMemoryFromLatestSession(
     >
 > {
     const modelName = defaultModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(skillMemoryPatchSchema),
-            name: "SkillMemoryPatch",
-            description:
-                "Updated strengths, weaknesses, progression priorities, and tracked habits after the latest completed session.",
-        }),
-        system: loadModelPrompt(readPrompt(), modelName),
-        prompt: buildUserMessage(input),
-        ...temperatureOptions(modelName, 0.2),
+    const system = loadModelPrompt(readPrompt(), modelName);
+    const { result } = await runInstrumentedLLM({
+        promptKey: "learner.skill_memory",
+        model: modelName,
+        promptParts: { system },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(skillMemoryPatchSchema),
+                    name: "SkillMemoryPatch",
+                    description:
+                        "Updated strengths, weaknesses, progression priorities, and tracked habits after the latest completed session.",
+                }),
+                system,
+                prompt: buildUserMessage(input),
+                ...temperatureOptions(modelName, 0.2),
+            }),
     });
 
     return {

@@ -102,10 +102,7 @@ describe("findFabricatedToken", () => {
 
     it("accepts proper nouns said by other speakers (conservative scope)", () => {
         expect(
-            findFabricatedToken(
-                ["Yes. It should land by Friday."],
-                transcript,
-            ),
+            findFabricatedToken(["Yes. It should land by Friday."], transcript),
         ).toBe(null);
     });
 
@@ -131,14 +128,25 @@ describe("buildCoachingInsight", () => {
     };
 
     it("builds a valid insight with a verified verbatim quote", () => {
-        const insight = buildCoachingInsight(validRaw, true, transcript);
+        const { insight, outcome } = buildCoachingInsight(
+            validRaw,
+            true,
+            transcript,
+        );
         expect(insight).not.toBe(null);
         expect(insight!.quote).toBe(validQuote);
         expect(insight!.type).toBe("rephrase");
+        expect(outcome).toBe(null);
     });
 
     it("returns null when the user has no coachable English", () => {
-        expect(buildCoachingInsight(validRaw, false, transcript)).toBe(null);
+        const { insight, outcome } = buildCoachingInsight(
+            validRaw,
+            false,
+            transcript,
+        );
+        expect(insight).toBe(null);
+        expect(outcome).toBe("INSIGHT_NULL");
     });
 
     it("rejects a Try-rewrite body whose quote fails verification", () => {
@@ -146,17 +154,23 @@ describe("buildCoachingInsight", () => {
             ...validRaw,
             quote: "it will probably be okay in the end I believe",
         };
-        expect(buildCoachingInsight(raw, true, transcript)).toBe(null);
+        const { insight, outcome } = buildCoachingInsight(
+            raw,
+            true,
+            transcript,
+        );
+        expect(insight).toBe(null);
+        expect(outcome).toBe("TRY_REWRITE_NO_QUOTE");
     });
 
     it("rejects a Try-rewrite body with no quote at all", () => {
-        expect(
-            buildCoachingInsight(
-                { ...validRaw, quote: null },
-                true,
-                transcript,
-            ),
-        ).toBe(null);
+        const { insight, outcome } = buildCoachingInsight(
+            { ...validRaw, quote: null },
+            true,
+            transcript,
+        );
+        expect(insight).toBe(null);
+        expect(outcome).toBe("TRY_REWRITE_NO_QUOTE");
     });
 
     it("allows a non-Try body without a quote", () => {
@@ -167,7 +181,9 @@ describe("buildCoachingInsight", () => {
             body: "Lead with the answer you gave at the end, then offer the background.",
             why: null,
         };
-        expect(buildCoachingInsight(raw, true, transcript)).not.toBe(null);
+        expect(buildCoachingInsight(raw, true, transcript).insight).not.toBe(
+            null,
+        );
     });
 
     it("rejects a body whose rewrite invents specifics", () => {
@@ -175,7 +191,13 @@ describe("buildCoachingInsight", () => {
             ...validRaw,
             body: 'Try: "Yes. The schema fix landed Tuesday and we validated it overnight."',
         };
-        expect(buildCoachingInsight(raw, true, transcript)).toBe(null);
+        const { insight, outcome } = buildCoachingInsight(
+            raw,
+            true,
+            transcript,
+        );
+        expect(insight).toBe(null);
+        expect(outcome).toBe("FABRICATED_INSIGHT_BODY");
     });
 
     it("keeps a long boundary-less quote whole under a Try body (no cap)", () => {
@@ -189,7 +211,7 @@ describe("buildCoachingInsight", () => {
             body: 'Try: "We went back and forth and nobody landed anywhere."',
             why: null,
         };
-        const insight = buildCoachingInsight(raw, true, t);
+        const { insight } = buildCoachingInsight(raw, true, t);
         expect(insight).not.toBe(null);
         expect(insight!.quote).toBe(rambling);
     });
@@ -200,7 +222,13 @@ describe("buildCoachingInsight", () => {
             headline: "Be more concise",
             body: "Try to be more concise next time you speak.",
         };
-        expect(buildCoachingInsight(raw, true, transcript)).toBe(null);
+        const { insight, outcome } = buildCoachingInsight(
+            raw,
+            true,
+            transcript,
+        );
+        expect(insight).toBe(null);
+        expect(outcome).toBe("GENERIC_INSIGHT");
     });
 });
 

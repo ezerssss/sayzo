@@ -10,6 +10,7 @@ import { api } from "@/lib/api-client";
 import { getKyErrorMessage } from "@/lib/ky-error-message";
 import type { CaptureType } from "@/schemas";
 import type { UserFocusInsights } from "@/schemas";
+import type { ItemReaction } from "@/schemas";
 import type { SessionType } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
@@ -20,7 +21,10 @@ import { CreditsEditor } from "./_components/credits-editor";
 import { DangerZone } from "./_components/danger-zone";
 import { DiagnosticsPanel } from "./_components/diagnostics-panel";
 import { ProfilePanel } from "./_components/profile-panel";
+import { ReactionsPanel } from "./_components/reactions-panel";
 import { SessionsPanel } from "./_components/sessions-panel";
+
+type ReactionRow = ItemReaction & { id: string };
 
 type UserDetailResponse = {
     uid: string;
@@ -47,6 +51,7 @@ export default function AdminUserDetailPage() {
 
     const [sessions, setSessions] = useState<SessionType[]>([]);
     const [captures, setCaptures] = useState<CaptureType[]>([]);
+    const [reactions, setReactions] = useState<ReactionRow[]>([]);
 
     const refresh = useCallback(async () => {
         if (!uid) return;
@@ -67,31 +72,38 @@ export default function AdminUserDetailPage() {
             if (!uid) return;
             setLoading(true);
             try {
-                const [detail, sessionsRes, capturesRes] = await Promise.all([
-                    api
-                        .get(`/api/admin/users/${uid}`, { timeout: 30_000 })
-                        .json<UserDetailResponse>(),
-                    api
-                        .get(`/api/admin/users/${uid}/sessions?limit=25`, {
-                            timeout: 30_000,
-                        })
-                        .json<{
-                            sessions: SessionType[];
-                            nextCursor: string | null;
-                        }>(),
-                    api
-                        .get(`/api/admin/users/${uid}/captures?limit=25`, {
-                            timeout: 30_000,
-                        })
-                        .json<{
-                            captures: CaptureType[];
-                            nextCursor: string | null;
-                        }>(),
-                ]);
+                const [detail, sessionsRes, capturesRes, reactionsRes] =
+                    await Promise.all([
+                        api
+                            .get(`/api/admin/users/${uid}`, { timeout: 30_000 })
+                            .json<UserDetailResponse>(),
+                        api
+                            .get(`/api/admin/users/${uid}/sessions?limit=25`, {
+                                timeout: 30_000,
+                            })
+                            .json<{
+                                sessions: SessionType[];
+                                nextCursor: string | null;
+                            }>(),
+                        api
+                            .get(`/api/admin/users/${uid}/captures?limit=25`, {
+                                timeout: 30_000,
+                            })
+                            .json<{
+                                captures: CaptureType[];
+                                nextCursor: string | null;
+                            }>(),
+                        api
+                            .get(`/api/admin/users/${uid}/reactions`, {
+                                timeout: 30_000,
+                            })
+                            .json<{ reactions: ReactionRow[] }>(),
+                    ]);
                 if (cancelled) return;
                 setData(detail);
                 setSessions(sessionsRes.sessions);
                 setCaptures(capturesRes.captures);
+                setReactions(reactionsRes.reactions);
             } catch (err) {
                 if (cancelled) return;
                 setError(await getKyErrorMessage(err, "Could not load user."));
@@ -176,6 +188,7 @@ export default function AdminUserDetailPage() {
 
             <SessionsPanel sessions={sessions} />
             <CapturesPanel captures={captures} />
+            <ReactionsPanel reactions={reactions} />
 
             <DiagnosticsPanel
                 uid={uid}

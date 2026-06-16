@@ -19,6 +19,7 @@ import {
 } from "@/schemas";
 import type { LearnerModel } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
 import { applyTranscriptCorrections } from "@/lib/captures/corrections";
@@ -217,17 +218,24 @@ export async function planScenarioReplayFromCapture(
     input: CaptureReplayPlannerInput,
 ): Promise<SessionPlanType> {
     const modelName = defaultPlannerModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(sessionPlanSchema),
-            name: "ScenarioReplayPlan",
-            description:
-                "A practice drill plan derived from a real captured conversation, designed to let the learner re-do the same situation with better delivery.",
-        }),
-        system: readReplayPrompt(),
-        prompt: buildReplayUserMessage(input),
-        ...temperatureOptions(modelName, 0.25),
+    const system = readReplayPrompt();
+    const { result } = await runInstrumentedLLM({
+        promptKey: "planner.replay",
+        model: modelName,
+        promptParts: { system },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(sessionPlanSchema),
+                    name: "ScenarioReplayPlan",
+                    description:
+                        "A practice drill plan derived from a real captured conversation, designed to let the learner re-do the same situation with better delivery.",
+                }),
+                system,
+                prompt: buildReplayUserMessage(input),
+                ...temperatureOptions(modelName, 0.25),
+            }),
     });
 
     return normalizePlan(result.output);

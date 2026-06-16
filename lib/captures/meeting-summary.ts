@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { loadModelPromptParts } from "@/lib/openai/prompt";
 import { modelTuningOptions } from "@/lib/openai/reasoning";
 import type {
@@ -44,6 +45,7 @@ type LlmMeetingSummary = z.infer<typeof llmMeetingSummarySchema>;
 export type MeetingSummaryInput = {
     transcript: CaptureTranscriptLine[];
     durationSecs: number;
+    refs?: { uid?: string | null; captureId?: string | null };
 };
 
 function readPrompt(): string {
@@ -65,17 +67,35 @@ function defaultModel(): string {
 // "let's sync Thursday") matters most.
 function formatTranscript(transcript: CaptureTranscriptLine[]): string {
     return transcript
-        .map((line) => `[${line.start.toFixed(1)}s] ${line.speaker}: ${line.text}`)
+        .map(
+            (line) =>
+                `[${line.start.toFixed(1)}s] ${line.speaker}: ${line.text}`,
+        )
         .join("\n");
 }
 
 const WEEKDAYS = [
-    "monday", "tuesday", "wednesday", "thursday", "friday",
-    "saturday", "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
 ];
 const MONTHS = [
-    "january", "february", "march", "april", "may", "june", "july",
-    "august", "september", "october", "november", "december",
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
 ];
 const RELATIVE_DAY_WORDS = ["today", "tonight", "tomorrow", "eod", "eow"];
 const SPECIFIC_WORDS = new Set([...WEEKDAYS, ...MONTHS, ...RELATIVE_DAY_WORDS]);
@@ -96,7 +116,10 @@ function verifyDeadline(
     const trimmed = deadline?.trim();
     if (!trimmed) return null;
 
-    const haystack = transcript.map((l) => l.text).join("\n").toLowerCase();
+    const haystack = transcript
+        .map((l) => l.text)
+        .join("\n")
+        .toLowerCase();
     const digitHaystack = haystack.replace(/[^a-z0-9]/g, "");
 
     for (const rawToken of trimmed.split(/\s+/)) {
@@ -143,7 +166,10 @@ function buildActionItems(
             );
             continue;
         }
-        items.push({ text, deadline: verifyDeadline(item.deadline, transcript) });
+        items.push({
+            text,
+            deadline: verifyDeadline(item.deadline, transcript),
+        });
     }
     return items;
 }
@@ -231,7 +257,7 @@ function buildMeetingSummary(
 export async function generateMeetingSummary(
     input: MeetingSummaryInput,
 ): Promise<MeetingSummary | null> {
-    const { transcript, durationSecs } = input;
+    const { transcript, durationSecs, refs } = input;
     if (transcript.length === 0) return null;
 
     // Deliberately no calendar date in the context: giving the model today's
@@ -245,24 +271,31 @@ ${formatTranscript(transcript)}`;
 
     const modelName = defaultModel();
     const promptParts = loadModelPromptParts(readPrompt(), modelName);
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(llmMeetingSummarySchema),
-            name: "MeetingSummary",
-            description:
-                "Short actionable written notes for a captured conversation: TL;DR, what happened, action items with grounded deadlines, what's coming up.",
-        }),
-        system: promptParts.system,
-        prompt: promptParts.postTranscriptRecap
-            ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
-            : prompt,
-        ...modelTuningOptions(modelName, {
-            temperature: 0.2,
-            reasoningEffort: "low",
-            textVerbosity: "low",
-        }),
-        abortSignal: AbortSignal.timeout(MEETING_SUMMARY_TIMEOUT_MS),
+    const { result } = await runInstrumentedLLM({
+        promptKey: "capture.meeting_summary",
+        model: modelName,
+        promptParts,
+        refs: { uid: refs?.uid ?? null, captureId: refs?.captureId ?? null },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(llmMeetingSummarySchema),
+                    name: "MeetingSummary",
+                    description:
+                        "Short actionable written notes for a captured conversation: TL;DR, what happened, action items with grounded deadlines, what's coming up.",
+                }),
+                system: promptParts.system,
+                prompt: promptParts.postTranscriptRecap
+                    ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
+                    : prompt,
+                ...modelTuningOptions(modelName, {
+                    temperature: 0.2,
+                    reasoningEffort: "low",
+                    textVerbosity: "low",
+                }),
+                abortSignal: AbortSignal.timeout(MEETING_SUMMARY_TIMEOUT_MS),
+            }),
     });
 
     return buildMeetingSummary(result.output, transcript);

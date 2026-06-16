@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { FirestoreCollections } from "@/schemas";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { recordLlmEvent } from "@/lib/llm/instrument";
 import { applyTranscriptCorrections } from "@/lib/captures/corrections";
 import {
     assertHasCredit,
@@ -117,37 +118,34 @@ export async function POST(request: NextRequest) {
     const { uid } = auth;
 
     const body = await request.json();
-    const {
-        messages,
-        source,
-        sourceId,
-        sectionTitle,
-        feedbackContent,
-    } = body as {
-        messages: UIMessage[];
-        source: FeedbackChatSource;
-        sourceId: string;
-        sectionTitle: string;
-        feedbackContent: string;
-    };
+    const { messages, source, sourceId, sectionTitle, feedbackContent } =
+        body as {
+            messages: UIMessage[];
+            source: FeedbackChatSource;
+            sourceId: string;
+            sectionTitle: string;
+            feedbackContent: string;
+        };
 
     if (source !== "session" && source !== "capture") {
         return Response.json(
-            { error: "Invalid or missing source (expected 'session' or 'capture')" },
+            {
+                error: "Invalid or missing source (expected 'session' or 'capture')",
+            },
             { status: 400 },
         );
     }
 
     if (!sourceId) {
-        return Response.json(
-            { error: "Missing sourceId" },
-            { status: 400 },
-        );
+        return Response.json({ error: "Missing sourceId" }, { status: 400 });
     }
 
     const loaded = await loadSourceContext(source, sourceId, uid);
     if (!loaded.ok) {
-        return Response.json({ error: loaded.error }, { status: loaded.status });
+        return Response.json(
+            { error: loaded.error },
+            { status: loaded.status },
+        );
     }
 
     try {
@@ -171,14 +169,15 @@ export async function POST(request: NextRequest) {
     // synthesis doesn't drag this chat along with it. Override only via the
     // dedicated `FEEDBACK_CHAT_MODEL` env (must be a non-reasoning model —
     // streaming + reasoning models don't pair well for an interactive chat).
-    const model =
-        process.env.FEEDBACK_CHAT_MODEL?.trim() || "gpt-4o-mini";
+    const model = process.env.FEEDBACK_CHAT_MODEL?.trim() || "gpt-4o-mini";
 
     const modelMessages = await convertToModelMessages(messages);
 
+    const system = buildSystemPrompt(source);
+    const startedAt = Date.now();
     const result = streamText({
         model: openai(model),
-        system: buildSystemPrompt(source),
+        system,
         messages: [
             { role: "user", content: contextMessage },
             {
@@ -193,6 +192,24 @@ export async function POST(request: NextRequest) {
             ...modelMessages,
         ],
         temperature: 0.4,
+        // Streaming usage resolves only after the stream ends — record telemetry
+        // here rather than blocking the response (fire-and-forget, never throws).
+        onFinish: ({ usage }) => {
+            recordLlmEvent({
+                promptKey: "feedback_chat",
+                model,
+                promptParts: { system },
+                refs: {
+                    uid,
+                    captureId: source === "capture" ? sourceId : null,
+                    sessionId: source === "session" ? sourceId : null,
+                },
+                latencyMs: Date.now() - startedAt,
+                success: true,
+                inputTokens: usage?.inputTokens ?? null,
+                outputTokens: usage?.outputTokens ?? null,
+            });
+        },
     });
 
     return result.toUIMessageStreamResponse();

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { ttsCostUsd } from "@/constants/llm-pricing";
 import { requireAuth } from "@/lib/auth/require-auth";
 import {
     assertHasCredit,
@@ -8,6 +9,8 @@ import {
     creditLimitResponse,
 } from "@/lib/credits/server";
 import { getAdminStorageBucket } from "@/lib/firebase/admin";
+import { classifyError } from "@/lib/llm/error-class";
+import { recordLlmEvent } from "@/lib/llm/instrument";
 
 const OPENAI_SPEECH_URL = "https://api.openai.com/v1/audio/speech";
 const DEFAULT_TTS_MODEL = "gpt-4o-mini-tts";
@@ -88,27 +91,60 @@ export async function POST(request: NextRequest) {
         });
     }
 
-    const upstream = await fetch(OPENAI_SPEECH_URL, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+    const ttsStart = Date.now();
+    let upstream: Response;
+    try {
+        upstream = await fetch(OPENAI_SPEECH_URL, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model,
+                voice,
+                input: text,
+                response_format: "mp3",
+            }),
+        });
+    } catch (err) {
+        recordLlmEvent({
+            promptKey: "tts.openai",
             model,
-            voice,
-            input: text,
-            response_format: "mp3",
-        }),
-    });
+            refs: { uid },
+            latencyMs: Date.now() - ttsStart,
+            success: false,
+            errorClass: classifyError(err),
+        });
+        throw err;
+    }
 
     if (!upstream.ok) {
+        recordLlmEvent({
+            promptKey: "tts.openai",
+            model,
+            refs: { uid },
+            latencyMs: Date.now() - ttsStart,
+            success: false,
+            errorClass:
+                upstream.status >= 500 ? "provider_5xx" : "provider_4xx",
+        });
         const detail = await upstream.text();
         return NextResponse.json(
             { error: "Speech synthesis failed.", detail },
             { status: upstream.status },
         );
     }
+
+    recordLlmEvent({
+        promptKey: "tts.openai",
+        model,
+        refs: { uid },
+        latencyMs: Date.now() - ttsStart,
+        success: true,
+        inputTokens: text.length,
+        costOverrideUsd: ttsCostUsd(text.length),
+    });
 
     const audioArrayBuffer = await upstream.arrayBuffer();
 

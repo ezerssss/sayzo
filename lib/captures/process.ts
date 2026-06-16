@@ -1,10 +1,7 @@
 import "server-only";
 
 import { FirestoreCollections } from "@/schemas";
-import {
-    getAdminFirestore,
-    getAdminStorageBucket,
-} from "@/lib/firebase/admin";
+import { getAdminFirestore, getAdminStorageBucket } from "@/lib/firebase/admin";
 import { getOrHydrateLearnerModel } from "@/lib/learner-model/store";
 import type { CaptureStatus, CaptureType } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
@@ -155,7 +152,10 @@ async function runTranscription(
         echoLeakSuppressed,
         echoLeakDroppedSpans,
         echoLeakRuleVersion,
-    } = await transcribeCapture(audioBuffer, { keyterms });
+    } = await transcribeCapture(audioBuffer, {
+        keyterms,
+        refs: { uid: capture.uid, captureId },
+    });
 
     // Generate a quick title/summary from the fresh Deepgram transcript so the
     // UI can replace the synthesized placeholder set at upload time. Best-effort:
@@ -169,6 +169,7 @@ async function runTranscription(
                 transcript: serverTranscript,
                 closeReason: capture.closeReason,
                 durationSecs,
+                refs: { uid: capture.uid, captureId },
             });
             quickTitle = quick.title;
             quickSummary = quick.summary;
@@ -223,6 +224,7 @@ async function runValidation(
         transcript,
         capture.title,
         capture.summary,
+        { uid: capture.uid, captureId },
     );
 
     if (!accepted) {
@@ -338,16 +340,23 @@ async function runAnalysisAndProfiling(
                     reinforcementFocus: model.reinforcementFocus,
                 },
                 differential,
-            }),
-            generateMeetingSummary({ transcript, durationSecs }).catch(
-                (err) => {
-                    console.warn(
-                        `[captures/process] Meeting summary failed for ${captureId}, continuing without it`,
-                        err,
-                    );
-                    return null;
+                telemetry: {
+                    uid: capture.uid,
+                    captureId,
+                    record: true,
                 },
-            ),
+            }),
+            generateMeetingSummary({
+                transcript,
+                durationSecs,
+                refs: { uid: capture.uid, captureId },
+            }).catch((err) => {
+                console.warn(
+                    `[captures/process] Meeting summary failed for ${captureId}, continuing without it`,
+                    err,
+                );
+                return null;
+            }),
         ]);
 
     await captureRef.set(

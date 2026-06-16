@@ -17,6 +17,7 @@ import type {
 import type { SessionType } from "@/schemas";
 import type { LearnerModel, TrackedPattern } from "@/schemas";
 import type { UserProfileType } from "@/schemas";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
@@ -373,9 +374,11 @@ function buildFullSynthesisMessage(input: FocusSynthesizerInput): {
     };
 }
 
-function buildIncrementalUpdateMessage(
-    input: FocusIncrementalUpdaterInput,
-): { content: string; newSessionsUsed: SessionType[]; newCapturesUsed: CaptureType[] } {
+function buildIncrementalUpdateMessage(input: FocusIncrementalUpdaterInput): {
+    content: string;
+    newSessionsUsed: SessionType[];
+    newCapturesUsed: CaptureType[];
+} {
     const {
         userProfile,
         skillMemory,
@@ -475,9 +478,7 @@ function normalizeThemes(themes: FocusTheme[]): FocusTheme[] {
         }
         let id = theme.id?.trim() ? slugifyId(theme.id) : "";
         if (!id) {
-            id = theme.isEmergent
-                ? slugifyId(theme.title)
-                : theme.category;
+            id = theme.isEmergent ? slugifyId(theme.title) : theme.category;
         }
         if (seenIds.has(id)) {
             id = `${id}_${out.length + 1}`;
@@ -526,17 +527,24 @@ export async function synthesizeFocusInsights(
     }
 
     const modelName = defaultModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(focusSynthesisSchema),
-            name: "UserFocusSynthesis",
-            description:
-                "Unified coaching view across recent drills and captures — themes, wins, and overview.",
-        }),
-        system: loadModelPrompt(readPrompt("synthesize.md"), modelName),
-        prompt: content,
-        ...temperatureOptions(modelName, 0.3),
+    const system = loadModelPrompt(readPrompt("synthesize.md"), modelName);
+    const { result } = await runInstrumentedLLM({
+        promptKey: "focus.synthesize",
+        model: modelName,
+        promptParts: { system },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(focusSynthesisSchema),
+                    name: "UserFocusSynthesis",
+                    description:
+                        "Unified coaching view across recent drills and captures — themes, wins, and overview.",
+                }),
+                system,
+                prompt: content,
+                ...temperatureOptions(modelName, 0.3),
+            }),
     });
 
     const raw = result.output;
@@ -597,17 +605,24 @@ export async function updateFocusInsightsIncremental(
     }
 
     const modelName = defaultModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(focusSynthesisSchema),
-            name: "UserFocusSynthesisUpdate",
-            description:
-                "Updated coaching view evolving the prior focus view with new drills and captures.",
-        }),
-        system: loadModelPrompt(readPrompt("update.md"), modelName),
-        prompt: content,
-        ...temperatureOptions(modelName, 0.3),
+    const system = loadModelPrompt(readPrompt("update.md"), modelName);
+    const { result } = await runInstrumentedLLM({
+        promptKey: "focus.synthesize",
+        model: modelName,
+        promptParts: { system },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(focusSynthesisSchema),
+                    name: "UserFocusSynthesisUpdate",
+                    description:
+                        "Updated coaching view evolving the prior focus view with new drills and captures.",
+                }),
+                system,
+                prompt: content,
+                ...temperatureOptions(modelName, 0.3),
+            }),
     });
 
     const raw = result.output;

@@ -1,5 +1,8 @@
 import "server-only";
 
+import { deepgramCostUsd } from "@/constants/llm-pricing";
+import { classifyError } from "@/lib/llm/error-class";
+import { recordLlmEvent } from "@/lib/llm/instrument";
 import type { CaptureTranscriptLine } from "@/schemas";
 
 import { type ChannelEnergy, computeChannelEnergy } from "./audio";
@@ -77,16 +80,46 @@ export async function transcribeCapture(
         /** Per-user vocabulary (names/terms from accepted transcript
          *  corrections) sent as Nova-3 keyterm hints. */
         keyterms?: string[];
+        /** Telemetry refs so the ASR event links back to the capture. */
+        refs?: { uid?: string | null; captureId?: string | null };
     },
 ): Promise<TranscriptionResult> {
     const energy: ChannelEnergy = await computeChannelEnergy(audioBuffer);
     const leftAlive = energy.maxLeftRms >= DEAD_CHANNEL_FLOOR_RMS;
     const rightAlive = energy.maxRightRms >= DEAD_CHANNEL_FLOOR_RMS;
 
-    const dg = await transcribeStereoWithDeepgram(
-        audioBuffer,
-        opts?.keyterms ?? [],
-    );
+    const refs = {
+        uid: opts?.refs?.uid ?? null,
+        captureId: opts?.refs?.captureId ?? null,
+    };
+    const start = Date.now();
+    let dg: { utterances: DeepgramUtterance[]; durationSecs: number };
+    try {
+        dg = await transcribeStereoWithDeepgram(
+            audioBuffer,
+            opts?.keyterms ?? [],
+        );
+    } catch (err) {
+        recordLlmEvent({
+            promptKey: "asr.deepgram",
+            model: "nova-3",
+            provider: "deepgram",
+            refs,
+            latencyMs: Date.now() - start,
+            success: false,
+            errorClass: classifyError(err),
+        });
+        throw err;
+    }
+    recordLlmEvent({
+        promptKey: "asr.deepgram",
+        model: "nova-3",
+        provider: "deepgram",
+        refs,
+        latencyMs: Date.now() - start,
+        success: true,
+        costOverrideUsd: deepgramCostUsd(dg.durationSecs),
+    });
 
     const { lines, echoLeakSuppressed, echoLeakDroppedSpans } =
         mapUtterancesToLines(dg.utterances, energy, leftAlive, rightAlive);
@@ -232,12 +265,7 @@ function mapUtterancesToLines(
             continue;
         }
 
-        const speaker = tagSpeaker(
-            u,
-            leftAlive,
-            rightAlive,
-            otherSpeakerState,
-        );
+        const speaker = tagSpeaker(u, leftAlive, rightAlive, otherSpeakerState);
 
         kept.push({
             speaker,

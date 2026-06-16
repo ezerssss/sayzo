@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { SessionPlanType, SessionType } from "@/schemas";
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { loadModelPrompt } from "@/lib/openai/prompt";
 import { temperatureOptions } from "@/lib/openai/reasoning";
 
@@ -77,17 +78,24 @@ export async function mergeDrillNotesFromSession(
     input: LearnerContextUpdaterInput,
 ): Promise<{ drillNotes: string }> {
     const modelName = defaultModel();
-    const result = await generateText({
-        model: openai(modelName),
-        output: Output.object({
-            schema: zodSchema(drillNotesOutputSchema),
-            name: "DrillNotes",
-            description:
-                "Updated backend-only learner notes for drill personalization.",
-        }),
-        system: loadModelPrompt(readPrompt(), modelName),
-        prompt: buildUserMessage(input),
-        ...temperatureOptions(modelName, 0.15),
+    const system = loadModelPrompt(readPrompt(), modelName);
+    const { result } = await runInstrumentedLLM({
+        promptKey: "learner.context_update",
+        model: modelName,
+        promptParts: { system },
+        call: () =>
+            generateText({
+                model: openai(modelName),
+                output: Output.object({
+                    schema: zodSchema(drillNotesOutputSchema),
+                    name: "DrillNotes",
+                    description:
+                        "Updated backend-only learner notes for drill personalization.",
+                }),
+                system,
+                prompt: buildUserMessage(input),
+                ...temperatureOptions(modelName, 0.15),
+            }),
     });
 
     return {

@@ -3,6 +3,7 @@ import { AlertTriangle, Info } from "lucide-react";
 import { Kicker, StaggerItem } from "@/components/coaching/briefing";
 import { CalloutCard } from "@/components/coaching/callout-card";
 import { FeedbackTabs } from "@/components/coaching/feedback-tabs";
+import { ReactionBar } from "@/components/coaching/reaction-bar";
 import { PrincipleCard } from "@/components/coaching/principle-card";
 import { TopFixesCard } from "@/components/coaching/top-fixes-card";
 import { DrillTranscriptView } from "@/components/session/drill-transcript-view";
@@ -189,10 +190,18 @@ export function SessionFeedbackSection(props: Readonly<Props>) {
                                 />
                             </StaggerItem>
                         ) : null}
+                        {sessionId ? (
+                            <StaggerItem order={5}>
+                                <ReactionBar
+                                    source="session"
+                                    itemId={sessionId}
+                                />
+                            </StaggerItem>
+                        ) : null}
                         {currentTranscript ||
                         (currentServerTranscript &&
                             currentServerTranscript.length > 0) ? (
-                            <StaggerItem order={5}>
+                            <StaggerItem order={6}>
                                 <DrillTranscriptView
                                     serverTranscript={currentServerTranscript}
                                     transcript={currentTranscript}

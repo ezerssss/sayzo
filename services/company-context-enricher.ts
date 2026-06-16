@@ -4,6 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import { Output, generateText, zodSchema } from "ai";
 import { z } from "zod";
 
+import { runInstrumentedLLM } from "@/lib/llm/instrument";
 import { crawlWebsiteText } from "@/services/web-crawler";
 import type { CompanyResearchType } from "@/schemas";
 
@@ -46,11 +47,15 @@ function modelName(): string {
 
 function trimList(items: string[], limit: number): string[] {
     return Array.from(
-        new Set(items.map((item) => item.trim()).filter((item) => item.length > 0)),
+        new Set(
+            items.map((item) => item.trim()).filter((item) => item.length > 0),
+        ),
     ).slice(0, limit);
 }
 
-async function fetchDuckDuckGo(companyName: string): Promise<SourceSnippet | null> {
+async function fetchDuckDuckGo(
+    companyName: string,
+): Promise<SourceSnippet | null> {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(companyName)}&format=json&no_html=1&skip_disambig=1`;
     let data: {
         AbstractText?: string;
@@ -68,8 +73,7 @@ async function fetchDuckDuckGo(companyName: string): Promise<SourceSnippet | nul
         return null;
     }
     const related = Array.isArray(data.RelatedTopics)
-        ? data.RelatedTopics
-              .map((topic) => topic.Text)
+        ? data.RelatedTopics.map((topic) => topic.Text)
               .filter((value): value is string => typeof value === "string")
               .slice(0, 4)
         : [];
@@ -86,7 +90,9 @@ async function fetchDuckDuckGo(companyName: string): Promise<SourceSnippet | nul
     };
 }
 
-async function fetchWikipedia(companyName: string): Promise<SourceSnippet | null> {
+async function fetchWikipedia(
+    companyName: string,
+): Promise<SourceSnippet | null> {
     const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(companyName)}&format=json&utf8=1&srlimit=1`;
     let searchBody: { query?: { search?: Array<{ title?: string }> } };
     try {
@@ -142,7 +148,10 @@ export async function enrichCompanyContext(
         fetchWikipedia(companyName),
     ]);
     const fallbackSiteUrl = !companyUrl && ddg?.url ? ddg.url : "";
-    const crawledSite = await crawlWebsiteText(companyUrl || fallbackSiteUrl, 3000);
+    const crawledSite = await crawlWebsiteText(
+        companyUrl || fallbackSiteUrl,
+        3000,
+    );
     const site: SourceSnippet | null = crawledSite
         ? { url: crawledSite.url, text: crawledSite.text }
         : null;
@@ -157,29 +166,37 @@ export async function enrichCompanyContext(
                   .join("\n\n")
             : "(none)";
 
-    const result = await generateText({
-        model: openai(modelName()),
-        output: Output.object({
-            schema: zodSchema(enrichmentSchema),
-            name: "CompanyEnrichment",
-            description:
-                "Grounded company context for planning realistic professional scenarios.",
-        }),
-        system: `You are a company-context enricher for a professional-English coach.
+    const enrichModel = modelName();
+    const system = `You are a company-context enricher for a professional-English coach.
 Use user-provided context as highest priority.
 When website scrape exists, treat it as primary grounding.
 Use DuckDuckGo/Wikipedia as supplemental evidence, especially when scrape is sparse.
 Never claim internal company details unless directly present in user input or sources.
 If evidence is weak/conflicting, keep confidence low and list unknowns.
-Produce concise, practical facts useful for scenario planning.`,
-        prompt: `Company name: ${companyName}
+Produce concise, practical facts useful for scenario planning.`;
+    const { result } = await runInstrumentedLLM({
+        promptKey: "company.enrich",
+        model: enrichModel,
+        promptParts: { system },
+        call: () =>
+            generateText({
+                model: openai(enrichModel),
+                output: Output.object({
+                    schema: zodSchema(enrichmentSchema),
+                    name: "CompanyEnrichment",
+                    description:
+                        "Grounded company context for planning realistic professional scenarios.",
+                }),
+                system,
+                prompt: `Company name: ${companyName}
 User company context: ${input.companyContext?.trim() || "(none)"}
 User role: ${input.role?.trim() || "(none)"}
 User industry: ${input.industry?.trim() || "(none)"}
 
 Source snippets:
 ${sourceSnippetsText}`,
-        temperature: 0.1,
+                temperature: 0.1,
+            }),
     });
 
     return {

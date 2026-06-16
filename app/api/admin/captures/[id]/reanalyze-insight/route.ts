@@ -27,9 +27,7 @@ export async function POST(
 
     try {
         const db = getAdminFirestore();
-        const ref = db
-            .collection(FirestoreCollections.captures.path)
-            .doc(id);
+        const ref = db.collection(FirestoreCollections.captures.path).doc(id);
         const snap = await ref.get();
         if (!snap.exists) {
             return NextResponse.json(
@@ -106,6 +104,8 @@ export async function POST(
                 reinforcementFocus: model.reinforcementFocus,
             },
             differential,
+            // Preview only — don't record an llm_events doc for prompt iteration.
+            telemetry: { record: false },
         });
         const elapsedMs = Date.now() - started;
 
