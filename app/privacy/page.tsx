@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     title: "Privacy Policy",
     description:
         "How Sayzo collects, uses, stores, and protects your information. Local-first by design.",
+    alternates: { canonical: "/privacy" },
 };
 
 const LAST_UPDATED = "June 12, 2026";

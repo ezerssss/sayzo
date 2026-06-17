@@ -238,10 +238,11 @@ export function LandingContent() {
                     </div>
                     <div className="mt-10 flex flex-col items-center gap-3 text-center">
                         <p className="max-w-xl text-sm text-muted-foreground">
-                            Coaching is grounded in your real conversations and
-                            the patterns Sayzo notices over time, from standups
-                            to stakeholder pitches to interviews for the next
-                            step in your career.
+                            Sayzo is the English speaking coach for non-native
+                            professionals on global teams: coaching grounded in
+                            your real conversations and the patterns it notices
+                            over time, from standups to stakeholder pitches to
+                            interviews for the next step in your career.
                         </p>
                     </div>
                 </div>

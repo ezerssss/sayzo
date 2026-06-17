@@ -9,6 +9,7 @@ export const metadata: Metadata = {
     title: "Install the desktop companion",
     description:
         "Download the Sayzo desktop companion for Windows or macOS. We walk you through every step of the install — including exactly what to click.",
+    alternates: { canonical: "/install" },
 };
 
 export default function InstallPage() {

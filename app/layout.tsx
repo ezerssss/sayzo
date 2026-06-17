@@ -21,27 +21,45 @@ export const metadata: Metadata = {
         process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://sayzo.app",
     ),
     title: {
-        default: "Sayzo: coaching from your real work conversations",
+        // Leads with the query Sayzo owns ("English speaking coach") while
+        // keeping the brand and "conversations" wording. Child pages append
+        // " | Sayzo" via the template; the homepage overrides with `absolute`.
+        default: "Sayzo — English speaking coach for your real conversations",
         template: "%s | Sayzo",
     },
     description:
-        "Sayzo joins the work calls you choose and coaches your English: feedback after every conversation, and a replay to practice the moments that matter.",
+        "English speaking coach for non-native pros on global teams. Sayzo joins the calls you choose, coaches every conversation, and replays the moments that matter.",
     applicationName: "Sayzo",
-    robots: { index: true, follow: true },
+    // Site ownership for Search Console. Read from env so the token is never
+    // committed; omitted from the head when unset.
+    verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION },
+    robots: {
+        index: true,
+        follow: true,
+        // Opt into large image thumbnails and full text snippets in results.
+        googleBot: {
+            index: true,
+            follow: true,
+            "max-image-preview": "large",
+            "max-snippet": -1,
+            "max-video-preview": -1,
+        },
+    },
     openGraph: {
-        title: "Sayzo",
+        title: "Sayzo — English speaking coach for your real conversations",
         description:
             "Coaching from your real work conversations. Feedback after every call, plus a replay to practice.",
         siteName: "Sayzo",
         type: "website",
-        images: ["/sayzo-logo.png"],
+        locale: "en_US",
+        // Image comes from app/opengraph-image.tsx (inherited by every route).
     },
     twitter: {
         card: "summary_large_image",
-        title: "Sayzo",
+        title: "Sayzo — English speaking coach for your real conversations",
         description:
             "Coaching from your real work conversations. Feedback after every call, plus a replay to practice.",
-        images: ["/sayzo-logo.png"],
+        // Image comes from app/twitter-image.tsx.
     },
 };
 
@@ -49,6 +67,10 @@ export const viewport: Viewport = {
     width: "device-width",
     initialScale: 1,
     viewportFit: "cover",
+    themeColor: [
+        { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+        { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    ],
 };
 
 export default function RootLayout({
