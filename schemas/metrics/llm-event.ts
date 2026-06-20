@@ -64,9 +64,18 @@ export type LlmErrorClass = z.infer<typeof llmErrorClassSchema>;
  */
 export const llmQualityOutcomeSchema = z.enum([
     "GENERIC_INSIGHT",
+    // DEPRECATED — no longer emitted. A coaching-insight quote that can't be
+    // grounded now DEGRADES (drops the quote, keeps the card) instead of
+    // killing the card; see INSIGHT_QUOTE_DROPPED. Kept in the enum so
+    // historical `llm_events` still parse.
     "TRY_REWRITE_NO_QUOTE",
     "FABRICATED_INSIGHT_BODY",
     "INSIGHT_NULL",
+    // Quote repair outcomes (card still shipped): the model's quote wasn't a
+    // verbatim match but a strict search recovered the real user line …
+    "INSIGHT_QUOTE_RECOVERED",
+    // … or no quote could be grounded, so the card shows without a quote.
+    "INSIGHT_QUOTE_DROPPED",
     "FABRICATED_TURN_REWRITE",
     "FABRICATED_BETTER_OPTION",
     "DESPEECHIFY_APPLIED",

@@ -5,8 +5,8 @@ import { __test } from "./analyze";
 
 const {
     buildCoachingInsight,
-    verifyInsightQuote,
-    isTryRewriteBody,
+    resolveInsightQuote,
+    expandToCompleteThought,
     extractQuotedSpans,
     findFabricatedToken,
 } = __test;
@@ -30,47 +30,106 @@ const transcript: CaptureTranscriptLine[] = [
 const validQuote =
     "I think maybe like, you know, it should probably be fine, I think.";
 
-describe("verifyInsightQuote", () => {
-    it("returns the verbatim user text for an exact quote", () => {
-        expect(verifyInsightQuote(validQuote, transcript)).toBe(validQuote);
+describe("expandToCompleteThought", () => {
+    it("grows a clipped fragment out to its enclosing sentence", () => {
+        const text =
+            "Okay. that leads me to my next point because we should update the codes.";
+        const at = text.indexOf("leads me to my next point because");
+        expect(
+            expandToCompleteThought(
+                text,
+                at,
+                at + "leads me to my next point because".length,
+            ),
+        ).toBe(
+            "that leads me to my next point because we should update the codes.",
+        );
     });
 
-    it("returns a long multi-sentence quote whole (no length cap)", () => {
+    it("does not split on a digit-flanked period", () => {
+        const text = "Revenue grew 3.5 percent which is solid.";
+        expect(expandToCompleteThought(text, 0, "Revenue grew".length)).toBe(
+            "Revenue grew 3.5 percent which is solid.",
+        );
+    });
+
+    it("does not split on a title abbreviation", () => {
+        const text = "Let me talk to Mr. Smith about it before the call.";
+        const at = text.indexOf("talk to");
+        expect(
+            expandToCompleteThought(text, at, at + "talk to".length),
+        ).toBe("Let me talk to Mr. Smith about it before the call.");
+    });
+
+    it("does not split on an initialism period", () => {
+        const text = "We should expand into the U.S. market next year.";
+        const at = text.indexOf("expand");
+        expect(expandToCompleteThought(text, at, at + "expand".length)).toBe(
+            "We should expand into the U.S. market next year.",
+        );
+    });
+});
+
+describe("resolveInsightQuote", () => {
+    it("verifies and returns an exact full-line quote", () => {
+        const r = resolveInsightQuote(validQuote, transcript);
+        expect(r.status).toBe("verified");
+        expect(r.quote).toBe(validQuote);
+    });
+
+    it("expands a clipped fragment to its complete thought (verbatim)", () => {
+        const sentence =
+            "that leads me to my next point because we should update the codes to match size.";
+        const t = [line("user", `Okay. ${sentence}`)];
+        const r = resolveInsightQuote(
+            "leads me to my next point because",
+            t,
+        );
+        expect(r.status).toBe("verified");
+        expect(r.quote).toBe(sentence);
+    });
+
+    it("returns a long multi-sentence turn whole (no length cap)", () => {
         const longTurn =
             "I think the migration is going to be fine, honestly, even though we lost a couple of days to the staging problems. We will absolutely ship it on Friday no matter what happens between now and then.";
         const t = [line("user", longTurn)];
         expect(longTurn.length).toBeGreaterThan(120);
-        expect(verifyInsightQuote(longTurn, t)).toBe(longTurn);
+        const r = resolveInsightQuote(longTurn, t);
+        expect(r.status).toBe("verified");
+        expect(r.quote).toBe(longTurn);
     });
 
-    it("rejects paraphrases (fuzzy resolution)", () => {
-        expect(
-            verifyInsightQuote(
-                "it will probably be okay in the end I believe",
-                transcript,
-            ),
-        ).toBe(null);
+    it("recovers the real line from a near-verbatim model quote", () => {
+        const real =
+            "we really need to lock the schema before the launch next week";
+        const t = [line("user", real)];
+        const r = resolveInsightQuote(
+            "we need to lock the schema before the launch next week",
+            t,
+        );
+        expect(r.status).toBe("recovered");
+        expect(r.quote).toBe(real);
     });
 
-    it("rejects quotes from other speakers", () => {
-        expect(
-            verifyInsightQuote(
-                "Will the migration hit the deadline on Friday?",
-                transcript,
-            ),
-        ).toBe(null);
+    it("drops a loosely-related quote rather than surface the wrong line", () => {
+        const r = resolveInsightQuote(
+            "it will probably be okay in the end I believe",
+            transcript,
+        );
+        expect(r.status).toBe("dropped");
+        expect(r.quote).toBe(null);
+    });
+
+    it("drops quotes from other speakers", () => {
+        const r = resolveInsightQuote(
+            "Will the migration hit the deadline on Friday?",
+            transcript,
+        );
+        expect(r.quote).toBe(null);
     });
 });
 
-describe("isTryRewriteBody / extractQuotedSpans", () => {
-    it("detects Try-style bodies", () => {
-        expect(isTryRewriteBody('Try: "Yes, it should be fine."')).toBe(true);
-        expect(isTryRewriteBody("Next time, try “Yes, it works.”")).toBe(true);
-        expect(isTryRewriteBody("Lead with the recommendation first.")).toBe(
-            false,
-        );
-    });
-
+describe("extractQuotedSpans", () => {
     it("extracts straight and curly double-quoted spans", () => {
         expect(
             extractQuotedSpans('Try: "first span" and “second span”'),
@@ -149,7 +208,7 @@ describe("buildCoachingInsight", () => {
         expect(outcome).toBe("INSIGHT_NULL");
     });
 
-    it("rejects a Try-rewrite body whose quote fails verification", () => {
+    it("degrades a Try-rewrite to quote-less when the quote can't be grounded (not killed)", () => {
         const raw = {
             ...validRaw,
             quote: "it will probably be okay in the end I believe",
@@ -159,18 +218,38 @@ describe("buildCoachingInsight", () => {
             true,
             transcript,
         );
-        expect(insight).toBe(null);
-        expect(outcome).toBe("TRY_REWRITE_NO_QUOTE");
+        expect(insight).not.toBe(null);
+        expect(insight!.quote).toBe(null);
+        expect(insight!.body).toBe(validRaw.body);
+        expect(outcome).toBe("INSIGHT_QUOTE_DROPPED");
     });
 
-    it("rejects a Try-rewrite body with no quote at all", () => {
+    it("ships a Try-rewrite with no quote attempted (no drop telemetry)", () => {
         const { insight, outcome } = buildCoachingInsight(
             { ...validRaw, quote: null },
             true,
             transcript,
         );
-        expect(insight).toBe(null);
-        expect(outcome).toBe("TRY_REWRITE_NO_QUOTE");
+        expect(insight).not.toBe(null);
+        expect(insight!.quote).toBe(null);
+        expect(outcome).toBe(null);
+    });
+
+    it("recovers a near-verbatim quote and keeps the card", () => {
+        const real =
+            "we really need to lock the schema before the launch next week";
+        const t = [line("user", real)];
+        const raw = {
+            type: "rephrase",
+            headline: "Make it a firm ask",
+            quote: "we need to lock the schema before the launch next week",
+            body: 'Try: "We have to lock the schema before launch."',
+            why: null,
+        };
+        const { insight, outcome } = buildCoachingInsight(raw, true, t);
+        expect(insight).not.toBe(null);
+        expect(insight!.quote).toBe(real);
+        expect(outcome).toBe("INSIGHT_QUOTE_RECOVERED");
     });
 
     it("allows a non-Try body without a quote", () => {

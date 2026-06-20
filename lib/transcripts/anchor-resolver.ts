@@ -99,6 +99,19 @@ export type ResolveAnchorArgs = {
      * Returned `idx` is still the original index into `lines`.
      */
     speakerFilter?: (line: CaptureTranscriptLine) => boolean;
+    /**
+     * Tighten the `fuzzy` path for high-precision recovery. The default `fuzzy`
+     * bar (a contiguous run of `>= 3` anchor tokens) is fine for "did this
+     * resolve at all", but too loose to surface a line *as a quote shown to the
+     * user*. The coaching-insight quote recovery raises both:
+     *   - `fuzzyMinRun` — minimum contiguous anchor-token run (default 3).
+     *   - `fuzzyMinCoverage` — minimum fraction of the anchor's tokens that the
+     *     best contiguous run must cover (default 0 = off).
+     * A near-verbatim miss (the model dropped/swapped a word or two) clears a
+     * high bar; a loosely-related line does not.
+     */
+    fuzzyMinRun?: number;
+    fuzzyMinCoverage?: number;
 };
 
 export function resolveAnchorIdx(args: ResolveAnchorArgs): ResolvedAnchor {
@@ -169,9 +182,11 @@ export function resolveAnchorIdx(args: ResolveAnchorArgs): ResolvedAnchor {
     }
 
     // 3) Fuzzy: LLM paraphrased. Find the line with the longest contiguous
-    //    run of anchor tokens; require >=3 to avoid noise from "I think"
-    //    style coincidences.
+    //    run of anchor tokens; require >=3 (or a caller-supplied stricter bar)
+    //    to avoid noise from "I think" style coincidences.
     const anchorTokens = tokenize(anchor);
+    const minRun = Math.max(3, args.fuzzyMinRun ?? 3);
+    const minCoverage = args.fuzzyMinCoverage ?? 0;
     if (anchorTokens.length >= 3) {
         let bestRun = 0;
         let bestLocal = -1;
@@ -185,7 +200,10 @@ export function resolveAnchorIdx(args: ResolveAnchorArgs): ResolvedAnchor {
                 bestLocal = i;
             }
         }
-        if (bestLocal >= 0 && bestRun >= 3) {
+        const coverageOk =
+            minCoverage <= 0 ||
+            bestRun >= Math.ceil(minCoverage * anchorTokens.length);
+        if (bestLocal >= 0 && bestRun >= minRun && coverageOk) {
             const orig = searchable[bestLocal]!.origIdx;
             return {
                 idx: orig,

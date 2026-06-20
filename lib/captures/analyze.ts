@@ -203,43 +203,156 @@ function formatTranscript(
 }
 
 /**
- * Verify a coaching-insight quote against the user's own transcript lines and
- * return the user's VERBATIM words (or null). Stricter than the moment
- * reconcilers: accept only `exact`/`span` resolutions and REJECT the resolver's
- * `fuzzy` (paraphrase) path — the feature's rule 1 is "real quotes only" and the
- * agent cannot re-check this. User lines are already echo-leak filtered at
- * transcription time, so a user-line match is inherently the post-echo set.
- * The quote is returned at full length — the card wraps, so a complete thought
- * is never trimmed to a fragment (the "complete thought" contract is enforced
- * by the prompt; the server never shortens what it verified as verbatim).
+ * Resolve a coaching-insight quote to the user's REAL words, repairing it
+ * rather than discarding the card. The card shows only the quote + body and the
+ * reader can't see the transcript, so a quote must read as a complete thought
+ * the body builds on — but it must also never be paraphrased or stitched
+ * together. Three outcomes:
+ *
+ *   - **verified** — the model's quote grounds verbatim (`exact`/`span`) on a
+ *     `user` line. We then EXPAND it to its complete thought: the model is
+ *     asked for a whole sentence but often clips a fragment ("…because"), which
+ *     reads as disconnected from the rewrite. We grow the verified span out to
+ *     its enclosing sentence(s) within the real line — still 100% verbatim,
+ *     never invented; the card wraps, so length is fine.
+ *   - **recovered** — the quote doesn't ground verbatim but is a near-verbatim
+ *     miss (a word or two off). A STRICT fuzzy search (high contiguous-run +
+ *     coverage) finds the real user line and returns it. Seeded from the
+ *     MODEL'S QUOTE ONLY, never the rewrite — the rewrite is reworded, so the
+ *     spans it keeps verbatim are connective filler, and matching on those
+ *     would re-create the disconnected-fragment bug.
+ *   - **dropped** — nothing grounds confidently. Returns `quote: null`; the
+ *     caller still ships the card without a "You said:" line. We never surface
+ *     a loosely-related line as a quote.
+ *
+ * User lines are already echo-leak filtered at transcription time, so a
+ * user-line match is inherently the post-echo set.
  */
-function verifyInsightQuote(
+type QuoteResolution = {
+    quote: string | null;
+    status: "verified" | "recovered" | "dropped";
+};
+
+// Strict bar for the `recovered` path: a long contiguous run AND most of the
+// quote's content tokens. Precision over recall — a miss just degrades to a
+// quote-less card (safe), while a false positive would show a wrong quote.
+const QUOTE_RECOVERY_MIN_RUN = 4;
+const QUOTE_RECOVERY_MIN_COVERAGE = 0.7;
+
+// Abbreviations that take a trailing period mid-sentence — a `.` right after
+// one is not a sentence boundary. Small by design: the boundary test fails SAFE
+// (a missed abbreviation only GROWS the quote, never clips it more), so this
+// doesn't need to be exhaustive.
+const SENTENCE_ABBREVIATIONS = new Set([
+    "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st",
+    "vs", "etc", "inc", "ltd", "co", "no", "dept", "fig", "gen",
+]);
+
+/**
+ * True when `text[i]` ends a sentence. `!` `?` `…` always do; `.` is trickier
+ * and we err toward "not a boundary" so expansion can only grow the quote,
+ * never over-clip it. A `.` is NOT a stop when it: sits between two digits (a
+ * decimal/time like `3.5`, mirroring lib/text/despeechify.ts); isn't followed
+ * by whitespace/line-end (an inner abbreviation dot like the first `.` of
+ * `e.g.`/`U.S.`); or follows a single-letter initial (`U.`, `S.`) or a known
+ * abbreviation (`Mr.`, `etc.`).
+ */
+function isSentenceEndAt(text: string, i: number): boolean {
+    const ch = text[i];
+    if (ch === "!" || ch === "?" || ch === "…") return true;
+    if (ch !== ".") return false;
+    const prev = text[i - 1];
+    const next = text[i + 1];
+    if (prev && next && /\d/.test(prev) && /\d/.test(next)) return false;
+    if (next !== undefined && !/\s/.test(next)) return false;
+    let wordStart = i;
+    while (wordStart > 0 && /[A-Za-z]/.test(text[wordStart - 1]!)) wordStart--;
+    const word = text.slice(wordStart, i);
+    if (word.length === 1 && /[A-Za-z]/.test(word)) return false;
+    if (SENTENCE_ABBREVIATIONS.has(word.toLowerCase())) return false;
+    return true;
+}
+
+/**
+ * Grow a matched span `[matchStart, matchEnd)` outward to the natural sentence
+ * boundaries around it, turning a clipped fragment into the user's complete
+ * thought. Left: back to just after the previous terminator, then skip
+ * whitespace/opening quotes. Right: forward through the first terminator at or
+ * after the match. Returns the verbatim slice, trimmed.
+ */
+function expandToCompleteThought(
+    text: string,
+    matchStart: number,
+    matchEnd: number,
+): string {
+    let start = 0;
+    for (let i = matchStart - 1; i >= 0; i--) {
+        if (isSentenceEndAt(text, i)) {
+            start = i + 1;
+            break;
+        }
+    }
+    while (start < matchStart && /[\s"'“”‘’(]/.test(text[start]!)) start++;
+
+    let end = text.length;
+    for (let i = Math.max(0, matchEnd - 1); i < text.length; i++) {
+        if (isSentenceEndAt(text, i)) {
+            end = i + 1;
+            break;
+        }
+    }
+    return text.slice(start, end).trim();
+}
+
+function resolveInsightQuote(
     quote: string | null | undefined,
     transcript: CaptureTranscriptLine[],
-): string | null {
+): QuoteResolution {
     const q = quote?.trim();
-    if (!q) return null;
+    if (!q) return { quote: null, status: "dropped" };
 
+    // ONE resolver pass with the strict recovery bar. exact/span are decided
+    // before (and independently of) the fuzzy branch, so the strict fuzzy
+    // thresholds change only whether a near-verbatim miss is RECOVERED — a
+    // single call yields verify (exact/span), recover (fuzzy), or drop.
     const resolved = resolveAnchorIdx({
         anchor: q,
         lines: transcript,
         speakerFilter: (l) => l.speaker === "user",
+        fuzzyMinRun: QUOTE_RECOVERY_MIN_RUN,
+        fuzzyMinCoverage: QUOTE_RECOVERY_MIN_COVERAGE,
     });
-    if (resolved.confidence !== "exact" && resolved.confidence !== "span") {
-        return null;
+
+    // Verify: exact/span grounding → expand to the complete thought.
+    if (resolved.confidence === "exact" || resolved.confidence === "span") {
+        const line = transcript[resolved.idx];
+        if (line) {
+            const at = line.text.toLowerCase().indexOf(q.toLowerCase());
+            // `at < 0`: a `span` across lines, or a normalized-only match
+            // (punctuation/filler differs) — fall back to the whole resolved
+            // line, itself a verbatim complete thought (superset of the quote).
+            const verbatim =
+                at >= 0
+                    ? expandToCompleteThought(line.text, at, at + q.length)
+                    : line.text.trim();
+            if (verbatim) return { quote: verbatim, status: "verified" };
+        }
     }
 
-    // Always return REAL user-transcript text, never the LLM's string: if the
-    // quote is a raw (case-insensitive) substring of the resolved line, slice
-    // that exact span; otherwise (a `span` across lines, or punctuation-only
-    // differences from the normalized match) fall back to the resolved user
-    // line itself — still the verbatim words the user actually said, so the
-    // stored quote is always a genuine substring of the user's own channel.
-    const line = transcript[resolved.idx];
-    if (!line) return null;
-    const at = line.text.toLowerCase().indexOf(q.toLowerCase());
-    const verbatim = at >= 0 ? line.text.slice(at, at + q.length) : line.text;
-    return verbatim.trim();
+    // Recover: a near-verbatim miss cleared the strict fuzzy bar. Return the
+    // user's real line — note this is the WHOLE user turn (verbatim), not a
+    // single-sentence expansion: a fuzzy match has no exact offset to expand
+    // around. The turn is still a real, complete thought, but on monologue
+    // replays it can be multi-sentence, so a recovered quote can be longer than
+    // a verified one (tightening to the matched sentence is a follow-up).
+    // Seeded from the model's quote only, never the rewrite.
+    if (resolved.confidence === "fuzzy") {
+        const text = transcript[resolved.idx]?.text.trim();
+        if (text) return { quote: text, status: "recovered" };
+    }
+
+    // Degrade: nothing we're sure of — show the card without a quote.
+    return { quote: null, status: "dropped" };
 }
 
 /**
@@ -264,12 +377,6 @@ const GENERIC_INSIGHT_STEMS = [
 function isGenericInsightText(text: string): boolean {
     const norm = text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ");
     return GENERIC_INSIGHT_STEMS.some((stem) => norm.includes(stem));
-}
-
-/** A `Try: "…"` body is a direct rewrite of the quote — it makes no sense on
- * the agent card without a verified quote next to it. */
-function isTryRewriteBody(body: string): boolean {
-    return /(^|\s)try[:,]?\s*["“]/i.test(body);
 }
 
 /** Double-quoted spans (straight or curly) — the spoken-rewrite portions of a
@@ -341,20 +448,9 @@ function buildCoachingInsight(
             ? parsedType.data
             : "other";
 
-        const quote = verifyInsightQuote(raw.quote, transcript);
-
-        // A Try-rewrite body with no verified quote would show the reader a
-        // rewrite of something they can't see — scope parity is unverifiable
-        // and the card is misleading. Null is first-class; reject.
-        if (isTryRewriteBody(body) && quote === null) {
-            console.warn(
-                "[coaching-insight] rejected: Try-rewrite body without a verified quote",
-            );
-            return { insight: null, outcome: "TRY_REWRITE_NO_QUOTE" };
-        }
-
         // Fabrication floor: suggested wording may not contain specifics the
-        // conversation never contained.
+        // conversation never contained. Hard kill — a made-up fact isn't
+        // repairable, and "made-up → don't show" is the bar.
         const fabricated = findFabricatedToken(
             extractQuotedSpans(body),
             transcript,
@@ -366,10 +462,31 @@ function buildCoachingInsight(
             return { insight: null, outcome: "FABRICATED_INSIGHT_BODY" };
         }
 
+        // Repair-first quote: ground + expand, else recover a near-verbatim
+        // miss, else DEGRADE to a quote-less card. We never kill a good
+        // suggestion over a quote problem — the card is valuable on its own,
+        // and we only ever display a quote we're sure of.
+        const { quote, status } = resolveInsightQuote(raw.quote, transcript);
+        const triedToQuote = (raw.quote ?? "").trim().length > 0;
+        let outcome: LlmQualityOutcome | null = null;
+        if (status === "recovered") {
+            outcome = "INSIGHT_QUOTE_RECOVERED";
+            console.info(
+                "[coaching-insight] recovered quote from a near-verbatim model quote",
+            );
+        } else if (status === "dropped" && triedToQuote) {
+            // Distinguish "the model gave an ungrounded quote we dropped" from
+            // "the model intentionally gave no quote" — the latter isn't a drop.
+            outcome = "INSIGHT_QUOTE_DROPPED";
+            console.info(
+                "[coaching-insight] dropped an ungrounded quote; showing card without it",
+            );
+        }
+
         const whyTrimmed = (raw.why ?? "").trim();
         const why = whyTrimmed.length > 0 ? whyTrimmed : null;
 
-        return { insight: { type, headline, quote, body, why }, outcome: null };
+        return { insight: { type, headline, quote, body, why }, outcome };
     } catch {
         return { insight: null, outcome: "INSIGHT_NULL" };
     }
@@ -713,8 +830,8 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
 export const __test = {
     buildCoachingInsight,
     enforceNonEnglishPassthrough,
-    verifyInsightQuote,
-    isTryRewriteBody,
+    resolveInsightQuote,
+    expandToCompleteThought,
     extractQuotedSpans,
     findFabricatedToken,
     isGenericInsightText,
