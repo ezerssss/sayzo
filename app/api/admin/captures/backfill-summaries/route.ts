@@ -4,6 +4,7 @@ import { FirestoreCollections } from "@/schemas";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { generateMeetingSummary } from "@/lib/captures/meeting-summary";
+import { inferOneSided } from "@/lib/captures/transcribe";
 import type { CaptureType } from "@/schemas";
 
 export const runtime = "nodejs";
@@ -98,6 +99,9 @@ export async function POST(request: NextRequest) {
                     const meetingSummary = await generateMeetingSummary({
                         transcript: capture.serverTranscript ?? [],
                         durationSecs: capture.durationSecs ?? 0,
+                        isOneSided:
+                            capture.isOneSided ??
+                            inferOneSided(capture.serverTranscript ?? []),
                     });
                     if (!meetingSummary) return { id, outcome: "empty" };
                     await capturesRef
@@ -116,8 +120,7 @@ export async function POST(request: NextRequest) {
 
         // More work may remain if the batch filled up before the page ran
         // out, or the page itself was full (more docs after it).
-        const moreMayRemain =
-            stoppedEarly || snap.docs.length === SCAN_LIMIT;
+        const moreMayRemain = stoppedEarly || snap.docs.length === SCAN_LIMIT;
 
         return NextResponse.json({
             scanned: snap.docs.length,
@@ -128,7 +131,10 @@ export async function POST(request: NextRequest) {
             nextCursor: moreMayRemain ? lastHandledId : null,
         });
     } catch (error) {
-        console.error("[api/admin/captures/backfill-summaries] POST failed", error);
+        console.error(
+            "[api/admin/captures/backfill-summaries] POST failed",
+            error,
+        );
         return NextResponse.json(
             {
                 error:

@@ -45,8 +45,15 @@ type LlmMeetingSummary = z.infer<typeof llmMeetingSummarySchema>;
 export type MeetingSummaryInput = {
     transcript: CaptureTranscriptLine[];
     durationSecs: number;
+    /** True when only the user's side was captured — no other participants, so
+     *  `othersActionItems` is forced empty and the prompt is reframed user-only. */
+    isOneSided: boolean;
     refs?: { uid?: string | null; captureId?: string | null };
 };
+
+// Appended to the prompt for one-sided captures. buildMeetingSummary also
+// hard-empties othersActionItems as a belt-and-braces guarantee.
+const ONE_SIDED_SUMMARY_NOTE = `\n\n## One-sided capture\nOnly the user's side was captured — there are no other participants in this transcript. \`othersActionItems\` MUST be empty. Build \`tldr\`, \`whatHappened\`, and \`yourActionItems\` from the user's own speech only — never invent another party or what they said or committed to. For solo practice or a one-way recording, a short summary (or mostly-empty sections) is the correct, complete answer.`;
 
 function readPrompt(): string {
     return readFileSync(join(PROMPTS_DIR, "meeting-summary.md"), "utf-8");
@@ -188,6 +195,7 @@ function buildActionItems(
 function buildMeetingSummary(
     raw: LlmMeetingSummary | null,
     transcript: CaptureTranscriptLine[],
+    isOneSided = false,
 ): MeetingSummary | null {
     try {
         if (!raw) return null;
@@ -235,11 +243,15 @@ function buildMeetingSummary(
                 transcript,
                 "yourActionItems",
             ),
-            othersActionItems: buildActionItems(
-                raw.othersActionItems,
-                transcript,
-                "othersActionItems",
-            ),
+            // One-sided captures have no other participants — never surface
+            // others' commitments even if the model imagined some.
+            othersActionItems: isOneSided
+                ? []
+                : buildActionItems(
+                      raw.othersActionItems,
+                      transcript,
+                      "othersActionItems",
+                  ),
             comingUp,
             generatedAt: new Date().toISOString(),
         };
@@ -257,7 +269,7 @@ function buildMeetingSummary(
 export async function generateMeetingSummary(
     input: MeetingSummaryInput,
 ): Promise<MeetingSummary | null> {
-    const { transcript, durationSecs, refs } = input;
+    const { transcript, durationSecs, isOneSided, refs } = input;
     if (transcript.length === 0) return null;
 
     // Deliberately no calendar date in the context: giving the model today's
@@ -286,9 +298,13 @@ ${formatTranscript(transcript)}`;
                         "Short actionable written notes for a captured conversation: TL;DR, what happened, action items with grounded deadlines, what's coming up.",
                 }),
                 system: promptParts.system,
-                prompt: promptParts.postTranscriptRecap
-                    ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
-                    : prompt,
+                // One-sided note goes LAST — after the chat-model recap — so it
+                // isn't re-buried by the recap's two-sided participant framing.
+                prompt: `${
+                    promptParts.postTranscriptRecap
+                        ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
+                        : prompt
+                }${isOneSided ? ONE_SIDED_SUMMARY_NOTE : ""}`,
                 ...modelTuningOptions(modelName, {
                     temperature: 0.2,
                     reasoningEffort: "low",
@@ -298,7 +314,7 @@ ${formatTranscript(transcript)}`;
             }),
     });
 
-    return buildMeetingSummary(result.output, transcript);
+    return buildMeetingSummary(result.output, transcript, isOneSided);
 }
 
 // Exposed for unit tests only (mirrors lib/captures/analyze.ts).

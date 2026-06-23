@@ -4,6 +4,7 @@ import { FirestoreCollections } from "@/schemas";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { analyzeCaptureDeep } from "@/lib/captures/analyze";
+import { inferOneSided } from "@/lib/captures/transcribe";
 import { getOrHydrateLearnerModel } from "@/lib/learner-model/store";
 import type { CaptureType, UserProfileType } from "@/schemas";
 
@@ -104,6 +105,7 @@ export async function POST(
                 reinforcementFocus: model.reinforcementFocus,
             },
             differential,
+            isOneSided: capture.isOneSided ?? inferOneSided(transcript),
             // Preview only — don't record an llm_events doc for prompt iteration.
             telemetry: { record: false },
         });

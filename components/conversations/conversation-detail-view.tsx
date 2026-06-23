@@ -364,6 +364,16 @@ export function ConversationDetailView(props: Readonly<Props>) {
                 </div>
             </HeroPanel>
 
+            {/* One-sided capture: set expectations softly before the feedback —
+                we only heard the user, so the coaching is about their delivery,
+                not a back-and-forth. Tonal left-accent, no box (briefing-sheet). */}
+            {isAnalyzed && capture.isOneSided ? (
+                <p className="border-l-2 border-border/60 pl-3 text-sm leading-relaxed text-muted-foreground">
+                    We only heard your side this time — so this is feedback on
+                    how you came across, not the back-and-forth.
+                </p>
+            ) : null}
+
             {/* Top coaching takeaway — the one thing most worth the
                     user's attention, mirrored from the desktop agent's card.
                     Sits above the audio + tabs so the "See full feedback"

@@ -50,6 +50,16 @@ export type CaptureType = {
     durationSecs?: number;
 
     /**
+     * True when only the user's side was captured — `serverTranscript` has user
+     * lines and no other-speaker (`other_*`) lines (a phone call / in-person
+     * meeting where only the mic was on, or deliberate solo practice). Inferred
+     * server-side in `runTranscription`; relaxes the validation gates and
+     * reframes feedback to coach the user's own speaking. Absent on old docs
+     * (treated as two-sided).
+     */
+    isOneSided?: boolean;
+
+    /**
      * User-submitted mishearing fixes (overlay — `serverTranscript` is never
      * mutated). Applied at display/read time via `lib/captures/corrections.ts`.
      * Capped at MAX_CORRECTIONS_PER_CAPTURE; server is the only writer.

@@ -18,6 +18,16 @@ Your job is to decide whether a captured conversation is suitable for English-sp
 - There are fewer than 3 substantive user turns (turns where the user says more than a filler/acknowledgment).
 - The user has essentially no substantive English speech — fewer than ~3 substantive English turns (`hasCoachableEnglish: false`). A mostly-non-English conversation with enough English turns from the user is NOT a rejection.
 
+## One-sided captures (only when the input says so)
+
+If — and only if — the input includes a **"One-sided capture"** note, only the user's side was recorded (a call or meeting where only the mic was on, or deliberate solo practice). For those inputs:
+
+- The "real conversation with another person" requirement and the "rehearsed monologue" rejection do **not** apply — set `isOrganic: true` even for a solo or rehearsed monologue.
+- Keep `isRelevant` meaningful: set it `true` when the user is genuinely the one speaking, and `false` **only** if the audio is actually media the user is merely playing (podcast, video, audiobook, TV) rather than the user's own speech.
+- Judge `hasSubstance` and `hasCoachableEnglish` purely on the user's own speech; still reject a near-silent or essentially-no-English one-sided capture via those flags.
+
+(When no such note is present, follow the standard two-sided rules above.)
+
 ## When in doubt
 
 Lean toward acceptance. The deep analysis stage can still extract value from imperfect captures. Only reject when the conversation is clearly unsuitable. Borderline cases with some coaching potential should be accepted. Borderline language-mix cases: if you can find a handful of plausibly-English substantive user turns, accept.
@@ -25,6 +35,7 @@ Lean toward acceptance. The deep analysis stage can still extract value from imp
 ## Output
 
 Return only the schema fields:
+
 - `isRelevant` (boolean)
 - `isOrganic` (boolean)
 - `hasSubstance` (boolean)

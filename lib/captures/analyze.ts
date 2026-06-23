@@ -133,6 +133,13 @@ export type CaptureAnalyzerInput = {
     /** History slice that makes feedback differential (tracked habits + recent headlines). */
     differential: DifferentialContext;
     /**
+     * True when only the user's mic carried speech (no other-speaker lines).
+     * Reframes the analysis to coach the user's own delivery — the two-sided
+     * notions (engagement-with-others, response latency) are repurposed or
+     * zeroed via an injected prompt block. See ONE_SIDED_ANALYSIS_BLOCK.
+     */
+    isOneSided: boolean;
+    /**
      * Telemetry context. `record: false` (the admin reanalyze-insight preview)
      * skips writing an `llm_events` doc so prompt-iteration runs never pollute
      * production metrics. Omitted → recorded with the given refs.
@@ -244,8 +251,23 @@ const QUOTE_RECOVERY_MIN_COVERAGE = 0.7;
 // (a missed abbreviation only GROWS the quote, never clips it more), so this
 // doesn't need to be exhaustive.
 const SENTENCE_ABBREVIATIONS = new Set([
-    "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st",
-    "vs", "etc", "inc", "ltd", "co", "no", "dept", "fig", "gen",
+    "mr",
+    "mrs",
+    "ms",
+    "dr",
+    "prof",
+    "sr",
+    "jr",
+    "st",
+    "vs",
+    "etc",
+    "inc",
+    "ltd",
+    "co",
+    "no",
+    "dept",
+    "fig",
+    "gen",
 ]);
 
 /**
@@ -560,6 +582,26 @@ function logFabricationTelemetry(
     return [...outcomes];
 }
 
+// Appended LAST to the dynamic user prompt for one-sided captures (after any
+// chat-model post-transcript recap, so recency-sensitive chat models weight it
+// over the recap's two-sided framing). Lives in the dynamic prompt (not the
+// static deep-analysis.md) so the model-aware markers and
+// test/prompt-lint.test.ts stay untouched. Explicitly overrides the system
+// prompt's two-sided framing: there are no other-speaker turns, so the
+// engagement dimension is repurposed to the user's own presence, and the
+// response-latency / turn-taking notions are pinned to monologue-safe values.
+const ONE_SIDED_ANALYSIS_BLOCK = `## ONE-SIDED CAPTURE (overrides the two-sided framing in the system prompt and any recap above)
+
+Only the user's side of this session was recorded — the transcript is the user's speech and nothing else. There may have been another person (a call, a meeting where only the mic was on) or the user may be practicing solo; either way you did NOT hear anyone else, so there are no other-speaker turns for context.
+
+- Coach ONLY the user's own speaking — delivery, structure, clarity, word choice, pacing, conviction. That is exactly what one voice lets you assess.
+- NEVER invent, quote, or refer to "the other speakers", "the room", what someone asked, or how the user responded to another person. There is no other_1 / other_2 here.
+- engagement: there is no back-and-forth to assess — repurpose this dimension to the user's own spoken PRESENCE (conviction, energy, whether they drove their points or trailed off). If there is nothing to say, write a one-sentence assessment and leave findings empty.
+- fluency.avgResponseLatencyMs: set to 0 — there is no other speaker to respond to.
+- communicationStyle.turnTaking: this is a monologue — use "balanced" unless the user clearly rambled or dominated ("dominant") or was sparse and halting ("passive").
+- turnRewrites, structuralObservations, and reorder verdicts STILL APPLY: the user has multiple turns across time, so sequence and structure within their own speech are fully coachable. Just never frame a structural point around another person's turn.
+- serverTitle / serverSummary: describe what the user talked about; do not imply a two-way conversation you cannot see.`;
+
 export async function analyzeCaptureDeep(
     input: CaptureAnalyzerInput,
 ): Promise<AnalysisResult> {
@@ -571,6 +613,7 @@ export async function analyzeCaptureDeep(
         userProfile,
         skillMemory,
         differential,
+        isOneSided,
     } = input;
 
     // Hide short user lines from the LLM so post-AEC echo-bleed fragments
@@ -643,9 +686,13 @@ ${formatTranscript(transcript, isShortUserDrillLine)}`;
                     "Deep analysis of a captured English conversation for coaching purposes.",
             }),
             system: promptParts.system,
-            prompt: promptParts.postTranscriptRecap
-                ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
-                : prompt,
+            // One-sided block goes LAST — after the chat-model recap — so it
+            // wins on recency for non-reasoning models (see ONE_SIDED_ANALYSIS_BLOCK).
+            prompt: `${
+                promptParts.postTranscriptRecap
+                    ? `${prompt}\n\n${promptParts.postTranscriptRecap}`
+                    : prompt
+            }${isOneSided ? `\n\n${ONE_SIDED_ANALYSIS_BLOCK}` : ""}`,
             ...modelTuningOptions(modelName, {
                 temperature: defaultTemperature(),
                 reasoningEffort: defaultReasoningEffort(),

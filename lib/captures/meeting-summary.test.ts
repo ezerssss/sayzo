@@ -22,7 +22,10 @@ const transcript: CaptureTranscriptLine[] = [
         "other_1",
         "Fine, let's move it to next sprint and ship behind a feature flag.",
     ),
-    line("user", "Agreed. I can draft the rollback plan, I'll have it by Friday at 3 PM."),
+    line(
+        "user",
+        "Agreed. I can draft the rollback plan, I'll have it by Friday at 3 PM.",
+    ),
     line("other_1", "Good, I'll take the auth upgrade. Let's sync Thursday."),
 ];
 
@@ -39,7 +42,9 @@ const groundedRaw = {
             isDecision: true,
         },
     ],
-    yourActionItems: [{ text: "Draft the rollback plan", deadline: "by Friday" }],
+    yourActionItems: [
+        { text: "Draft the rollback plan", deadline: "by Friday" },
+    ],
     othersActionItems: [
         { text: "Your teammate will land the auth upgrade", deadline: null },
     ],
@@ -115,7 +120,10 @@ describe("buildMeetingSummary", () => {
             ...groundedRaw,
             whatHappened: [
                 ...groundedRaw.whatHappened,
-                { text: "Budget review moved to the Atlanta office.", isDecision: false },
+                {
+                    text: "Budget review moved to the Atlanta office.",
+                    isDecision: false,
+                },
             ],
         };
         const built = buildMeetingSummary(raw, transcript);
@@ -186,5 +194,29 @@ describe("buildMeetingSummary", () => {
 
     it("returns null for null input", () => {
         expect(buildMeetingSummary(null, transcript)).toBe(null);
+    });
+
+    it("forces othersActionItems empty for a one-sided capture", () => {
+        // Even a perfectly grounded others-item is dropped — there is no other
+        // participant when only the user's side was captured.
+        const userOnly = [
+            line(
+                "user",
+                "I'll draft the rollback plan, I'll have it by Friday.",
+            ),
+        ];
+        const raw = {
+            ...groundedRaw,
+            othersActionItems: [
+                { text: "Draft the rollback plan", deadline: "by Friday" },
+            ],
+        };
+        const built = buildMeetingSummary(raw, userOnly, true);
+        expect(built).not.toBeNull();
+        expect(built!.othersActionItems).toEqual([]);
+        // The user's own items are still built normally.
+        expect(built!.yourActionItems).toEqual([
+            { text: "Draft the rollback plan", deadline: "by Friday" },
+        ]);
     });
 });

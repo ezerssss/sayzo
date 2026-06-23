@@ -113,6 +113,7 @@ export async function updateUserProfileFromCapture(
     analysis: ItemAnalysis,
     title: string,
     summary: string,
+    isOneSided: boolean,
 ): Promise<void> {
     const db = getAdminFirestore();
 
@@ -208,8 +209,8 @@ Summary: ${summary}
                 })()}
 - Grammar patterns: ${(analysis.grammarPatterns ?? []).map((p) => `${p.pattern} (${p.frequency}x)`).join("; ") || "(none)"}
 - Filler words: ${(analysis.fillerWords?.perMinute ?? 0).toFixed(1)}/min
-- Fluency: ${analysis.fluency?.wordsPerMinute ?? 0} WPM, ${analysis.fluency?.selfCorrections ?? 0} self-corrections, ${analysis.fluency?.avgResponseLatencyMs ?? 0}ms avg response latency
-- Communication style: directness=${(analysis.communicationStyle?.directness ?? 0).toFixed(2)}, formality=${(analysis.communicationStyle?.formality ?? 0).toFixed(2)}, confidence=${(analysis.communicationStyle?.confidence ?? 0).toFixed(2)}, turnTaking=${analysis.communicationStyle?.turnTaking ?? "n/a"}
+- Fluency: ${analysis.fluency?.wordsPerMinute ?? 0} WPM, ${analysis.fluency?.selfCorrections ?? 0} self-corrections${isOneSided ? "" : `, ${analysis.fluency?.avgResponseLatencyMs ?? 0}ms avg response latency`}
+- Communication style: directness=${(analysis.communicationStyle?.directness ?? 0).toFixed(2)}, formality=${(analysis.communicationStyle?.formality ?? 0).toFixed(2)}, confidence=${(analysis.communicationStyle?.confidence ?? 0).toFixed(2)}, turnTaking=${isOneSided ? "n/a (single-speaker capture)" : (analysis.communicationStyle?.turnTaking ?? "n/a")}
 
 ## Transcript
 ${formatTranscript(transcript)}`,

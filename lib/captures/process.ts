@@ -10,7 +10,7 @@ import { analyzeCaptureDeep } from "./analyze";
 import { generateMeetingSummary } from "./meeting-summary";
 import { updateUserProfileFromCapture } from "./profile";
 import { generateQuickSummary } from "./quick-summary";
-import { transcribeCapture } from "./transcribe";
+import { inferOneSided, transcribeCapture } from "./transcribe";
 import { validateCaptureRelevance } from "./validate";
 
 const MAX_RETRIES = 3;
@@ -181,11 +181,17 @@ async function runTranscription(
         }
     }
 
+    // One-sided when only the user's mic carried speech (no other-speaker
+    // lines). Inferred once here so validation + analysis can read the
+    // persisted flag and relax/reframe accordingly.
+    const isOneSided = inferOneSided(serverTranscript);
+
     await captureRef.set(
         {
             status: "transcribed",
             serverTranscript,
             durationSecs,
+            isOneSided,
             echoLeakSuppressed,
             echoLeakDroppedSpans,
             echoLeakRuleVersion,
@@ -220,10 +226,15 @@ async function runValidation(
 
     const transcript = capture.serverTranscript ?? [];
 
+    // Re-infer when the field is absent (a doc transcribed before isOneSided
+    // existed, or an in-flight doc at the deploy boundary) so old/in-flight
+    // one-sided captures aren't validated under the strict two-sided gates.
+    // Mirrors the admin routes' `capture.isOneSided ?? inferOneSided(...)`.
     const { accepted, rejectionReason } = await validateCaptureRelevance(
         transcript,
         capture.title,
         capture.summary,
+        capture.isOneSided ?? inferOneSided(transcript),
         { uid: capture.uid, captureId },
     );
 
@@ -278,6 +289,10 @@ async function runAnalysisAndProfiling(
 
     const transcript = capture.serverTranscript ?? [];
     const durationSecs = capture.durationSecs ?? 0;
+    // Re-infer when absent (pre-field / in-flight docs) — same fallback as
+    // runValidation and the admin routes — so analysis isn't mis-framed as
+    // two-sided.
+    const isOneSided = capture.isOneSided ?? inferOneSided(transcript);
 
     // Load user profile + skill memory for analysis calibration
     const [userSnap, model] = await Promise.all([
@@ -340,6 +355,7 @@ async function runAnalysisAndProfiling(
                     reinforcementFocus: model.reinforcementFocus,
                 },
                 differential,
+                isOneSided,
                 telemetry: {
                     uid: capture.uid,
                     captureId,
@@ -349,6 +365,7 @@ async function runAnalysisAndProfiling(
             generateMeetingSummary({
                 transcript,
                 durationSecs,
+                isOneSided,
                 refs: { uid: capture.uid, captureId },
             }).catch((err) => {
                 console.warn(
@@ -380,6 +397,7 @@ async function runAnalysisAndProfiling(
         analysis,
         serverTitle,
         serverSummary,
+        isOneSided,
     );
 
     // Mark complete
@@ -428,6 +446,7 @@ async function runProfilingOnly(
         capture.analysis,
         capture.serverTitle ?? capture.title,
         capture.serverSummary ?? capture.summary,
+        capture.isOneSided ?? inferOneSided(transcript),
     );
 
     await captureRef.set(

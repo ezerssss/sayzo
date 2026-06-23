@@ -64,6 +64,28 @@ type TranscriptionResult = {
 };
 
 /**
+ * A capture is one-sided when only the user's mic carried speech — the
+ * transcript has at least one `user` line and zero other-speaker (`other_*`)
+ * lines. This is the "no other-speaker content to coach against" signal: it
+ * subsumes the dead-channel case (a silent system channel makes `tagSpeaker`
+ * label every utterance `user`) AND a channel that was alive but produced only
+ * noise that never transcribed.
+ *
+ * Caveat: it reads the POST-filter transcript, so a genuinely two-sided call
+ * whose other party's only surviving lines were short back-channels that
+ * `shouldDrop` stripped as hallucinations ("yeah", "thanks", "you") can read as
+ * one-sided. That is acceptable here — there is no other-speaker content left to
+ * use as context anyway, the relevance gate still applies (see
+ * `validateCaptureRelevance`), and the only downside is that the meeting summary
+ * won't surface that party's commitments (there were none worth surfacing).
+ */
+export function inferOneSided(transcript: CaptureTranscriptLine[]): boolean {
+    return (
+        transcript.length > 0 && transcript.every((l) => l.speaker === "user")
+    );
+}
+
+/**
  * Transcribe a capture with Deepgram Nova-3 multichannel + diarization.
  *
  * Captures are stereo: left (c0) = user mic, right (c1) = system audio.
