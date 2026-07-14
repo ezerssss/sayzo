@@ -27,3 +27,4 @@ Python · Next.js · Firebase
 
 - This was heavily vibe coded using Claude Code, I know that's sketchy since we are handling a lot of user data but oh well this project is archived already.
 - Would have been better if the application was created in Electron to begin with, I had a lot of trouble with making the Python app work - not only correctly but also looking nicely.
+- Learned and implemented a lot of cool stuff with CI/CD since I hosted this on a Digital Ocean droplet for FREE! (using the GitHub edu discount XD) 
