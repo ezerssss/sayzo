@@ -1,49 +1,29 @@
-**Sayzo** is a personal English coach, tuned to how you actually speak. A quiet desktop companion sits in on the work calls a user chooses (meetings, demos, client calls, interviews) and, after each one, Sayzo gives feedback on how it went and lets them replay the moments worth practicing. No generic flashcards. No streaks. No scripted drills. Just coaching on the conversations that actually show up in their week.
+# Sayzo
 
-The product is a loop between two surfaces: a quiet desktop companion that captures the user's real conversations, and a webapp where they review the coaching and replay the moments that matter. Heavy processing happens locally; only the moments worth coaching on ever leave the user's machine.
+Personal English coach that tailors to your real meetings and conversations.
 
-This repo is the Sayzo webapp (Next.js). The conversations and replay UI, coaching analysis, onboarding, and the APIs the desktop companion talks to live here.
+🏷️ **Status:** Archived \
+🤖 **Vibe Coded:** Yes
 
-This repo is a [Next.js](https://nextjs.org) app bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+---
 
-## Getting Started
+## What it does
 
-First, run the development server:
+- Automatically detects when you are in a meeting and asks for your consent.
+- Analyzes and gives feedback on your real conversations.
+- Tracks your improvements and regressions.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Demo / Screenshot
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+<!-- Add if you can. If the project can't run anymore, just leave a note: -->
+<!-- ⚠️ Can't currently run this to generate a fresh screenshot — README text stands in for now. -->
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+<img width="800" height="450" alt="sayzo-demo" src="https://github.com/user-attachments/assets/82ce4193-62f0-430d-a96b-a92794d44bc3" />
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tech Stack
+Python · Next.js · Firebase
 
-## Firebase Google Auth Setup
+## Notes
 
-1. Copy `env.example` to `.env.local`.
-2. Fill the Firebase web app keys in `.env.local`.
-3. In Firebase Console, enable Google provider under Authentication > Sign-in method.
-4. Add your local host (for example `localhost`) to authorized domains.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- This was heavily vibe coded using Claude Code, I know that's sketchy since we are handling a lot of user data but oh well this project is archived already.
+- Would have been better if the application was created in Electron to begin with, I had a lot of trouble with making the Python app work - not only correctly but also looking nicely.
